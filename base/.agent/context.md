@@ -33,11 +33,16 @@ All type shapes and behavior are defined in a single `CrunchConfig` in `node/run
 
 ```python
 class CrunchConfig(BaseModel):
-    raw_input_type: type[BaseModel] = RawInput        # feed data shape
-    output_type: type[BaseModel] = InferenceOutput     # model prediction shape
+    # Type shapes
+    meta_type: type[BaseModel] = Meta                  # untyped metadata (extra="allow")
+    raw_input_type: type[BaseModel] = RawInput         # feed data shape
+    ground_truth_type: type[BaseModel] = GroundTruth   # actual outcome shape
+    input_type: type[BaseModel] = InferenceInput       # what models receive
+    output_type: type[BaseModel] = InferenceOutput     # what models return
     score_type: type[BaseModel] = ScoreResult          # per-prediction score shape
-    scope: PredictionScope = PredictionScope()         # feed dimensions
-    aggregation: Aggregation = Aggregation()           # scoring windows
+    scope: PredictionScope = PredictionScope()         # prediction context
+    call_method: CallMethodConfig = CallMethodConfig() # how models are invoked
+    aggregation: Aggregation = Aggregation()           # scoring windows + ranking
 
     # Multi-metric scoring (default: 5 active metrics)
     metrics: list[str] = ["ic", "ic_sharpe", "hit_rate", "max_drawdown", "model_correlation"]
@@ -47,15 +52,47 @@ class CrunchConfig(BaseModel):
     ensembles: list[EnsembleConfig] = []
 
     # Callables
-    resolve_ground_truth: Callable = default_resolve_ground_truth
-    aggregate_snapshot: Callable = default_aggregate_snapshot
-    build_emission: Callable = default_build_emission
+    resolve_ground_truth: Callable[[list[FeedRecord]], dict[str, Any] | None] = default_resolve_ground_truth
+    aggregate_snapshot: Callable[[list[dict[str, Any]]], dict[str, Any]] = default_aggregate_snapshot
+    build_emission: Callable[..., EmissionCheckpoint] = default_build_emission
 
     # On-chain config
     crunch_pubkey: str = ""
-    compute_provider: str = ""
-    data_provider: str = ""
+    compute_provider: str | None = None
+    data_provider: str | None = None
 ```
+
+#### Key sub-schemas
+
+```python
+class PredictionScope(BaseModel):
+    subject: str = "BTC"           # asset or topic
+    horizon_seconds: int = 60      # ge=0; use 0 for order-based / immediate-scoring
+    step_seconds: int = 15         # ge=1; time granularity within horizon
+
+class AggregationWindow(BaseModel):   # extra="forbid"
+    hours: int                         # ge=1 — the ONLY field (no name, no seconds)
+
+class Aggregation(BaseModel):          # extra="forbid"
+    windows: dict[str, AggregationWindow] = {   # dict keyed by name, NOT a list
+        "score_recent": AggregationWindow(hours=24),
+        "score_steady": AggregationWindow(hours=72),
+        "score_anchor": AggregationWindow(hours=168),
+    }
+    ranking_key: str = "score_recent"
+    ranking_direction: str = "desc"    # NOT "ranking_order"
+
+class CallMethodConfig(BaseModel):
+    method: str = "predict"
+    args: list[CallMethodArg] = [
+        CallMethodArg(name="subject", type="STRING"),
+        CallMethodArg(name="horizon_seconds", type="INT"),
+        CallMethodArg(name="step_seconds", type="INT"),
+    ]
+```
+
+**Note:** `resolve_ground_truth` receives `list[FeedRecord]` (dataclass with
+`.subject`, `.values`, `.ts_event` attributes), NOT `list[dict]`.
 
 Single required callable: `SCORING_FUNCTION` (in `node/config/callables.env`).
 

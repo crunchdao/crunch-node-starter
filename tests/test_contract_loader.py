@@ -205,17 +205,27 @@ class TestResolveConfigFallbackMessage(unittest.TestCase):
 
     def setUp(self):
         reset_cache()
+        # Evict ALL runtime_definitions.* entries that prior tests may have
+        # cached (e.g. scaffold integration tests with base/node on PYTHONPATH).
+        self._saved_modules = {}
+        for key in list(sys.modules):
+            if key == "runtime_definitions" or key.startswith("runtime_definitions."):
+                self._saved_modules[key] = sys.modules.pop(key)
 
     def tearDown(self):
         reset_cache()
-        # Clean up injected module
-        sys.modules.pop("runtime_definitions", None)
-        sys.modules.pop("runtime_definitions.crunch_config", None)
+        # Remove anything we injected
+        for key in list(sys.modules):
+            if key == "runtime_definitions" or key.startswith("runtime_definitions."):
+                del sys.modules[key]
+        # Restore previously cached modules
+        sys.modules.update(self._saved_modules)
 
     def test_fallback_warns_when_override_exists_but_broken(self):
         """Inject a broken runtime_definitions.crunch_config and verify the
         fallback message mentions it failed, not 'no override found'."""
-        # Create runtime_definitions package
+        # Create runtime_definitions package with empty path so no
+        # submodules can be discovered from the real filesystem.
         pkg = types.ModuleType("runtime_definitions")
         pkg.__path__ = []
         sys.modules["runtime_definitions"] = pkg
