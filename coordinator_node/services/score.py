@@ -294,6 +294,13 @@ class ScoreService:
                 continue  # actuals not yet available
 
             typed_output = self._coerce_output(prediction.inference_output)
+
+            # Inject prediction metadata so scoring functions can identify
+            # the model (e.g. for stateful per-model position tracking).
+            # Prediction entity fields take precedence over inference_output.
+            typed_output["model_id"] = prediction.model_id
+            typed_output["prediction_id"] = prediction.id
+
             result = self.scoring_function(typed_output, inp.actuals)
             validated = self.contract.score_type(**result)
 

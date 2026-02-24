@@ -469,5 +469,148 @@ class TestValidateScoringIO(unittest.TestCase):
         self.assertIn("entry_price", str(ctx.exception))
 
 
+class TestScorerReceivesPredictionMetadata(unittest.TestCase):
+    """The scoring function should receive prediction metadata (model_id,
+    prediction_id) so stateful scorers can track per-model state."""
+
+    def test_scorer_receives_model_id(self):
+        """typed_output passed to scoring_function must include model_id
+        from the prediction entity."""
+        captured = []
+
+        def capturing_scorer(prediction, ground_truth):
+            captured.append(dict(prediction))
+            return {"value": 0.0, "success": True, "failed_reason": None}
+
+        service = ScoreService(
+            checkpoint_interval_seconds=60,
+            scoring_function=capturing_scorer,
+            feed_reader=FakeFeedReader(records=_make_feed_records()),
+            input_repository=MemInputRepository([_make_input()]),
+            prediction_repository=MemPredictionRepository([
+                PredictionRecord(
+                    id="pre-1", input_id="inp-1", model_id="model_42",
+                    prediction_config_id="CFG_1",
+                    scope_key="BTC-60", scope={"subject": "BTC"},
+                    status="PENDING", exec_time_ms=10.0,
+                    inference_output={"value": 0.5},
+                    performed_at=now - timedelta(minutes=5),
+                    resolvable_at=now - timedelta(minutes=1),
+                ),
+            ]),
+            score_repository=MemScoreRepository(),
+            snapshot_repository=MemSnapshotRepository(),
+            model_repository=MemModelRepository(),
+            leaderboard_repository=MemLeaderboardRepository(),
+        )
+
+        service.run_once()
+
+        self.assertEqual(len(captured), 1)
+        self.assertIn("model_id", captured[0])
+        self.assertEqual(captured[0]["model_id"], "model_42")
+
+    def test_scorer_receives_prediction_id(self):
+        """typed_output should also include prediction_id for traceability."""
+        captured = []
+
+        def capturing_scorer(prediction, ground_truth):
+            captured.append(dict(prediction))
+            return {"value": 0.0, "success": True, "failed_reason": None}
+
+        service = ScoreService(
+            checkpoint_interval_seconds=60,
+            scoring_function=capturing_scorer,
+            feed_reader=FakeFeedReader(records=_make_feed_records()),
+            input_repository=MemInputRepository([_make_input()]),
+            prediction_repository=MemPredictionRepository([_make_prediction()]),
+            score_repository=MemScoreRepository(),
+            snapshot_repository=MemSnapshotRepository(),
+            model_repository=MemModelRepository(),
+            leaderboard_repository=MemLeaderboardRepository(),
+        )
+
+        service.run_once()
+
+        self.assertEqual(len(captured), 1)
+        self.assertIn("prediction_id", captured[0])
+        self.assertEqual(captured[0]["prediction_id"], "pre-1")
+
+    def test_different_models_receive_their_own_ids(self):
+        """Two predictions from different models should each receive
+        their respective model_id."""
+        captured = []
+
+        def capturing_scorer(prediction, ground_truth):
+            captured.append(prediction.get("model_id"))
+            return {"value": 0.0, "success": True, "failed_reason": None}
+
+        inp = _make_input()
+        preds = [
+            PredictionRecord(
+                id=f"pre-{mid}", input_id="inp-1", model_id=mid,
+                prediction_config_id="CFG_1",
+                scope_key="BTC-60", scope={"subject": "BTC"},
+                status="PENDING", exec_time_ms=10.0,
+                inference_output={"value": 0.5},
+                performed_at=now - timedelta(minutes=5),
+                resolvable_at=now - timedelta(minutes=1),
+            )
+            for mid in ["alpha", "beta"]
+        ]
+
+        service = ScoreService(
+            checkpoint_interval_seconds=60,
+            scoring_function=capturing_scorer,
+            feed_reader=FakeFeedReader(records=_make_feed_records()),
+            input_repository=MemInputRepository([inp]),
+            prediction_repository=MemPredictionRepository(preds),
+            score_repository=MemScoreRepository(),
+            snapshot_repository=MemSnapshotRepository(),
+            model_repository=MemModelRepository(),
+            leaderboard_repository=MemLeaderboardRepository(),
+        )
+
+        service.run_once()
+
+        self.assertEqual(sorted(captured), ["alpha", "beta"])
+
+    def test_model_id_does_not_clobber_inference_output(self):
+        """If inference_output already has a 'model_id' key (edge case),
+        the prediction entity's model_id should take precedence."""
+        captured = []
+
+        def capturing_scorer(prediction, ground_truth):
+            captured.append(dict(prediction))
+            return {"value": 0.0, "success": True, "failed_reason": None}
+
+        service = ScoreService(
+            checkpoint_interval_seconds=60,
+            scoring_function=capturing_scorer,
+            feed_reader=FakeFeedReader(records=_make_feed_records()),
+            input_repository=MemInputRepository([_make_input()]),
+            prediction_repository=MemPredictionRepository([
+                PredictionRecord(
+                    id="pre-1", input_id="inp-1", model_id="correct_model",
+                    prediction_config_id="CFG_1",
+                    scope_key="BTC-60", scope={"subject": "BTC"},
+                    status="PENDING", exec_time_ms=10.0,
+                    inference_output={"value": 0.5, "model_id": "wrong_model"},
+                    performed_at=now - timedelta(minutes=5),
+                    resolvable_at=now - timedelta(minutes=1),
+                ),
+            ]),
+            score_repository=MemScoreRepository(),
+            snapshot_repository=MemSnapshotRepository(),
+            model_repository=MemModelRepository(),
+            leaderboard_repository=MemLeaderboardRepository(),
+        )
+
+        service.run_once()
+
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(captured[0]["model_id"], "correct_model")
+
+
 if __name__ == "__main__":
     unittest.main()
