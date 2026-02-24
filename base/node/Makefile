@@ -1,12 +1,23 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 
-.PHONY: deploy down logs logs-capture verify-e2e check-models starter platform backfill init-db reset-db
+.PHONY: deploy down logs logs-capture verify-e2e check-models validate preflight starter platform backfill init-db reset-db
 
-deploy:
+# ── Pre-deploy validation (no Docker needed) ─────────────────────────
+validate:
+	@echo "Running pre-deploy config validation..."
+	python3 scripts/validate_config.py
+
+# ── Deploy (validates first) ─────────────────────────────────────────
+deploy: validate
 	$(COMPOSE) build
 	$(COMPOSE) up -d postgres
 	$(COMPOSE) run --rm init-db
 	$(COMPOSE) up -d
+
+# ── Full preflight: validate → deploy → check-models → verify-e2e ───
+preflight: deploy check-models verify-e2e
+	@echo ""
+	@echo "✅ Preflight complete — all checks passed"
 
 init-db:
 	$(COMPOSE) run --rm init-db

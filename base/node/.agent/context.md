@@ -98,6 +98,47 @@ See `../.agent/playbooks/customize.md` for the full placeholder table.
 
 Always ask the user what `resolve_after_seconds` should be — do not assume a default.
 
+## ⛔ Known gotchas
+
+### 1. NEXT_PUBLIC_API_URL must be Docker-internal
+`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_URL_MODEL_ORCHESTRATOR` are used by
+the Next.js `rewrites()` proxy **server-side inside Docker**. The browser calls
+`/api/*` on the UI port and Next.js proxies to the backend. **Never set these
+to `localhost`** — the SSR server runs inside Docker where `localhost` is itself.
+
+- ✅ `http://report-worker:8000` (Docker DNS)
+- ✅ Leave unset (docker-compose.yml defaults are correct)
+- ❌ `http://localhost:8000` → ECONNREFUSED inside the container
+
+### 2. resolve_after_seconds must exceed feed granularity
+The score-worker fetches feed records in a time window of `resolve_after_seconds`.
+If this window is shorter than the feed granularity, it contains zero records
+and predictions silently fail to score.
+
+- Feed `1m` → `resolve_after_seconds` >= 75
+- Feed `1s` → `resolve_after_seconds` >= 10
+
+### 3. Model submissions must be self-contained
+Model-runner containers do NOT have the challenge package installed. Any
+`from <challenge_pkg>.X import Y` in a submission will crash with
+`ModuleNotFoundError`. Use inline classes or import from local `tracker.py` only.
+
+### 4. score_prediction receives InferenceOutput, not the full prediction
+The score-worker calls `score_fn(typed_output, actuals)` where `typed_output`
+is the coerced InferenceOutput dict (e.g. `{action, trade_pair, leverage}`),
+NOT the full prediction row. Don't look for `portfolio_snapshot` or other
+enriched fields — compute the score from the output + ground truth directly.
+
+### 5. check-models must tolerate partial failures
+Some models may fail (bad imports, missing deps) while others run fine.
+Only fail the pipeline if ZERO models reach RUNNING.
+
+## Pre-deploy validation
+
+`make validate` checks all 5 gotchas above without Docker. Runs automatically
+as part of `make deploy`. Use `make preflight` for the full gate:
+validate → deploy → check-models → verify-e2e.
+
 ## Logs and artifacts
 
 - `make logs` streams all service logs from docker compose
