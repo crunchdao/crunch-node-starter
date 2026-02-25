@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-FeedDataKind = Literal["tick", "candle", "depth", "funding"]
+# Built-in kinds for market data feeds. Custom providers may use any string
+# (e.g. "event", "aggregate") — the type is kept as str throughout the pipeline.
+FeedDataKind = str
 
 
 @dataclass(frozen=True)
