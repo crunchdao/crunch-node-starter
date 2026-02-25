@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-# Add base/challenge to sys.path so we can import starter_challenge
+# Add scaffold/challenge to sys.path so we can import starter_challenge
 import sys
 import tempfile
 import unittest

@@ -623,7 +623,7 @@ coordinator-node-starter/
 │   ├── extensions/         ← default callables
 │   ├── config/             ← runtime configuration
 │   └── crunch_config.py    ← base CrunchConfig class and default types
-├── base/                   ← template used by crunch-cli init-workspace
+├── scaffold/               ← template used by crunch-cli init-workspace
 │   ├── node/               ← node template (Dockerfile, docker-compose, config)
 │   └── challenge/          ← challenge template (tracker, scoring, backtest, examples)
 ├── tests/                  ← test suite

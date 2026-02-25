@@ -65,11 +65,11 @@ Examples:
 Before writing any code, run the tests that verify the scaffold wiring:
 
 ```bash
-# From workspace root (base/):
+# From workspace root (scaffold/):
 make test
 
 # Or from the repo root to include CrunchConfig integration tests:
-cd .. && PYTHONPATH=base/challenge:base/node make test
+cd .. && PYTHONPATH=scaffold/challenge:scaffold/node make test
 ```
 
 **Two test suites exist:**
@@ -211,7 +211,7 @@ Edit `challenge/starter_challenge/`:
 ```bash
 # Unit + integration tests (no Docker required)
 make test
-cd .. && PYTHONPATH=base/challenge:base/node make test
+cd .. && PYTHONPATH=scaffold/challenge:scaffold/node make test
 
 # Full E2E (requires Docker)
 cd node
@@ -220,7 +220,7 @@ make verify-e2e
 ```
 
 **All three must pass:**
-1. `make test` in `base/` — challenge tests green, scoring xfails removed
+1. `make test` in `scaffold/` — challenge tests green, scoring xfails removed
 2. `make test` at repo root — scaffold integration tests green
 3. `make verify-e2e` — full pipeline produces non-zero scores
 

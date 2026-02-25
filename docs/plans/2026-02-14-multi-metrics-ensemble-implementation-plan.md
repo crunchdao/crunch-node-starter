@@ -108,7 +108,7 @@ Reference: [Design Doc](./2026-02-14-multi-metrics-ensemble-design.md)
 ## Phase 7: Backtest Integration
 
 ### Task 7.1: Multi-metric BacktestResult
-**File:** `base/challenge/starter_challenge/backtest.py` (modify)
+**File:** `scaffold/challenge/starter_challenge/backtest.py` (modify)
 - BacktestRunner computes active metrics using registry
 - BacktestResult.metrics contains full metric dict
 

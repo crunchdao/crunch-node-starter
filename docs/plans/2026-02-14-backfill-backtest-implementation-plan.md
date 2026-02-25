@@ -113,14 +113,14 @@ Reference: [Design Doc](./2026-02-14-backfill-backtest-design.md)
 ## Phase 6: Challenge Package Backtest
 
 ### Task 6.1: BacktestClient
-**File:** `base/challenge/starter_challenge/backtest.py` (new)
+**File:** `scaffold/challenge/starter_challenge/backtest.py` (new)
 - `BacktestClient(coordinator_url: str, cache_dir: str = ".cache/backtest")`
 - `pull(source, subject, kind, granularity, start, end, refresh=False)` — fetches index, downloads matching parquet files to cache dir, skips existing unless refresh
 - `list_cached()` — returns list of cached file paths
 - Uses only `requests` (or `urllib`) — no coordinator-node dependency
 
 ### Task 6.2: BacktestRunner
-**File:** `base/challenge/starter_challenge/backtest.py` (same file)
+**File:** `scaffold/challenge/starter_challenge/backtest.py` (same file)
 - `BacktestRunner(model: TrackerBase, scoring_fn=None, cache_dir=".cache/backtest")`
 - `run(source, subject, kind, granularity, start, end, window_size=120, prediction_interval_seconds=60, horizon_seconds=60) → BacktestResult`
 - Reads cached parquet with pandas
@@ -129,18 +129,18 @@ Reference: [Design Doc](./2026-02-14-backfill-backtest-design.md)
 - Computes rolling window metrics (score_recent=24h, score_steady=72h, score_anchor=168h)
 
 ### Task 6.3: BacktestResult
-**File:** `base/challenge/starter_challenge/backtest.py` (same file)
+**File:** `scaffold/challenge/starter_challenge/backtest.py` (same file)
 - `predictions_df` — pandas DataFrame: ts, output, actual, score, cumulative metrics
 - `metrics` — dict of rolling window aggregates
 - `summary()` — prints formatted table
 - `_repr_html_()` — for Jupyter notebook rendering
 
 ### Task 6.4: Update challenge package dependencies
-**File:** `base/challenge/pyproject.toml` (modify)
+**File:** `scaffold/challenge/pyproject.toml` (modify)
 - Add `pandas`, `pyarrow`, `requests` to dependencies
 
 ### Task 6.5: Export from package
-**File:** `base/challenge/starter_challenge/__init__.py` (modify)
+**File:** `scaffold/challenge/starter_challenge/__init__.py` (modify)
 - Add `BacktestClient`, `BacktestRunner`, `BacktestResult` to exports
 
 ### Task 6.6: Tests for backtest

@@ -10,7 +10,7 @@ from pathlib import Path
 
 SCAFFOLD_CONFIG = (
     Path(__file__).resolve().parent.parent
-    / "base"
+    / "scaffold"
     / "node"
     / "config"
     / "crunch_config.py"

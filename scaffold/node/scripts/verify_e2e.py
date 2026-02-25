@@ -59,6 +59,32 @@ def _print_model_failure_context(log_text: str) -> None:
     print()
 
 
+def check_score_quality(scored: list[dict]) -> tuple[bool, str]:
+    """Check if scored predictions indicate a real scoring function.
+
+    Returns (passed, reason). Fails on all-zero or all-identical scores,
+    which indicate a stub scorer or broken ground truth.
+    """
+    if not scored:
+        return False, "no scored predictions"
+
+    score_values = [row["score_value"] for row in scored]
+
+    if all(v == 0.0 for v in score_values):
+        return False, (
+            "All scores are 0.0 — scoring function may be a stub "
+            "or ground truth resolver returns zero."
+        )
+
+    if len(set(score_values)) <= 1:
+        return False, (
+            f"All scores are identical ({score_values[0]}) — scoring function "
+            f"may be a stub returning a constant value."
+        )
+
+    return True, "ok"
+
+
 def main() -> int:
     port = os.getenv("REPORT_API_PORT", "8000")
     base_url = os.getenv("REPORT_API_URL", f"http://localhost:{port}")
@@ -111,27 +137,15 @@ def main() -> int:
                 and row.get("score_failed") is False
             ]
             if scored and leaderboard:
-                # Sanity: check scores are not all zero (catches stub scoring / broken ground truth)
-                score_values = [row["score_value"] for row in scored]
-                all_zero = all(v == 0.0 for v in score_values)
-                all_identical = len(set(score_values)) <= 1
+                quality_ok, quality_reason = check_score_quality(scored)
 
                 print(
                     "[verify-e2e] success "
                     f"models={len(models)} scored_predictions={len(scored)} leaderboard_entries={len(leaderboard)}"
                 )
-                if all_zero:
-                    print(
-                        "[verify-e2e] FAILED: all scores are 0.0 — "
-                        "scoring function may be a stub or ground truth resolver returns zero. "
-                        "Implement real scoring in scoring.py before deploying."
-                    )
+                if not quality_ok:
+                    print(f"[verify-e2e] FAILED: {quality_reason}")
                     return 1
-                elif all_identical:
-                    print(
-                        f"[verify-e2e] ⚠️  WARNING: all scores are identical ({score_values[0]}) — "
-                        "scoring may not be differentiating predictions"
-                    )
                 return 0
 
             raise RuntimeError(

@@ -62,7 +62,7 @@ class TestVerifyE2EAllIdenticalScores:
             {"score_value": 1.0, "score_failed": False},
         ]
 
-        from scripts.verify_e2e import check_score_quality
+        from scaffold.node.scripts.verify_e2e import check_score_quality
 
         passed, reason = check_score_quality(scored)
         assert passed is False
@@ -76,7 +76,7 @@ class TestVerifyE2EAllIdenticalScores:
             {"score_value": 0.5, "score_failed": False},
         ]
 
-        from scripts.verify_e2e import check_score_quality
+        from scaffold.node.scripts.verify_e2e import check_score_quality
 
         passed, reason = check_score_quality(scored)
         assert passed is True
@@ -88,7 +88,7 @@ class TestVerifyE2EAllIdenticalScores:
             {"score_value": 0.0, "score_failed": False},
         ]
 
-        from scripts.verify_e2e import check_score_quality
+        from scaffold.node.scripts.verify_e2e import check_score_quality
 
         passed, reason = check_score_quality(scored)
         assert passed is False

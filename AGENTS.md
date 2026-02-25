@@ -20,7 +20,7 @@ make fmt
 ## Project Structure
 
 ```
-base/
+scaffold/
   challenge/          # Participant-facing package (tracker, scoring, examples)
   node/
     config/           # crunch_config.py — single source of truth
@@ -35,7 +35,7 @@ tests/                # All tests
 
 ### CrunchConfig — Single Source of Truth
 
-`base/node/config/crunch_config.py` defines all type shapes and behavior:
+`scaffold/node/config/crunch_config.py` defines all type shapes and behavior:
 - 5 Pydantic types: `raw_input_type`, `input_type`, `output_type`, `ground_truth_type`, `score_type`
 - `scheduled_predictions` — what to predict, how often, when to resolve
 - `scoring_function` — if set, takes precedence over `SCORING_FUNCTION` env var
@@ -84,7 +84,7 @@ Feed → Input (dumb log) → Prediction (owns resolution) → Score → Snapsho
 make test
 ```
 
-Tests live in `tests/`. PYTHONPATH includes `base/challenge` and `base/node`.
+Tests live in `tests/`. PYTHONPATH includes `scaffold/challenge` and `scaffold/node`.
 
 ## Deployment Verification
 
@@ -102,11 +102,11 @@ docker logs for errors, and checks UI reachability.
 
 ## Customization Flow
 
-1. Define types in `base/node/config/crunch_config.py` (input, output, score)
+1. Define types in `scaffold/node/config/crunch_config.py` (input, output, score)
 2. Define `scheduled_predictions` (scope, interval, horizon)
 3. Implement scoring function (stateless or stateful via `scoring_function` field)
-4. Build challenge package (tracker interface, examples) in `base/challenge/`
-5. Add node extensions in `base/node/extensions/` if needed
+4. Build challenge package (tracker interface, examples) in `scaffold/challenge/`
+5. Add node extensions in `scaffold/node/extensions/` if needed
 6. Run `make test`, `make deploy`, `make verify-all`
 
 ## Design Decisions

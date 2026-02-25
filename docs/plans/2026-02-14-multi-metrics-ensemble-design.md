@@ -238,7 +238,7 @@ Steps 3-4 are new. Steps 1-2 and 5-6 are existing with richer data flowing throu
 - `coordinator_node/contracts.py` — add metrics list, compute_metrics callable, EnsembleConfig, ensembles list
 - `coordinator_node/services/score.py` — enrich _write_snapshots() with metrics, add ensemble step
 - `coordinator_node/workers/report_worker.py` — add include_ensembles param to leaderboard/model endpoints
-- `base/challenge/starter_challenge/backtest.py` — BacktestResult computes multi-metrics using same registry
+- `scaffold/challenge/starter_challenge/backtest.py` — BacktestResult computes multi-metrics using same registry
 
 ### Tests
 - `tests/test_metrics_registry.py` — registry CRUD, compute dispatching

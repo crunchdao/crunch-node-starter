@@ -32,10 +32,10 @@ logs:
 	$(COMPOSE) logs -f
 
 test: lint
-	PYTHONPATH=base/challenge:base/node uv run python -m pytest tests/ -x -q
+	PYTHONPATH=scaffold/challenge:scaffold/node uv run python -m pytest tests/ -x -q
 
 verify:
-	bash base/node/scripts/verify_deployment.sh
+	bash scaffold/node/scripts/verify_deployment.sh
 
 verify-ui:
 	bash tests/test_e2e_ui_smoke.sh

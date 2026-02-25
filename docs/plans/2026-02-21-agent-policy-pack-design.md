@@ -26,7 +26,7 @@ The `crunch-coordinate` skill (separate repo) becomes the single entry point tha
 ## Structure
 
 ```
-base/
+scaffold/
 ├── .agent/
 │   ├── README.md              ← for humans: what this folder is
 │   ├── context.md             ← Layer A: project architecture, extension points, do-not-edit zones
@@ -49,9 +49,9 @@ All content from the three SKILL.md files and the coordinator-node-starter insta
 
 | Source | Destination |
 |---|---|
-| `base/SKILL.md` → fast path, logs, edit map, validation | `.agent/context.md`, `.agent/policy.md` |
-| `base/node/SKILL.md` → commands, workers, API, security, edit boundaries | `node/.agent/context.md` |
-| `base/challenge/SKILL.md` → files, backtest, guidance | `challenge/.agent/context.md` |
+| `scaffold/SKILL.md` → fast path, logs, edit map, validation | `.agent/context.md`, `.agent/policy.md` |
+| `scaffold/node/SKILL.md` → commands, workers, API, security, edit boundaries | `node/.agent/context.md` |
+| `scaffold/challenge/SKILL.md` → files, backtest, guidance | `challenge/.agent/context.md` |
 | `coordinator-node-starter` → architecture, CrunchConfig, scoring, ensembles, lifecycles, emission | `.agent/context.md` |
 | `coordinator-node-starter` → scaffolding rules, design checklist, E2E workflow | `crunch-coordinate` skill |
 | `coordinator-node-starter` → mandatory verification | `.agent/policy.md` |

@@ -9,7 +9,7 @@ from pathlib import Path
 # Import the script directly — it lives outside the Python package
 SCRIPT_PATH = (
     Path(__file__).resolve().parent.parent
-    / "base/node/deployment/model-orchestrator-local/config"
+    / "scaffold/node/deployment/model-orchestrator-local/config"
 )
 sys.path.insert(0, str(SCRIPT_PATH))
 

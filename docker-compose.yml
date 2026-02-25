@@ -194,7 +194,7 @@ services:
 
   model-orchestrator:
     build:
-      context: ./base/node/deployment/model-orchestrator-local
+      context: ./scaffold/node/deployment/model-orchestrator-local
     container_name: crunch-node-${CRUNCH_ID:-starter}-model-orchestrator
     restart: unless-stopped
     init: true
@@ -206,9 +206,9 @@ services:
       DOCKER_COMPOSE_PROJECT: crunch-node-${CRUNCH_ID:-starter}
       CRUNCH_ID: ${CRUNCH_ID:-starter-challenge}
     volumes:
-      - ./base/node/deployment/model-orchestrator-local/data:/app/data
-      - ./base/node/deployment/model-orchestrator-local/config:/app/config
-      - ./base/challenge:/app/challenge:ro
+      - ./scaffold/node/deployment/model-orchestrator-local/data:/app/data
+      - ./scaffold/node/deployment/model-orchestrator-local/config:/app/config
+      - ./scaffold/challenge:/app/challenge:ro
       - /var/run/docker.sock:/var/run/docker.sock
     entrypoint: ["sh", "/app/config/docker-entrypoint.sh"]
     command:
@@ -235,8 +235,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./base/node/deployment/report-ui/config:/app/config
-      - ./base/node/deployment/report-ui/config:/app/apps/${REPORT_UI_APP:-starter}/config
+      - ./scaffold/node/deployment/report-ui/config:/app/config
+      - ./scaffold/node/deployment/report-ui/config:/app/apps/${REPORT_UI_APP:-starter}/config
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       report-worker:

@@ -140,7 +140,7 @@ make test   # from repo root
 ```
 
 Tests CrunchConfig wiring, scoring pipeline, report endpoints, repositories.
-PYTHONPATH includes `base/challenge:base/node`.
+PYTHONPATH includes `scaffold/challenge:scaffold/node`.
 
 ### Deployment verification
 

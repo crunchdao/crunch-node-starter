@@ -18,7 +18,7 @@ class TestBacktestOutputShape:
     def test_non_dict_output_uses_inference_output_schema(self):
         """When model.predict() returns a non-dict, backtest should coerce
         using InferenceOutput fields, not hardcode {"value": output}."""
-        from base.challenge.starter_challenge.backtest import BacktestRunner
+        from scaffold.challenge.starter_challenge.backtest import BacktestRunner
 
         # Model that returns a raw float
         model = MagicMock()
@@ -35,7 +35,7 @@ class TestBacktestOutputShape:
     def test_error_output_uses_inference_output_defaults(self):
         """When model.predict() raises, the error output should use
         InferenceOutput default values, not hardcode {"value": 0.0}."""
-        from base.challenge.starter_challenge.backtest import BacktestRunner
+        from scaffold.challenge.starter_challenge.backtest import BacktestRunner
 
         model = MagicMock()
         runner = BacktestRunner(model=model)
@@ -46,7 +46,7 @@ class TestBacktestOutputShape:
 
     def test_dict_output_validated_against_schema(self):
         """Dict output from model should be validated against InferenceOutput."""
-        from base.challenge.starter_challenge.backtest import BacktestRunner
+        from scaffold.challenge.starter_challenge.backtest import BacktestRunner
 
         model = MagicMock()
         runner = BacktestRunner(model=model)
@@ -58,7 +58,7 @@ class TestBacktestOutputShape:
     def test_custom_output_schema_coercion(self):
         """When InferenceOutput is customized, coercion should use the
         custom schema to build default error outputs."""
-        from base.challenge.starter_challenge.backtest import BacktestRunner
+        from scaffold.challenge.starter_challenge.backtest import BacktestRunner
 
         class TradeOutput(BaseModel):
             direction: str = "hold"
