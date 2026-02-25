@@ -1,18 +1,18 @@
-# Node Context — starter-challenge
+# Node Context — coordinator-node-starter
 
 ## What this is
 
-Standalone node runtime workspace. Contains docker-compose, workers, config, and the report API. Runs the `coordinator-node` engine from PyPI.
+Node runtime workspace. Contains docker-compose, workers, config, and the report API. Runs the `coordinator-node` engine from PyPI.
 
 ## Primary commands
 
 ```bash
-make deploy                                                    # Build and start all services
-make verify-e2e                                                # End-to-end validation
-make logs                                                      # Stream all service logs
-make logs-capture                                              # Write structured logs to runtime-services.jsonl
-make down                                                      # Tear down all services
-make backfill SOURCE=pyth SUBJECT=BTC FROM=2026-01-01 TO=2026-02-01  # Backfill historical data
+make deploy       # Build and start all services
+make verify       # API + container checks (headless)
+make verify-ui    # Browser-based UI page checks
+make verify-all   # Both
+make logs         # Stream all service logs
+make down         # Tear down
 ```
 
 ## Workers
@@ -29,117 +29,80 @@ make backfill SOURCE=pyth SUBJECT=BTC FROM=2026-01-01 TO=2026-02-01  # Backfill 
 
 | Endpoint | Description |
 |---|---|
-| `http://localhost:8000/healthz` | Health check |
-| `http://localhost:8000/reports/models` | Registered models |
-| `http://localhost:8000/reports/leaderboard` | Current leaderboard |
-| `http://localhost:8000/reports/predictions` | Prediction history |
-| `http://localhost:8000/reports/feeds` | Active feed subscriptions |
-| `http://localhost:8000/reports/snapshots` | Per-model period summaries (enriched with metrics) |
-| `http://localhost:8000/reports/checkpoints` | Checkpoint history |
-| `http://localhost:8000/reports/emissions/latest` | Latest emission |
-| `http://localhost:8000/reports/checkpoints/{id}/emission` | Raw emission (frac64) |
-| `http://localhost:8000/reports/checkpoints/{id}/emission/cli-format` | Coordinator-CLI JSON format |
+| `GET /healthz` | Health check |
+| `GET /info` | Node identity (crunch_id, address, network) |
+| `GET /reports/schema` | Auto-generated report schema |
+| `GET /reports/models` | Registered models |
+| `GET /reports/leaderboard` | Current leaderboard |
+| `GET /reports/models/global` | Per-model windowed scores |
+| `GET /reports/models/params` | Scores grouped by scope |
+| `GET /reports/models/metrics` | Metrics timeseries |
+| `GET /reports/models/summary` | Latest snapshot per model |
+| `GET /reports/predictions` | Prediction history |
+| `GET /reports/feeds` | Active feed subscriptions |
+| `GET /reports/feeds/tail` | Latest feed records |
+| `GET /reports/snapshots` | Per-model period summaries |
+| `GET /reports/checkpoints` | Checkpoint history |
+| `GET /reports/diversity` | Model diversity overview |
+| `GET /reports/ensemble/history` | Ensemble performance over time |
+| `GET /reports/merkle/cycles` | Merkle tamper evidence |
 
-## API Security
+## Folder map
 
-Set `API_KEY` in `.local.env` to enable authentication.
-
-- **Admin endpoints** (backfill, checkpoints, `/custom/*`) always require the key when set
-- **Public endpoints** (leaderboard, schema, models) stay open
-- **Read endpoints** optionally gated via `API_READ_AUTH=true`
-
-## Custom API endpoints
-
-Drop `.py` files in `api/` with a `router = APIRouter()`. Auto-mounted at report-worker startup. Full DB access via `Depends`.
-
-Config: `API_ROUTES_DIR` (default `api/`), `API_ROUTES` (explicit `module:attr` paths).
-
-## Folder map — where to put things
-
-| Folder | Purpose | When to use |
-|---|---|---|
-| `api/` | Custom FastAPI endpoints | Add any `.py` file with `router = APIRouter()` — auto-discovered at startup. See `api/README.md` for examples with DB access and metrics. |
-| `extensions/` | Node-specific callable overrides | Edge-case Python modules needed by the runtime (custom feed providers, specialized scoring helpers). Most customization should go in `config/crunch_config.py` instead. |
-| `plugins/` | Node-side integrations | Custom feed providers beyond built-in Pyth/Binance, external API integrations, data enrichment. Use when code needs secrets or calls private APIs that shouldn't be in the challenge package. |
-| `config/` | Competition config & runtime settings | `crunch_config.py` defines all type shapes, callables, scheduled predictions, and behavior. `callables.env` for scoring function path. |
-| `deployment/` | Local deployment assets | `model-orchestrator-local/` for local model runner config, `report-ui/` for dashboard settings. |
-| `scripts/` | Utility scripts (do not edit) | `verify_e2e.py`, `backfill.py`, `check_models.py`, `capture_runtime_logs.py` — called by Makefile targets. |
+| Folder | Purpose |
+|---|---|
+| `config/` | `crunch_config.py` — all type shapes, callables, scheduled predictions |
+| `api/` | Custom FastAPI endpoints (auto-discovered, drop `.py` with `router`) |
+| `extensions/` | Node-side extensions (position manager, fee engine, etc.) |
+| `deployment/` | Local deployment assets (model-orchestrator, report-ui) |
+| `scripts/` | Utility scripts (`verify_deployment.sh`, etc.) |
 
 ## Edit boundaries
 
 | What | Where |
 |---|---|
-| Node env config | `.local.env`, `.env` |
-| Callable paths | `config/callables.env` |
-| Prediction schedules | `config/crunch_config.py` → `scheduled_predictions` field — **`resolve_horizon_seconds` must be >= feed data interval or 0 for immediate** (see below) |
 | Competition types & behavior | `config/crunch_config.py` |
+| Node env config | `.local.env` |
+| Prediction schedules | `config/crunch_config.py` → `scheduled_predictions` |
 | Custom API endpoints | `api/` |
-| Custom callable modules | `extensions/` |
-| External integrations / feed providers | `plugins/` |
+| Node-side extensions | `extensions/` |
 | Local deployment config | `deployment/` |
-| Challenge implementation | Mounted from `../challenge` |
 
-## ⚠️ Starter placeholder values
+## Key constraints
 
-All values in `config/`, `.local.env`, `config/crunch_config.py`,
-and `scheduled_predictions` are starter placeholders (BTC, 60s
-horizon, 1s granularity, etc.). They exist to make the scaffold bootable.
-**Ask the user for every competition-specific value before customizing.**
-See `../.agent/playbooks/customize.md` for the full placeholder table.
+### resolve_horizon_seconds
+- `0` = immediate resolution (live trading). Ground truth from `InputRecord.raw_data`.
+- `> 0` = deferred. Must exceed feed data interval, otherwise no feed records exist for scoring.
 
-## Prediction schedule constraint
+### Aggregation
+- `value_field` = score field to average in windows (default `"value"`)
+- `ranking_key` = which metric to rank by (can be window name or score field)
+- Windows average `value_field` over their time range
+- Latest snapshot's numeric fields auto-merged into leaderboard
 
-`resolve_horizon_seconds` in `CrunchConfig.scheduled_predictions` controls how long the score-worker waits before fetching ground truth from the feed. Use **0 for immediate resolution** (live trading — scoring happens right away). For deferred resolution, it **must be >= the feed's effective data interval**, otherwise no feed data will exist yet when scoring runs.
+### CrunchConfig.scoring_function
+- If set, takes precedence over `SCORING_FUNCTION` env var
+- Enables stateful scoring (e.g. PositionManager-backed trading)
 
-- Feed granularity `1s` + poll every `5s` → `resolve_horizon_seconds` > 5
-- Feed granularity `1m` → `resolve_horizon_seconds` > 60
-- Feed granularity `5m` → `resolve_horizon_seconds` > 300
-
-Always ask the user what `resolve_horizon_seconds` should be — do not assume a default.
+### Config loading
+- `config_loader.load_config()` resolves: `CRUNCH_CONFIG_MODULE` env → `config.crunch_config:CrunchConfig` → engine default
+- No `contracts.py`, no `contract_loader.py`, no `callables.env`
 
 ## ⛔ Known gotchas
 
 ### 1. NEXT_PUBLIC_API_URL must be Docker-internal
-`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_API_URL_MODEL_ORCHESTRATOR` are used by
-the Next.js `rewrites()` proxy **server-side inside Docker**. The browser calls
-`/api/*` on the UI port and Next.js proxies to the backend. **Never set these
-to `localhost`** — the SSR server runs inside Docker where `localhost` is itself.
-
+The UI's Next.js `rewrites()` proxy runs server-side inside Docker. Never set to `localhost`.
 - ✅ `http://report-worker:8000` (Docker DNS)
-- ✅ Leave unset (docker-compose.yml defaults are correct)
-- ❌ `http://localhost:8000` → ECONNREFUSED inside the container
+- ❌ `http://localhost:8000` → ECONNREFUSED inside container
 
-### 2. resolve_horizon_seconds must exceed feed granularity (unless 0)
-The score-worker fetches feed records in a time window of `resolve_horizon_seconds`.
-If this window is shorter than the feed granularity, it contains zero records
-and predictions silently fail to score.
+### 2. Input is a dumb log
+`InputRecord` has only `id`, `raw_data`, `received_at`. No status, no actuals, no scope.
+Saved once, never updated.
 
-- Feed `1m` → `resolve_horizon_seconds` >= 75
-- Feed `1s` → `resolve_horizon_seconds` >= 10
+### 3. Predictions own their resolution
+`PredictionRecord` carries `scope` (with feed dimensions) and `resolvable_at`.
+Score worker queries by `status=PENDING, resolvable_before=now`.
 
-### 3. Model submissions must be self-contained
-Model-runner containers do NOT have the challenge package installed. Any
-`from <challenge_pkg>.X import Y` in a submission will crash with
-`ModuleNotFoundError`. Use inline classes or import from local `tracker.py` only.
-
-### 4. score_prediction receives InferenceOutput, not the full prediction
-The score-worker calls `score_fn(typed_output, actuals)` where `typed_output`
-is the coerced InferenceOutput dict (e.g. `{action, trade_pair, leverage}`),
-NOT the full prediction row. Don't look for `portfolio_snapshot` or other
-enriched fields — compute the score from the output + ground truth directly.
-
-### 5. check-models must tolerate partial failures
-Some models may fail (bad imports, missing deps) while others run fine.
-Only fail the pipeline if ZERO models reach RUNNING.
-
-## Pre-deploy validation
-
-`make validate` checks all 5 gotchas above without Docker. Runs automatically
-as part of `make deploy`. Use `make preflight` for the full gate:
-validate → deploy → check-models → verify-e2e.
-
-## Logs and artifacts
-
-- `make logs` streams all service logs from docker compose
-- `make logs-capture` writes structured logs to `runtime-services.jsonl`
-- Known failure modes and recovery: `RUNBOOK.md`
+### 4. score_prediction receives coerced output + model_id
+The score worker injects `typed_output["model_id"]` and `typed_output["prediction_id"]`
+before calling the scoring function. Use these for stateful per-model tracking.
