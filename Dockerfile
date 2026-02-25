@@ -27,8 +27,6 @@ ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY --chown=appuser:appgroup coordinator_node ./coordinator_node
-COPY --chown=appuser:appgroup alembic ./alembic
-COPY --chown=appuser:appgroup alembic.ini ./
 
 USER appuser
 

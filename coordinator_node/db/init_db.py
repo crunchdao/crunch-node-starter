@@ -87,32 +87,25 @@ def _find_alembic_dir() -> Path | None:
     """Locate the Alembic migrations directory.
 
     Checks (in order):
-      1. ``ALEMBIC_DIR`` env var (explicit override)
-      2. Repo-root layout: ``<repo>/coordinator_node/db/init_db.py`` → ``<repo>/alembic/``
-      3. Inside the package: ``coordinator_node/alembic/`` (if bundled in wheel)
+      1. ``ALEMBIC_DIR`` env var (explicit override — scaffolds can point here
+         to include their own migrations alongside the engine's)
+      2. Inside the package: ``coordinator_node/alembic/`` (canonical location)
 
-    Returns ``None`` when no valid migrations directory is found (e.g. when
-    ``coordinator-node`` is pip-installed and the ``alembic/`` directory was
-    not included in the wheel).  Callers should fall back to
-    ``SQLModel.metadata.create_all()`` in that case.
+    Returns ``None`` when no valid migrations directory is found.
+    Callers should fall back to ``SQLModel.metadata.create_all()`` in that case.
     """
 
     def _is_valid(p: Path) -> bool:
         return p.is_dir() and (p / "env.py").exists() and (p / "versions").is_dir()
 
-    # 1. Explicit env var
+    # 1. Explicit env var (scaffold override)
     env_dir = os.getenv("ALEMBIC_DIR")
     if env_dir:
         p = Path(env_dir)
         if _is_valid(p):
             return p
 
-    # 2. Repo-root layout (3 levels up from this file)
-    repo_dir = Path(__file__).resolve().parent.parent.parent / "alembic"
-    if _is_valid(repo_dir):
-        return repo_dir
-
-    # 3. Inside the package (coordinator_node/alembic/)
+    # 2. Inside the package (coordinator_node/alembic/)
     pkg_dir = Path(__file__).resolve().parent.parent / "alembic"
     if _is_valid(pkg_dir):
         return pkg_dir
@@ -136,9 +129,8 @@ def _run_alembic_upgrade(alembic_dir: Path | None = None) -> None:
             "Set ALEMBIC_DIR or ensure the alembic/ directory is alongside the package."
         )
 
-    from alembic.config import Config
-
     from alembic import command
+    from alembic.config import Config
 
     # Set a lock timeout so ALTER TABLE won't block forever on concurrent reads
     with engine.connect() as conn:
@@ -218,10 +210,9 @@ def _stamp_alembic_if_needed() -> None:
     if alembic_dir is None:
         return  # No migrations available — nothing to stamp
 
+    from alembic import command
     from alembic.config import Config
     from sqlalchemy import inspect as sa_inspect
-
-    from alembic import command
 
     inspector = sa_inspect(engine)
     if inspector.has_table("models") and not inspector.has_table("alembic_version"):
