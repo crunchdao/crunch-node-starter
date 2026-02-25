@@ -34,8 +34,13 @@ logs:
 test: lint
 	PYTHONPATH=base/challenge:base/node uv run python -m pytest tests/ -x -q
 
-test-e2e:
+verify:
+	bash scripts/verify_deployment.sh
+
+verify-ui:
 	bash tests/test_e2e_ui_smoke.sh
+
+verify-all: verify verify-ui
 
 # Database migrations (Alembic)
 migrate:
