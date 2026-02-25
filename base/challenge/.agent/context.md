@@ -36,6 +36,19 @@ class TrackerBase:
 - **BacktestRunner** — replays historical data through models (tick → predict → score)
 - **BacktestResult** — notebook-friendly output (DataFrames, rolling window metrics)
 
+## Test Models for E2E Production Verification
+
+The `examples/` folder should contain **~5 simple, predictable models** whose outputs are easy to reason about. These are not just quickstarters for participants — they are critical for **end-to-end production system testing**. After `make deploy`, these models run through the full pipeline (feed → predict → score → snapshot → leaderboard), so their behavior must be deterministic or near-deterministic enough to verify that the entire system is working correctly.
+
+**Requirements for test models:**
+- **Simple logic** — trivial strategies (always-long, always-short, mean-reversion, trend-follow, random-with-seed, etc.)
+- **Predictable outputs** — given the same input, you should know roughly what score/ranking to expect
+- **Diverse enough** — cover different edge cases (e.g. one model that always returns the same value, one that inverts, one that lags)
+- **Fast** — no heavy computation; these run continuously in production
+- **Contract-compliant** — must pass `test_examples.py` and match `output_type`
+
+When verifying a deployment, the agent cross-checks that these models produce the expected scores, rankings, and leaderboard entries across API, DB, and UI.
+
 ## Cross-references
 
 - Runtime config: `../node/config/crunch_config.py` — CrunchConfig defining types, scoring, emission
