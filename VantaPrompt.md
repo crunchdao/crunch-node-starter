@@ -139,12 +139,12 @@ Build: Vanta Coordinator — Order-Based Crypto Trading Competition
    class TrackerBase:
        def tick(self, data: dict) -> None: ...
        def trade(self) -> Order | None: ...
-       def predict(self, subject, resolve_horizon_seconds, step_seconds) -> dict | None: ...  # adapter, do NOT override
+       def predict(self, **kwargs) -> dict | None: ...  # framework adapter, do NOT override
  ```
 
  - tick(data) receives per-symbol market data (1m/5m/15m/1h candles, optional orderbook + funding). Called every feed update. Store data keyed by data["symbol"].
  - trade() is the method participants implement. Returns Order("LONG", "BTCUSDT", leverage=0.5) or None. Has access to self.positions (dict of current open positions, updated by coordinator) and self._latest_data / self._history.
- - predict() is the framework adapter. Calls trade(), converts Order to dict, passes None through unchanged. Participants never override this.
+ - predict(**kwargs) is the framework adapter. Absorbs the framework's call args (subject, resolve_horizon_seconds, step_seconds), calls trade(), converts Order to dict, passes None through unchanged. Participants never override this.
 
  ────────────────────────────────────────────────────────────────────────────────
 
