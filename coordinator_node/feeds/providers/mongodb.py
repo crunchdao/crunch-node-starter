@@ -15,6 +15,8 @@ All field mapping is configurable via FEED_OPT_* environment variables:
 Supports two listen modes:
 - Change streams (preferred, requires replica set)
 - Polling by inserted_at_field (fallback)
+
+Requires: pip install coordinator-node[mongodb]
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 from coordinator_node.feeds.base import DataFeed, FeedHandle, FeedSink
 from coordinator_node.feeds.contracts import (
@@ -41,22 +44,52 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Default options
-_DEFAULTS = {
-    "mongodb_uri": "mongodb://localhost:27017",
-    "database": "test",
-    "collection": "events",
-    "timestamp_field": "blockTime",
-    "subject_field": "symbol",
-    "inserted_at_field": "insertedAt",
-    "poll_seconds": "5",
-    "subject_limit": "500",
-}
+# Maximum consecutive errors before raising in polling/listen loops
+_MAX_CONSECUTIVE_ERRORS = 10
+_INITIAL_BACKOFF_SECONDS = 1.0
+_MAX_BACKOFF_SECONDS = 60.0
 
 
-def _opt(settings: FeedSettings, key: str) -> str:
-    """Read an option from settings with fallback to defaults."""
-    return settings.options.get(key, _DEFAULTS.get(key, ""))
+def _require_opt(settings: FeedSettings, key: str) -> str:
+    """Read a required option from settings. Raises if missing."""
+    value = settings.options.get(key)
+    if not value:
+        raise ValueError(
+            f"Missing required FEED_OPT_{key} for mongodb provider. "
+            f"Set it via environment variable FEED_OPT_{key}."
+        )
+    return value
+
+
+def _opt(settings: FeedSettings, key: str, default: str) -> str:
+    """Read an optional setting with an explicit default."""
+    return settings.options.get(key, default)
+
+
+def _redact_uri(uri: str) -> str:
+    """Redact credentials from a MongoDB URI for safe logging."""
+    try:
+        parsed = urlparse(uri)
+        if parsed.username or parsed.password:
+            netloc = f"***:***@{parsed.hostname}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(parsed._replace(netloc=netloc))
+        return uri
+    except Exception:
+        return "<unparseable-uri>"
+
+
+def _to_watermark(value: Any) -> datetime | None:
+    """Convert a document field value to a datetime watermark.
+
+    Handles both datetime objects and numeric unix timestamps.
+    """
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=UTC)
+    return None
 
 
 class _MongoConnection:
@@ -71,18 +104,22 @@ class _MongoConnection:
         if MongoClient is None:
             raise ImportError(
                 "pymongo is required for the mongodb feed provider. "
-                "Install it with: pip install pymongo"
+                "Install it with: pip install coordinator-node[mongodb]"
             )
 
         if self._client is None:
-            uri = _opt(self._settings, "mongodb_uri")
+            uri = _require_opt(self._settings, "mongodb_uri")
+            db_name = _require_opt(self._settings, "database")
+            coll_name = _require_opt(self._settings, "collection")
+
             self._client = MongoClient(uri, serverSelectionTimeoutMS=10_000)
-            db = self._client[_opt(self._settings, "database")]
-            self._collection = db[_opt(self._settings, "collection")]
+            db = self._client[db_name]
+            self._collection = db[coll_name]
             logger.info(
-                "mongodb feed connected to %s.%s",
-                _opt(self._settings, "database"),
-                _opt(self._settings, "collection"),
+                "mongodb feed connected to %s.%s (uri: %s)",
+                db_name,
+                coll_name,
+                _redact_uri(uri),
             )
 
         return self._collection
@@ -170,21 +207,21 @@ class MongoDBFeed(DataFeed):
 
     def __init__(self, settings: FeedSettings):
         self.settings = settings
+        # Validate all required options eagerly at construction time
+        _require_opt(settings, "mongodb_uri")
+        _require_opt(settings, "database")
+        _require_opt(settings, "collection")
         self._conn = _MongoConnection(settings)
-        self._subject_field = _opt(settings, "subject_field")
-        self._timestamp_field = _opt(settings, "timestamp_field")
-        self._inserted_at_field = _opt(settings, "inserted_at_field")
-        self._poll_seconds = float(_opt(settings, "poll_seconds"))
-        self._subject_limit = int(_opt(settings, "subject_limit"))
+        self._subject_field = _require_opt(settings, "subject_field")
+        self._timestamp_field = _require_opt(settings, "timestamp_field")
+        self._inserted_at_field = _opt(settings, "inserted_at_field", "insertedAt")
+        self._poll_seconds = float(_opt(settings, "poll_seconds", "5"))
+        self._subject_limit = int(_opt(settings, "subject_limit", "500"))
 
     async def list_subjects(self) -> Sequence[SubjectDescriptor]:
         """Discover subjects by querying distinct values of the subject field."""
-        try:
-            coll = self._conn.collection
-            subjects = await asyncio.to_thread(coll.distinct, self._subject_field)
-        except Exception as exc:
-            logger.warning("mongodb list_subjects failed: %s", exc)
-            return []
+        coll = self._conn.collection
+        subjects = await asyncio.to_thread(coll.distinct, self._subject_field)
 
         descriptors: list[SubjectDescriptor] = []
         for subject in subjects[: self._subject_limit]:
@@ -230,25 +267,22 @@ class MongoDBFeed(DataFeed):
                 stream = await asyncio.to_thread(_watch)
                 logger.info("mongodb feed using change streams")
 
+                # Use blocking next() inside a thread — avoids busy-loop polling
+                def _blocking_next():
+                    return next(stream)
+
                 while True:
-
-                    def _next():
-                        return stream.try_next()
-
-                    change = await asyncio.to_thread(_next)
-                    if change is not None:
-                        doc = change.get("fullDocument", {})
-                        record = _doc_to_record(
-                            doc,
-                            subject_field=self._subject_field,
-                            timestamp_field=self._timestamp_field,
-                            kind=sub.kind,
-                            granularity=sub.granularity,
-                        )
-                        if record is not None:
-                            await sink.on_record(record)
-                    else:
-                        await asyncio.sleep(0.5)
+                    change = await asyncio.to_thread(_blocking_next)
+                    doc = change.get("fullDocument", {})
+                    record = _doc_to_record(
+                        doc,
+                        subject_field=self._subject_field,
+                        timestamp_field=self._timestamp_field,
+                        kind=sub.kind,
+                        granularity=sub.granularity,
+                    )
+                    if record is not None:
+                        await sink.on_record(record)
 
             except asyncio.CancelledError:
                 raise
@@ -262,6 +296,9 @@ class MongoDBFeed(DataFeed):
         async def _polling_loop() -> None:
             """Poll for new documents by inserted_at_field."""
             watermark: datetime | None = None
+            consecutive_errors = 0
+            backoff = _INITIAL_BACKOFF_SECONDS
+
             logger.info(
                 "mongodb feed polling every %.1fs by %s",
                 self._poll_seconds,
@@ -295,16 +332,40 @@ class MongoDBFeed(DataFeed):
                         if record is not None:
                             await sink.on_record(record)
 
-                        # Update watermark
+                        # Update watermark — handles both datetime and numeric timestamps
                         inserted_at = doc.get(self._inserted_at_field)
-                        if isinstance(inserted_at, datetime):
-                            if watermark is None or inserted_at > watermark:
-                                watermark = inserted_at
+                        new_wm = _to_watermark(inserted_at)
+                        if new_wm is not None:
+                            if watermark is None or new_wm > watermark:
+                                watermark = new_wm
+
+                    # Reset error state on success
+                    consecutive_errors = 0
+                    backoff = _INITIAL_BACKOFF_SECONDS
 
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
-                    logger.warning("mongodb polling error: %s", exc)
+                    consecutive_errors += 1
+                    if consecutive_errors >= _MAX_CONSECUTIVE_ERRORS:
+                        logger.critical(
+                            "mongodb polling failed %d consecutive times, last error: %s",
+                            consecutive_errors,
+                            exc,
+                        )
+                        raise RuntimeError(
+                            f"mongodb polling failed {consecutive_errors} consecutive times"
+                        ) from exc
+                    logger.warning(
+                        "mongodb polling error (%d/%d): %s — retrying in %.1fs",
+                        consecutive_errors,
+                        _MAX_CONSECUTIVE_ERRORS,
+                        exc,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
+                    continue
 
                 await asyncio.sleep(max(0.5, self._poll_seconds))
 
@@ -332,11 +393,7 @@ class MongoDBFeed(DataFeed):
         def _query():
             return list(coll.find(query).sort(self._timestamp_field, -1).limit(limit))
 
-        try:
-            docs = await asyncio.to_thread(_query)
-        except Exception as exc:
-            logger.warning("mongodb fetch failed: %s", exc)
-            return []
+        docs = await asyncio.to_thread(_query)
 
         records: list[FeedDataRecord] = []
         for doc in docs:

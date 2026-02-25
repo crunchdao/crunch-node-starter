@@ -15,6 +15,7 @@ from coordinator_node.feeds.registry import FeedSettings
 
 
 def _make_settings(**overrides: str) -> FeedSettings:
+    # All required options must be provided — no silent defaults
     opts = {
         "mongodb_uri": "mongodb://localhost:27017",
         "database": "testdb",
@@ -22,6 +23,7 @@ def _make_settings(**overrides: str) -> FeedSettings:
         "timestamp_field": "blockTime",
         "subject_field": "mint",
         "poll_seconds": "1",
+        "inserted_at_field": "insertedAt",
     }
     opts.update(overrides)
     return FeedSettings(provider="mongodb", options=opts)
@@ -100,6 +102,81 @@ class TestFeedDataKindIsStr(unittest.TestCase):
             subjects=("test",), kind="aggregate", granularity="event"
         )
         assert sub.kind == "aggregate"
+
+    def test_builtin_kinds_accepted(self):
+        for kind in ("tick", "candle", "depth", "funding"):
+            req = FeedFetchRequest(subjects=("test",), kind=kind, granularity="1m")
+            assert req.kind == kind
+
+
+class TestRequiredSettings(unittest.TestCase):
+    def test_missing_required_option_raises(self):
+        # mongodb_uri is required — omitting it should raise
+        settings = FeedSettings(
+            provider="mongodb",
+            options={
+                "database": "testdb",
+                "collection": "events",
+                "timestamp_field": "blockTime",
+                "subject_field": "mint",
+            },
+        )
+        with self.assertRaises(ValueError):
+            MongoDBFeed(settings)
+
+    def test_missing_subject_field_raises(self):
+        settings = FeedSettings(
+            provider="mongodb",
+            options={
+                "mongodb_uri": "mongodb://localhost:27017",
+                "database": "testdb",
+                "collection": "events",
+                "timestamp_field": "blockTime",
+            },
+        )
+        with self.assertRaises(ValueError):
+            MongoDBFeed(settings)
+
+
+class TestRedactUri(unittest.TestCase):
+    def test_redacts_credentials(self):
+        from coordinator_node.feeds.providers.mongodb import _redact_uri
+
+        assert "pass" not in _redact_uri("mongodb://user:pass@host:27017/db")
+        assert "***" in _redact_uri("mongodb://user:pass@host:27017/db")
+
+    def test_no_credentials_unchanged(self):
+        from coordinator_node.feeds.providers.mongodb import _redact_uri
+
+        uri = "mongodb://host:27017/db"
+        assert _redact_uri(uri) == uri
+
+
+class TestWatermarkConversion(unittest.TestCase):
+    def test_datetime_watermark(self):
+        from coordinator_node.feeds.providers.mongodb import _to_watermark
+
+        dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+        assert _to_watermark(dt) == dt
+
+    def test_int_timestamp_watermark(self):
+        from coordinator_node.feeds.providers.mongodb import _to_watermark
+
+        wm = _to_watermark(1700000000)
+        assert isinstance(wm, datetime)
+        assert int(wm.timestamp()) == 1700000000
+
+    def test_float_timestamp_watermark(self):
+        from coordinator_node.feeds.providers.mongodb import _to_watermark
+
+        wm = _to_watermark(1700000000.5)
+        assert isinstance(wm, datetime)
+
+    def test_none_for_unsupported_type(self):
+        from coordinator_node.feeds.providers.mongodb import _to_watermark
+
+        assert _to_watermark("not-a-timestamp") is None
+        assert _to_watermark(None) is None
 
 
 if __name__ == "__main__":
