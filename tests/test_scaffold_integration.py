@@ -324,27 +324,10 @@ class TestAggregationRoundtrip:
             f"Leaderboard ranking will always be 0.0."
         )
 
-    @pytest.mark.xfail(
-        reason=(
-            "Engine bug: ScoreService._aggregate_from_snapshots (line 544) reads "
-            "result_summary.get(ranking_key) where ranking_key='score_recent', "
-            "but result_summary only contains score field names like 'value'. "
-            "The windowed aggregation always falls back to 0. "
-            "Fix: line 544 should read a score field (e.g. 'value'), not the window name."
-        ),
-        strict=True,
-    )
-    def test_windowed_ranking_reads_a_key_that_exists_in_snapshots(
-        self, crunch_config, scoring_function
-    ):
-        """The windowed aggregation in ScoreService reads
-        ``result_summary.get(ranking_key)`` from each snapshot.
-        That key must exist in the snapshot summary dict."""
-        ranking_key = crunch_config.aggregation.ranking_key
-        window_keys = set(crunch_config.aggregation.windows.keys())
-
-        if ranking_key not in window_keys:
-            pytest.skip(f"ranking_key='{ranking_key}' is not a windowed key")
+    def test_value_field_exists_in_snapshots(self, crunch_config, scoring_function):
+        """The windowed aggregation reads ``value_field`` from each snapshot's
+        result_summary. That field must exist so windows aren't always 0."""
+        value_field = crunch_config.aggregation.value_field
 
         sample_output = crunch_config.output_type().model_dump()
         sample_gt = {
@@ -356,13 +339,10 @@ class TestAggregationRoundtrip:
         score_result = scoring_function(sample_output, sample_gt)
         summary = crunch_config.aggregate_snapshot([score_result])
 
-        # ranking_key ('score_recent') must exist as a key in the snapshot
-        # summary dict, OR the windowed aggregation silently returns 0.0.
-        assert ranking_key in summary or ranking_key in set(crunch_config.metrics), (
-            f"Windowed ranking uses key '{ranking_key}' but "
-            f"aggregate_snapshot produces {set(summary.keys())} and "
-            f"configured metrics are {set(crunch_config.metrics)}. "
-            f"Leaderboard values will always be 0.0."
+        assert value_field in summary, (
+            f"Aggregation.value_field='{value_field}' not found in "
+            f"aggregate_snapshot output {set(summary.keys())}. "
+            f"All windowed values will be 0.0."
         )
 
     def test_handles_empty_input(self, crunch_config):

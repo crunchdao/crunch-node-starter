@@ -192,7 +192,21 @@ class Aggregation(BaseModel):
             "score_anchor": AggregationWindow(hours=168),
         }
     )
-    ranking_key: str = "score_recent"
+    value_field: str = Field(
+        default="value",
+        description=(
+            "Score field name to extract from each snapshot's result_summary "
+            "for windowed averaging. Must match a numeric key in ScoreResult "
+            "(e.g. 'value', 'net_pnl')."
+        ),
+    )
+    ranking_key: str = Field(
+        default="score_recent",
+        description=(
+            "Which key in the final metrics dict to rank by. Can be a window "
+            "name (e.g. 'score_recent') or a score field name (e.g. 'net_pnl')."
+        ),
+    )
     ranking_direction: str = "desc"
 
 

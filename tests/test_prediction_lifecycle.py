@@ -499,10 +499,12 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
         await self.predict_service.run_once(now=now)
         self.score_service.run_once()
 
-        # m1 predicted 0.7, m2 predicted 0.3, actual=105.0
-        # score = 1/(1+|pred-actual|), so both are tiny but m1 > m2
+        # m1 predicted 0.7, m2 predicted 0.3, actual_return=0.05
+        # score = 1/(1+|pred-actual_return|)
+        # m1: 1/(1+0.65) ≈ 0.606, m2: 1/(1+0.25) = 0.8
+        # m2 is closer to actual → higher score → rank 1
         entries = self.lb_repo.entries
-        self.assertEqual(entries[0]["model_id"], "m1")
+        self.assertEqual(entries[0]["model_id"], "m2")
         self.assertEqual(entries[0]["rank"], 1)
 
 

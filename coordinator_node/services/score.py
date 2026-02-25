@@ -659,7 +659,7 @@ class ScoreService:
         for model_id, model_snapshots in by_model.items():
             metrics: dict[str, float] = {}
 
-            # Windowed aggregation: average the ranking key per window
+            # Windowed aggregation: average the value_field per window
             for window_name, window in aggregation.windows.items():
                 cutoff = now - timedelta(hours=window.hours)
                 window_snaps = [
@@ -669,7 +669,7 @@ class ScoreService:
                 ]
                 if window_snaps:
                     vals = [
-                        float(s.result_summary.get(aggregation.ranking_key, 0))
+                        float(s.result_summary.get(aggregation.value_field, 0))
                         for s in window_snaps
                     ]
                     metrics[window_name] = sum(vals) / len(vals)
