@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
-FeedDataKind = Literal["tick", "candle", "depth", "funding"]
+# Built-in kinds for market data feeds. Custom providers may extend with any string.
+BuiltinFeedDataKind = Literal["tick", "candle", "depth", "funding"]
+# NOTE: Union[Literal[...], str] collapses to str at runtime and in type checkers.
+# This is intentional — FeedDataKind is documentation-only, signalling that built-in
+# kinds exist but any string is accepted for custom providers (e.g. "event", "aggregate").
+FeedDataKind = Union[BuiltinFeedDataKind, str]
 
 
 @dataclass(frozen=True)

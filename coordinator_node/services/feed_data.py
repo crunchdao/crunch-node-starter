@@ -86,9 +86,7 @@ class FeedDataService:
         sink = _RepositorySink(self.feed_record_repository)
         subscription = FeedSubscription(
             subjects=self.settings.subjects,
-            kind=self.settings.kind
-            if self.settings.kind in {"tick", "candle"}
-            else "tick",
+            kind=self.settings.kind,
             granularity=self.settings.granularity,
         )
         handle = await feed.listen(subscription, sink)
@@ -128,9 +126,7 @@ class FeedDataService:
 
             req = FeedFetchRequest(
                 subjects=(subject,),
-                kind=self.settings.kind
-                if self.settings.kind in {"tick", "candle"}
-                else "tick",
+                kind=self.settings.kind,
                 granularity=self.settings.granularity,
                 start_ts=int(start.timestamp()),
                 end_ts=int(now.timestamp()),

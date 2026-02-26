@@ -21,6 +21,9 @@ dependencies = [
     "uvicorn>=0.20,<1",
 ]
 
+[project.optional-dependencies]
+mongodb = ["pymongo>=4.0,<5"]
+
 [project.urls]
 Homepage = "https://github.com/crunchdao/coordinator-node-starter"
 Repository = "https://github.com/crunchdao/coordinator-node-starter"

@@ -79,9 +79,14 @@ def _extract_feed_options(environ: Mapping[str, str]) -> dict[str, str]:
 
 
 def create_default_registry() -> DataFeedRegistry:
-    from coordinator_node.feeds.providers import build_binance_feed, build_pyth_feed
+    from coordinator_node.feeds.providers import (
+        build_binance_feed,
+        build_mongodb_feed,
+        build_pyth_feed,
+    )
 
     registry = DataFeedRegistry()
     registry.register("pyth", build_pyth_feed)
     registry.register("binance", build_binance_feed)
+    registry.register("mongodb", build_mongodb_feed)
     return registry

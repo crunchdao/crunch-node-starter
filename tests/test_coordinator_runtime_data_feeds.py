@@ -85,6 +85,7 @@ class TestCoordinatorRuntimeDataFeeds(unittest.TestCase):
 
         self.assertIn("pyth", providers)
         self.assertIn("binance", providers)
+        self.assertIn("mongodb", providers)
 
 
 if __name__ == "__main__":

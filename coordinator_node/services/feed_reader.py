@@ -247,7 +247,7 @@ class FeedReader:
             feed = registry.create(self.source)
             request = FeedFetchRequest(
                 subjects=(self.subject,),
-                kind=self.kind if self.kind in {"tick", "candle"} else "tick",
+                kind=self.kind,
                 granularity=self.granularity,
                 start_ts=int(self._ensure_utc(start).timestamp()),
                 end_ts=int(self._ensure_utc(end).timestamp()),
