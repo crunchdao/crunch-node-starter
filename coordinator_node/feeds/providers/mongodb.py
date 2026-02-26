@@ -12,6 +12,7 @@ All field mapping is configurable via FEED_OPT_* environment variables:
     FEED_OPT_listen_mode=changestream        # "changestream" or "poll"
     FEED_OPT_poll_seconds=5                  # polling interval (poll mode)
     FEED_OPT_inserted_at_field=insertedAt    # field for tailing new documents (poll mode)
+    FEED_OPT_timestamp_type=auto             # "datetime", "numeric", or "auto" (auto-detect)
 
 Listen modes:
 - changestream: Uses MongoDB change streams (requires replica set / Atlas / sharded cluster)
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import queue as queue_mod
 import threading
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -114,7 +116,10 @@ def _redact_uri(uri: str) -> str:
 def _validate_field_name(name: str, label: str) -> None:
     """Validate that a MongoDB field name is safe for use in queries and aggregations.
 
-    Field names must contain only alphanumerics, underscores, and dots (for nested paths).
+    Field names must contain only alphanumerics, underscores, and dots.
+    Dots are intentionally allowed for nested document access — e.g. "data.mint"
+    becomes ``fullDocument.data.mint`` in change stream pipelines and ``$data.mint``
+    in aggregation expressions, both of which correctly traverse nested paths.
     This prevents injection if a field name is used in aggregation expressions like "$fieldname".
     """
     if not name or not all(c.isalnum() or c in ("_", ".") for c in name):
@@ -213,7 +218,9 @@ class _MongoFeedHandle:
         self._stop_event = stop_event
 
     async def stop(self) -> None:
-        # Signal the background thread to exit (if change stream mode)
+        # Signal the background thread to exit (if change stream mode).
+        # The thread checks stop_event between try_next() calls and will
+        # exit cleanly within max_await_time_ms (~1s).
         if self._stop_event is not None:
             self._stop_event.set()
         self._task.cancel()
@@ -221,9 +228,9 @@ class _MongoFeedHandle:
             await self._task
         except asyncio.CancelledError:
             pass
-        # Close the MongoDB connection to avoid leaking sockets.
-        # This also interrupts any blocking MongoDB operation in the thread,
-        # causing it to raise and exit.
+        # Only close the connection after the task (and its background thread)
+        # have finished. Closing while a thread is mid-operation can cause
+        # undefined behavior in PyMongo.
         self._conn.close()
 
 
@@ -410,9 +417,11 @@ class MongoDBFeed(DataFeed):
 
                 # Run the entire watch + iteration loop in a single thread
                 # to avoid thread-safety issues with PyMongo cursors.
+                # Use stdlib queue.Queue (thread-safe) — asyncio.Queue is NOT
+                # thread-safe and must not be used from background threads.
                 # Bounded queue provides backpressure — if the consumer is slow,
-                # the producer thread will wait rather than growing unbounded.
-                queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
+                # the producer thread blocks rather than growing unbounded.
+                doc_queue: queue_mod.Queue[dict[str, Any]] = queue_mod.Queue(maxsize=1000)
 
                 def _watch_and_iterate() -> None:
                     """Blocking loop: watch change stream, push docs to queue.
@@ -430,14 +439,13 @@ class MongoDBFeed(DataFeed):
                             if change is not None:
                                 doc = change.get("fullDocument", {})
                                 if doc:
-                                    # Block until space is available, checking
-                                    # stop_event periodically to allow shutdown.
+                                    # put() with timeout so we can check stop_event
                                     while not stop_event.is_set():
                                         try:
-                                            queue.put_nowait(doc)
+                                            doc_queue.put(doc, timeout=0.5)
                                             break
-                                        except asyncio.QueueFull:
-                                            stop_event.wait(timeout=0.1)
+                                        except queue_mod.Full:
+                                            continue
 
                 # Start the blocking watch loop in a background thread
                 loop = asyncio.get_running_loop()
@@ -451,7 +459,9 @@ class MongoDBFeed(DataFeed):
                 # is confirmed working (first document or successful try_next).
                 stream_confirmed = False
 
-                # Consume documents from the queue
+                # Consume documents from the thread-safe queue.
+                # Use to_thread(doc_queue.get, timeout=...) to avoid blocking
+                # the event loop while waiting for documents.
                 while True:
                     # Check if the watch thread died
                     if watch_task.done():
@@ -461,10 +471,9 @@ class MongoDBFeed(DataFeed):
                         return
 
                     try:
-                        doc = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    except TimeoutError:
-                        # A timeout means try_next returned None (no new docs)
-                        # but the stream is alive — count this as confirmed.
+                        doc = await asyncio.to_thread(doc_queue.get, timeout=1.0)
+                    except queue_mod.Empty:
+                        # No new docs but stream is alive — count as confirmed.
                         if not stream_confirmed:
                             stream_confirmed = True
                             consecutive_errors = 0
@@ -554,6 +563,11 @@ class MongoDBFeed(DataFeed):
     ) -> None:
         """Poll for new documents by inserted_at_field."""
         watermark: datetime | float | int | None = None
+        # Track _ids seen at the current watermark value to handle
+        # multiple documents with identical inserted_at timestamps.
+        # Using $gte (not $gt) ensures we don't skip docs that share
+        # the same timestamp when they span across poll batches.
+        seen_ids_at_watermark: set[Any] = set()
         consecutive_errors = 0
         backoff = _INITIAL_BACKOFF_SECONDS
 
@@ -570,7 +584,7 @@ class MongoDBFeed(DataFeed):
                 if sub.subjects:
                     query[self._subject_field] = {"$in": list(sub.subjects)}
                 if watermark is not None:
-                    query[self._inserted_at_field] = {"$gt": watermark}
+                    query[self._inserted_at_field] = {"$gte": watermark}
 
                 # Snapshot the query dict so the closure is not affected by
                 # mutations in the next loop iteration.
@@ -583,6 +597,12 @@ class MongoDBFeed(DataFeed):
 
                 emitted_without_watermark = 0
                 for doc in docs:
+                    doc_id = doc.get("_id")
+
+                    # Skip documents we already processed at this watermark
+                    if doc_id is not None and doc_id in seen_ids_at_watermark:
+                        continue
+
                     record = _doc_to_record(
                         doc,
                         subject_field=self._subject_field,
@@ -598,7 +618,12 @@ class MongoDBFeed(DataFeed):
                     new_wm = _to_watermark(inserted_at)
                     if new_wm is not None:
                         if watermark is None or new_wm > watermark:
+                            # Watermark advanced — reset seen set for new value
                             watermark = new_wm
+                            seen_ids_at_watermark = set()
+                        # Track this doc's _id at the current watermark
+                        if doc_id is not None:
+                            seen_ids_at_watermark.add(doc_id)
                     else:
                         emitted_without_watermark += 1
 
@@ -657,9 +682,12 @@ class MongoDBFeed(DataFeed):
             await asyncio.sleep(max(0.5, self._poll_seconds))
 
     async def _detect_timestamp_type(self) -> bool:
-        """Detect whether the timestamp field stores BSON datetimes or numeric values.
+        """Determine whether the timestamp field stores BSON datetimes or numeric values.
 
-        Runs the detection query in a thread and caches the result on the instance.
+        If FEED_OPT_timestamp_type is set to "datetime" or "numeric", uses that directly.
+        Otherwise, auto-detects by sampling one document and logs a warning that detection
+        is based on a single sample (collections with mixed types may behave incorrectly).
+
         Uses an asyncio.Lock so concurrent fetch() calls don't race on detection.
         Returns True if the field stores datetimes, False for numeric values.
         """
@@ -672,6 +700,23 @@ class MongoDBFeed(DataFeed):
             if hasattr(self, "_timestamp_is_datetime"):
                 return self._timestamp_is_datetime
 
+            # Check for explicit config first
+            explicit_type = _opt(self.settings, "timestamp_type", "").strip().lower()
+            if explicit_type == "datetime":
+                self._timestamp_is_datetime = True
+                logger.info("mongodb timestamp_type=datetime (explicit config)")
+                return True
+            elif explicit_type == "numeric":
+                self._timestamp_is_datetime = False
+                logger.info("mongodb timestamp_type=numeric (explicit config)")
+                return False
+            elif explicit_type and explicit_type != "auto":
+                raise ValueError(
+                    f"Invalid FEED_OPT_timestamp_type={explicit_type!r}. "
+                    f"Must be 'datetime', 'numeric', or 'auto'."
+                )
+
+            # Auto-detect from a single sample document
             coll = self._conn.collection
             ts_field = self._timestamp_field
 
@@ -686,6 +731,13 @@ class MongoDBFeed(DataFeed):
 
             result = await asyncio.to_thread(_detect)
             self._timestamp_is_datetime = result
+            detected = "datetime" if result else "numeric"
+            logger.warning(
+                "mongodb timestamp_type auto-detected as '%s' from a single document sample. "
+                "If your collection has mixed types (e.g. after a schema migration), "
+                "set FEED_OPT_timestamp_type explicitly to avoid incorrect query results.",
+                detected,
+            )
             return result
 
     async def fetch(self, req: FeedFetchRequest) -> Sequence[FeedDataRecord]:
