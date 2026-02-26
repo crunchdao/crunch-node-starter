@@ -8,7 +8,10 @@ from datetime import UTC, datetime
 from coordinator_node.feeds.contracts import FeedFetchRequest, FeedSubscription
 from coordinator_node.feeds.providers.mongodb import (
     MongoDBFeed,
+    _CHANGE_STREAM_UNSUPPORTED_CODES,
+    _AUTH_ERROR_CODES,
     _doc_to_record,
+    _is_transient_error,
     build_mongodb_feed,
 )
 from coordinator_node.feeds.registry import FeedSettings
@@ -24,6 +27,7 @@ def _make_settings(**overrides: str) -> FeedSettings:
         "subject_field": "mint",
         "poll_seconds": "1",
         "inserted_at_field": "insertedAt",
+        "listen_mode": "changestream",
     }
     opts.update(overrides)
     return FeedSettings(provider="mongodb", options=opts)
@@ -91,6 +95,71 @@ class TestMongoDBFeedFactory(unittest.TestCase):
     def test_build_returns_instance(self):
         feed = build_mongodb_feed(_make_settings())
         assert isinstance(feed, MongoDBFeed)
+
+
+class TestListenMode(unittest.TestCase):
+    def test_changestream_mode_accepted(self):
+        feed = MongoDBFeed(_make_settings(listen_mode="changestream"))
+        assert feed._listen_mode == "changestream"
+
+    def test_poll_mode_accepted(self):
+        feed = MongoDBFeed(_make_settings(listen_mode="poll"))
+        assert feed._listen_mode == "poll"
+
+    def test_invalid_mode_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            MongoDBFeed(_make_settings(listen_mode="auto"))
+        assert "listen_mode" in str(ctx.exception)
+
+    def test_default_mode_is_changestream(self):
+        # When listen_mode is not set, default to changestream
+        settings = _make_settings()
+        settings.options.pop("listen_mode", None)
+        # Re-create without listen_mode key
+        opts = dict(settings.options)
+        opts.pop("listen_mode", None)
+        feed = MongoDBFeed(FeedSettings(provider="mongodb", options=opts))
+        assert feed._listen_mode == "changestream"
+
+
+class TestErrorClassification(unittest.TestCase):
+    """Test that errors are classified correctly for retry vs crash."""
+
+    def test_unsupported_codes_are_known(self):
+        """Verify all expected 'not supported' codes are in the set."""
+        assert 40573 in _CHANGE_STREAM_UNSUPPORTED_CODES  # standalone
+        assert 40324 in _CHANGE_STREAM_UNSUPPORTED_CODES  # old MongoDB
+        assert 303 in _CHANGE_STREAM_UNSUPPORTED_CODES    # DocumentDB
+        assert 115 in _CHANGE_STREAM_UNSUPPORTED_CODES    # CosmosDB
+        assert 160 in _CHANGE_STREAM_UNSUPPORTED_CODES    # CosmosDB variant
+
+    def test_auth_codes_are_known(self):
+        assert 13 in _AUTH_ERROR_CODES   # Unauthorized
+        assert 18 in _AUTH_ERROR_CODES   # AuthenticationFailed
+
+    def test_transient_error_detection(self):
+        """OperationFailure with unknown codes should be treated as transient."""
+        try:
+            from pymongo.errors import (
+                ConnectionFailure,
+                OperationFailure,
+                ServerSelectionTimeoutError,
+            )
+
+            # Connection failures are transient
+            assert _is_transient_error(ConnectionFailure("lost connection"))
+            assert _is_transient_error(ServerSelectionTimeoutError("timeout"))
+
+            # OperationFailure with unknown code is transient
+            assert _is_transient_error(OperationFailure("cursor lost", code=999))
+
+            # "Not supported" codes are NOT transient
+            assert not _is_transient_error(OperationFailure("no changestream", code=40573))
+
+            # Auth codes are NOT transient
+            assert not _is_transient_error(OperationFailure("unauthorized", code=13))
+        except ImportError:
+            self.skipTest("pymongo not installed")
 
 
 class TestFeedDataKindIsStr(unittest.TestCase):
