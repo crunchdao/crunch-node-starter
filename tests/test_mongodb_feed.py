@@ -132,6 +132,69 @@ class TestDocToRecordBsonTypes(unittest.TestCase):
         assert record.values["meta"] == {"k": "v"}
         assert record.values["empty"] is None
 
+    def test_nested_bson_types_converted(self):
+        """BSON types inside lists and dicts should also be stringified."""
+
+        class FakeObjectId:
+            def __str__(self):
+                return "abc123"
+
+        doc = {
+            "mint": "TokenABC",
+            "blockTime": 1700000000,
+            "refs": [FakeObjectId(), "normal"],
+            "nested": {"id": FakeObjectId(), "count": 5},
+        }
+        record = _doc_to_record(
+            doc,
+            subject_field="mint",
+            timestamp_field="blockTime",
+            kind="event",
+            granularity="event",
+        )
+        assert record is not None
+        assert record.values["refs"] == ["abc123", "normal"]
+        assert record.values["nested"] == {"id": "abc123", "count": 5}
+
+
+class TestDocToRecordDottedPaths(unittest.TestCase):
+    """Test that dotted field paths traverse nested documents."""
+
+    def test_dotted_subject_field(self):
+        doc = {"data": {"mint": "TokenABC"}, "blockTime": 1700000000}
+        record = _doc_to_record(
+            doc,
+            subject_field="data.mint",
+            timestamp_field="blockTime",
+            kind="event",
+            granularity="event",
+        )
+        assert record is not None
+        assert record.subject == "TokenABC"
+
+    def test_dotted_timestamp_field(self):
+        doc = {"mint": "TokenABC", "meta": {"ts": 1700000000}}
+        record = _doc_to_record(
+            doc,
+            subject_field="mint",
+            timestamp_field="meta.ts",
+            kind="event",
+            granularity="event",
+        )
+        assert record is not None
+        assert record.ts_event == 1700000000
+
+    def test_missing_nested_path_returns_none(self):
+        doc = {"mint": "TokenABC", "blockTime": 1700000000}
+        record = _doc_to_record(
+            doc,
+            subject_field="data.mint",
+            timestamp_field="blockTime",
+            kind="event",
+            granularity="event",
+        )
+        assert record is None
+
 
 class TestMongoDBFeedFactory(unittest.TestCase):
     def test_build_returns_instance(self):

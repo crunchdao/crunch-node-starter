@@ -135,6 +135,45 @@ def _validate_field_name(name: str, label: str) -> None:
         )
 
 
+def _make_json_safe(value: Any) -> Any:
+    """Recursively convert a value to a JSON-serializable type.
+
+    Handles BSON types like ObjectId, Decimal128, Binary, Regex by converting
+    to str(). Recurses into dicts and lists to catch nested BSON values like
+    {"refs": [ObjectId("...")]}.
+    """
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_make_json_safe(v) for v in value]
+    # Non-JSON BSON type — stringify
+    return str(value)
+
+
+def _get_nested(doc: dict[str, Any], path: str) -> Any:
+    """Traverse a dotted field path in a plain dict.
+
+    For example, _get_nested({"data": {"mint": "X"}}, "data.mint") returns "X".
+    Returns None if any segment is missing or the intermediate value is not a dict.
+    Non-dotted paths fall back to a simple dict.get().
+    """
+    if "." not in path:
+        return doc.get(path)
+    parts = path.split(".")
+    current: Any = doc
+    for part in parts:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+        if current is None:
+            return None
+    return current
+
+
 def _to_watermark(value: Any) -> datetime | float | int | None:
     """Return the raw watermark value, preserving its original type.
 
@@ -168,12 +207,17 @@ def _is_transient_error(exc: Exception) -> bool:
 
 
 class _MongoConnection:
-    """Lazy MongoDB connection wrapper."""
+    """Lazy MongoDB connection wrapper.
+
+    Thread-safe: _connect() is guarded by a lock to prevent concurrent
+    asyncio.to_thread calls from creating duplicate MongoClient instances.
+    """
 
     def __init__(self, settings: FeedSettings):
         self._settings = settings
         self._client: Any | None = None
         self._collection: Any | None = None
+        self._lock = threading.Lock()
 
     def _connect(self) -> Any:
         if MongoClient is None:
@@ -182,7 +226,14 @@ class _MongoConnection:
                 "Install it with: pip install coordinator-node[mongodb]"
             )
 
-        if self._client is None:
+        if self._client is not None:
+            return self._collection
+
+        with self._lock:
+            # Re-check after acquiring lock (another thread may have connected)
+            if self._client is not None:
+                return self._collection
+
             uri = _require_opt(self._settings, "mongodb_uri")
             db_name = _require_opt(self._settings, "database")
             coll_name = _require_opt(self._settings, "collection")
@@ -253,11 +304,11 @@ def _doc_to_record(
     The entire document (minus internal fields) is placed in ``values``.
     The workspace's CrunchConfig.raw_input_type defines how to interpret it.
     """
-    subject = doc.get(subject_field)
+    subject = _get_nested(doc, subject_field)
     if subject is None:
         return None
 
-    ts_raw = doc.get(timestamp_field)
+    ts_raw = _get_nested(doc, timestamp_field)
     if ts_raw is None:
         return None
 
@@ -272,20 +323,12 @@ def _doc_to_record(
     # Build values dict — include all fields except internal MongoDB fields.
     # MongoDB documents can contain BSON types (ObjectId, Decimal128, Binary, etc.)
     # that are not JSON-serializable. Since these values end up in a PostgreSQL
-    # JSONB column, we must ensure everything is JSON-safe.
-    _JSON_SAFE_TYPES = (str, int, float, bool, list, dict, type(None))
+    # JSONB column, we must ensure everything is JSON-safe — including nested structures.
     values: dict[str, Any] = {}
     for key, value in doc.items():
         if key.startswith("_"):
             continue
-        if isinstance(value, datetime):
-            values[key] = value.isoformat()
-        elif isinstance(value, _JSON_SAFE_TYPES):
-            values[key] = value
-        else:
-            # Non-JSON BSON types (ObjectId, Decimal128, Binary, Regex, etc.)
-            # — convert to string representation to avoid JSONB serialization errors.
-            values[key] = str(value)
+        values[key] = _make_json_safe(value)
 
     return FeedDataRecord(
         source="mongodb",
@@ -612,25 +655,48 @@ class MongoDBFeed(DataFeed):
         replaying the entire collection history. Defaults to 0 (start from now).
         Set to a large value or -1 to process all historical data.
         """
-        # Determine initial watermark to avoid replaying entire collection
+        # Determine initial watermark to avoid replaying entire collection.
+        # Must match the BSON type of inserted_at_field — datetime watermark
+        # against numeric field (or vice versa) gives wrong results.
         lookback = int(_opt(self.settings, "initial_lookback_seconds", "0"))
         if lookback < 0:
             # Negative = process all history
             watermark: datetime | float | int | None = None
-        elif lookback == 0:
-            # Default: start from now
-            watermark = datetime.now(UTC)
-            logger.info(
-                "mongodb poll: starting from now (no lookback). "
-                "Set FEED_OPT_initial_lookback_seconds to process historical data."
-            )
         else:
-            watermark = datetime.now(UTC) - timedelta(seconds=lookback)
-            logger.info(
-                "mongodb poll: starting from %s (%ds lookback)",
-                watermark.isoformat(),
-                lookback,
-            )
+            now = datetime.now(UTC)
+            start = now if lookback == 0 else now - timedelta(seconds=lookback)
+
+            # Detect inserted_at field type to set watermark in matching BSON type
+            def _detect_watermark_type() -> datetime | float | int:
+                coll = conn.collection
+                sample = coll.find_one(
+                    {self._inserted_at_field: {"$exists": True}},
+                    projection={self._inserted_at_field: 1},
+                )
+                if sample is not None:
+                    val = _get_nested(sample, self._inserted_at_field)
+                    if isinstance(val, (int, float)):
+                        # Field stores numeric unix timestamps
+                        return int(start.timestamp())
+                # Default to datetime (works for BSON datetime fields and empty collections)
+                return start
+
+            watermark = await asyncio.to_thread(_detect_watermark_type)
+
+            if lookback == 0:
+                logger.info(
+                    "mongodb poll: starting from now (watermark=%s, type=%s). "
+                    "Set FEED_OPT_initial_lookback_seconds to process historical data.",
+                    watermark,
+                    type(watermark).__name__,
+                )
+            else:
+                logger.info(
+                    "mongodb poll: starting from %s (%ds lookback, type=%s)",
+                    watermark,
+                    lookback,
+                    type(watermark).__name__,
+                )
         # Track _ids seen at the current watermark value to handle
         # multiple documents with identical inserted_at timestamps.
         # Using $gte (not $gt) ensures we don't skip docs that share
