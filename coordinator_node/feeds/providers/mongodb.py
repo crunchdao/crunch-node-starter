@@ -760,7 +760,7 @@ class MongoDBFeed(DataFeed):
                         await sink.on_record(record)
 
                     # Update watermark — handles both datetime and numeric timestamps
-                    inserted_at = doc.get(self._inserted_at_field)
+                    inserted_at = _get_nested(doc, self._inserted_at_field)
                     new_wm = _to_watermark(inserted_at)
                     if new_wm is not None:
                         try:
@@ -934,7 +934,7 @@ class MongoDBFeed(DataFeed):
                     projection={ts_field: 1},
                 )
                 if sample is not None:
-                    return isinstance(sample.get(ts_field), datetime)
+                    return isinstance(_get_nested(sample, ts_field), datetime)
                 return None  # No documents — can't determine type yet
 
             result = await asyncio.to_thread(_detect)
