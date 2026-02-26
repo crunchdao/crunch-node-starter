@@ -91,6 +91,48 @@ class TestDocToRecord(unittest.TestCase):
         assert record is None
 
 
+class TestDocToRecordBsonTypes(unittest.TestCase):
+    """Test that non-JSON BSON types are safely converted to strings."""
+
+    def test_non_json_types_converted_to_string(self):
+        """Simulate BSON types like ObjectId by using a custom class."""
+
+        class FakeObjectId:
+            def __str__(self):
+                return "507f1f77bcf86cd799439011"
+
+        doc = {
+            "mint": "TokenABC",
+            "blockTime": 1700000000,
+            "ref_id": FakeObjectId(),
+            "price": 0.05,
+            "name": "test",
+            "count": 42,
+            "active": True,
+            "tags": ["a", "b"],
+            "meta": {"k": "v"},
+            "empty": None,
+        }
+        record = _doc_to_record(
+            doc,
+            subject_field="mint",
+            timestamp_field="blockTime",
+            kind="event",
+            granularity="event",
+        )
+        assert record is not None
+        # Non-JSON type should be stringified
+        assert record.values["ref_id"] == "507f1f77bcf86cd799439011"
+        # JSON-safe types should pass through as-is
+        assert record.values["price"] == 0.05
+        assert record.values["name"] == "test"
+        assert record.values["count"] == 42
+        assert record.values["active"] is True
+        assert record.values["tags"] == ["a", "b"]
+        assert record.values["meta"] == {"k": "v"}
+        assert record.values["empty"] is None
+
+
 class TestMongoDBFeedFactory(unittest.TestCase):
     def test_build_returns_instance(self):
         feed = build_mongodb_feed(_make_settings())
@@ -216,6 +258,11 @@ class TestFieldNameValidation(unittest.TestCase):
         # Nested paths like "data.price" are valid
         MongoDBFeed(_make_settings(subject_field="data.mint"))
 
+    def test_valid_hyphenated_field(self):
+        # Hyphens are common in MongoDB field names (block-time, token-address)
+        MongoDBFeed(_make_settings(subject_field="block-time"))
+        MongoDBFeed(_make_settings(timestamp_field="created-at"))
+
     def test_invalid_field_with_dollar(self):
         with self.assertRaises(ValueError) as ctx:
             MongoDBFeed(_make_settings(subject_field="$gt"))
@@ -230,6 +277,10 @@ class TestFieldNameValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             MongoDBFeed(_make_settings(timestamp_field="$where"))
         assert "timestamp_field" in str(ctx.exception)
+
+    def test_empty_field_rejected(self):
+        with self.assertRaises(ValueError):
+            MongoDBFeed(_make_settings(subject_field=""))
 
 
 class TestRedactUri(unittest.TestCase):

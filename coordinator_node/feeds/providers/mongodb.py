@@ -13,6 +13,7 @@ All field mapping is configurable via FEED_OPT_* environment variables:
     FEED_OPT_poll_seconds=5                  # polling interval (poll mode)
     FEED_OPT_inserted_at_field=insertedAt    # field for tailing new documents (poll mode)
     FEED_OPT_timestamp_type=auto             # "datetime", "numeric", or "auto" (auto-detect)
+    FEED_OPT_initial_lookback_seconds=0      # poll mode: 0=now, -1=all history, N=last N seconds
 
 Listen modes:
 - changestream: Uses MongoDB change streams (requires replica set / Atlas / sharded cluster)
@@ -28,7 +29,7 @@ import logging
 import queue as queue_mod
 import threading
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
@@ -113,19 +114,24 @@ def _redact_uri(uri: str) -> str:
         return "<unparseable-uri>"
 
 
+_FIELD_NAME_BANNED_CHARS = frozenset("${}  \t\n\r\0")
+
+
 def _validate_field_name(name: str, label: str) -> None:
     """Validate that a MongoDB field name is safe for use in queries and aggregations.
 
-    Field names must contain only alphanumerics, underscores, and dots.
-    Dots are intentionally allowed for nested document access — e.g. "data.mint"
-    becomes ``fullDocument.data.mint`` in change stream pipelines and ``$data.mint``
-    in aggregation expressions, both of which correctly traverse nested paths.
-    This prevents injection if a field name is used in aggregation expressions like "$fieldname".
+    Rejects characters that could cause injection in aggregation expressions
+    (``$``, ``{``, ``}``) and whitespace/null bytes. All other characters are
+    allowed — including hyphens (``block-time``), dots for nested paths
+    (``data.mint``), and unicode characters, which are all valid and common
+    in real MongoDB collections.
     """
-    if not name or not all(c.isalnum() or c in ("_", ".") for c in name):
+    if not name:
+        raise ValueError(f"Empty {label} is not allowed.")
+    if any(c in _FIELD_NAME_BANNED_CHARS for c in name):
         raise ValueError(
             f"Invalid {label}={name!r}. "
-            f"Field names must contain only alphanumerics, underscores, and dots."
+            f"Field names must not contain $, braces, or whitespace."
         )
 
 
@@ -263,16 +269,23 @@ def _doc_to_record(
     else:
         return None
 
-    # Build values dict — include all fields except internal MongoDB fields
+    # Build values dict — include all fields except internal MongoDB fields.
+    # MongoDB documents can contain BSON types (ObjectId, Decimal128, Binary, etc.)
+    # that are not JSON-serializable. Since these values end up in a PostgreSQL
+    # JSONB column, we must ensure everything is JSON-safe.
+    _JSON_SAFE_TYPES = (str, int, float, bool, list, dict, type(None))
     values: dict[str, Any] = {}
     for key, value in doc.items():
         if key.startswith("_"):
             continue
-        # Convert datetime objects to ISO strings for JSON compatibility
         if isinstance(value, datetime):
             values[key] = value.isoformat()
-        else:
+        elif isinstance(value, _JSON_SAFE_TYPES):
             values[key] = value
+        else:
+            # Non-JSON BSON types (ObjectId, Decimal128, Binary, Regex, etc.)
+            # — convert to string representation to avoid JSONB serialization errors.
+            values[key] = str(value)
 
     return FeedDataRecord(
         source="mongodb",
@@ -571,7 +584,19 @@ class MongoDBFeed(DataFeed):
                     )
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
-                    # Only clear stop_event when we're about to retry (spawn new thread)
+                    # Only clear stop_event once the old thread has exited.
+                    # If the thread is still alive after the 5s timeout above,
+                    # it will see the set event on its next try_next() cycle
+                    # and exit. We must wait for that before starting a new thread
+                    # to avoid zombie threads pushing into orphaned queues.
+                    if watch_task is not None and not watch_task.done():
+                        try:
+                            await asyncio.wait_for(asyncio.shield(watch_task), timeout=10.0)
+                        except (TimeoutError, Exception):
+                            logger.warning(
+                                "mongodb change stream: old thread did not exit within timeout. "
+                                "Proceeding with retry — orphaned thread may leak."
+                            )
                     stop_event.clear()
                     continue
 
@@ -581,8 +606,31 @@ class MongoDBFeed(DataFeed):
     async def _polling_loop(
         self, sub: FeedSubscription, sink: FeedSink, conn: _MongoConnection
     ) -> None:
-        """Poll for new documents by inserted_at_field."""
-        watermark: datetime | float | int | None = None
+        """Poll for new documents by inserted_at_field.
+
+        On first startup, respects FEED_OPT_initial_lookback_seconds to avoid
+        replaying the entire collection history. Defaults to 0 (start from now).
+        Set to a large value or -1 to process all historical data.
+        """
+        # Determine initial watermark to avoid replaying entire collection
+        lookback = int(_opt(self.settings, "initial_lookback_seconds", "0"))
+        if lookback < 0:
+            # Negative = process all history
+            watermark: datetime | float | int | None = None
+        elif lookback == 0:
+            # Default: start from now
+            watermark = datetime.now(UTC)
+            logger.info(
+                "mongodb poll: starting from now (no lookback). "
+                "Set FEED_OPT_initial_lookback_seconds to process historical data."
+            )
+        else:
+            watermark = datetime.now(UTC) - timedelta(seconds=lookback)
+            logger.info(
+                "mongodb poll: starting from %s (%ds lookback)",
+                watermark.isoformat(),
+                lookback,
+            )
         # Track _ids seen at the current watermark value to handle
         # multiple documents with identical inserted_at timestamps.
         # Using $gte (not $gt) ensures we don't skip docs that share
