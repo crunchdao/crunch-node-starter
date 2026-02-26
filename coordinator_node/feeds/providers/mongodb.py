@@ -318,20 +318,35 @@ class MongoDBFeed(DataFeed):
                 f"Must be one of: {', '.join(_VALID_LISTEN_MODES)}"
             )
 
+        # Timestamp type detection cache — None means "not yet detected".
+        # Set by _detect_timestamp_type() on first fetch() call, or immediately
+        # if FEED_OPT_timestamp_type is configured explicitly.
+        self._timestamp_is_datetime: bool | None = None
+
         # Lock for one-time timestamp type detection (fetch path)
         self._ts_detect_lock = asyncio.Lock()
 
     async def list_subjects(self) -> Sequence[SubjectDescriptor]:
         """Discover subjects by querying distinct values of the subject field.
 
-        Uses an aggregation pipeline with $limit to bound server-side work,
-        rather than loading all distinct values into memory.
+        Scopes to recent documents first (via $sort + $limit on _id) to avoid
+        scanning the entire collection, then groups distinct subjects.
+        Results are sorted alphabetically for deterministic output across runs.
         """
         coll = self._conn.collection
+        # How many recent docs to sample for subject discovery.
+        # This bounds the collection scan — we look at the most recent 10k docs
+        # rather than grouping over millions.
+        _SAMPLE_SIZE = 10_000
 
         def _fetch_subjects() -> list[Any]:
             pipeline = [
+                # Scope to recent documents to avoid full-collection scan
+                {"$sort": {"_id": -1}},
+                {"$limit": _SAMPLE_SIZE},
                 {"$group": {"_id": f"${self._subject_field}"}},
+                # Sort for deterministic results across runs
+                {"$sort": {"_id": 1}},
                 {"$limit": self._subject_limit},
             ]
             return [doc["_id"] for doc in coll.aggregate(pipeline)]
@@ -398,6 +413,8 @@ class MongoDBFeed(DataFeed):
         """
         consecutive_errors = 0
         backoff = _INITIAL_BACKOFF_SECONDS
+
+        watch_task: asyncio.Future[None] | None = None
 
         while True:
             try:
@@ -499,8 +516,7 @@ class MongoDBFeed(DataFeed):
             except asyncio.CancelledError:
                 # Signal the thread to stop and wait for it
                 stop_event.set()
-                if "watch_task" in locals() and not watch_task.done():
-                    # Give the thread a moment to exit cleanly
+                if watch_task is not None and not watch_task.done():
                     try:
                         await asyncio.wait_for(asyncio.shield(watch_task), timeout=5.0)
                     except (TimeoutError, asyncio.CancelledError, Exception):
@@ -510,7 +526,7 @@ class MongoDBFeed(DataFeed):
             except Exception as exc:
                 # Signal the old thread to stop before retrying
                 stop_event.set()
-                if "watch_task" in locals() and not watch_task.done():
+                if watch_task is not None and not watch_task.done():
                     try:
                         await asyncio.wait_for(asyncio.shield(watch_task), timeout=5.0)
                     except (TimeoutError, asyncio.CancelledError, Exception):
@@ -570,6 +586,8 @@ class MongoDBFeed(DataFeed):
         seen_ids_at_watermark: set[Any] = set()
         consecutive_errors = 0
         backoff = _INITIAL_BACKOFF_SECONDS
+        # Base batch size — increased dynamically if watermark gets stuck
+        batch_limit = 100
 
         logger.info(
             "mongodb feed polling every %.1fs by %s (listen_mode=poll)",
@@ -586,16 +604,22 @@ class MongoDBFeed(DataFeed):
                 if watermark is not None:
                     query[self._inserted_at_field] = {"$gte": watermark}
 
-                # Snapshot the query dict so the closure is not affected by
-                # mutations in the next loop iteration.
-                def _find(q=dict(query)):
+                # Snapshot query dict and coll into closure defaults so they
+                # are not affected by reassignment in the next loop iteration.
+                inserted_at_field = self._inserted_at_field
+                current_limit = batch_limit
+
+                def _find(q=dict(query), c=coll, f=inserted_at_field, lim=current_limit):
                     return list(
-                        coll.find(q).sort(self._inserted_at_field, 1).limit(100)
+                        c.find(q).sort(f, 1).limit(lim)
                     )
 
                 docs = await asyncio.to_thread(_find)
 
+                watermark_before = watermark
                 emitted_without_watermark = 0
+                new_docs_count = 0
+
                 for doc in docs:
                     doc_id = doc.get("_id")
 
@@ -603,6 +627,7 @@ class MongoDBFeed(DataFeed):
                     if doc_id is not None and doc_id in seen_ids_at_watermark:
                         continue
 
+                    new_docs_count += 1
                     record = _doc_to_record(
                         doc,
                         subject_field=self._subject_field,
@@ -636,6 +661,27 @@ class MongoDBFeed(DataFeed):
                         emitted_without_watermark,
                         self._inserted_at_field,
                     )
+
+                # Detect stuck watermark: batch was full but watermark didn't advance.
+                # This means >batch_limit docs share the same inserted_at value.
+                # Double the limit so the next poll can drain them all.
+                if (
+                    len(docs) >= batch_limit
+                    and watermark == watermark_before
+                    and watermark is not None
+                ):
+                    batch_limit = min(batch_limit * 2, 10_000)
+                    logger.warning(
+                        "mongodb poll: watermark stuck at %s with %d docs at same timestamp. "
+                        "Increasing batch limit to %d to drain backlog. Consider using a "
+                        "higher-granularity inserted_at_field to avoid this.",
+                        watermark,
+                        len(seen_ids_at_watermark),
+                        batch_limit,
+                    )
+                elif new_docs_count > 0:
+                    # Watermark advanced — reset batch limit to normal
+                    batch_limit = 100
 
                 # Reset error state on success
                 consecutive_errors = 0
@@ -692,12 +738,12 @@ class MongoDBFeed(DataFeed):
         Returns True if the field stores datetimes, False for numeric values.
         """
         # Fast path — already cached
-        if hasattr(self, "_timestamp_is_datetime"):
+        if self._timestamp_is_datetime is not None:
             return self._timestamp_is_datetime
 
         async with self._ts_detect_lock:
             # Re-check after acquiring lock (another coroutine may have set it)
-            if hasattr(self, "_timestamp_is_datetime"):
+            if self._timestamp_is_datetime is not None:
                 return self._timestamp_is_datetime
 
             # Check for explicit config first
