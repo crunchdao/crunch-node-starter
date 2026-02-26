@@ -524,21 +524,21 @@ class MongoDBFeed(DataFeed):
                 raise
 
             except Exception as exc:
-                # Signal the old thread to stop before retrying
+                # Signal the thread to stop and wait for it to exit.
+                # Keep stop_event set until we know we're retrying.
                 stop_event.set()
                 if watch_task is not None and not watch_task.done():
                     try:
                         await asyncio.wait_for(asyncio.shield(watch_task), timeout=5.0)
                     except (TimeoutError, asyncio.CancelledError, Exception):
                         pass
-                # Reset the event for the next iteration
-                stop_event.clear()
 
-                # Classify the error
+                # Classify the error — decide retry vs propagate
                 if OperationFailure is not None and isinstance(exc, OperationFailure):
                     code = exc.code
 
                     if code in _CHANGE_STREAM_UNSUPPORTED_CODES:
+                        # Permanent — don't clear stop_event, thread should stay dead
                         raise RuntimeError(
                             f"Change streams are not supported by your MongoDB deployment "
                             f"(error code {code}: {exc}). "
@@ -546,6 +546,7 @@ class MongoDBFeed(DataFeed):
                         ) from exc
 
                     if code in _AUTH_ERROR_CODES:
+                        # Permanent — don't clear stop_event
                         raise RuntimeError(
                             f"MongoDB authentication/authorization failed (error code {code}: {exc}). "
                             f"Check your FEED_OPT_mongodb_uri credentials and database permissions."
@@ -555,6 +556,7 @@ class MongoDBFeed(DataFeed):
                 if _is_transient_error(exc):
                     consecutive_errors += 1
                     if consecutive_errors >= _MAX_CONSECUTIVE_ERRORS:
+                        # Giving up — don't clear stop_event
                         raise RuntimeError(
                             f"mongodb change stream failed {consecutive_errors} consecutive times, "
                             f"last error: {exc}"
@@ -569,9 +571,11 @@ class MongoDBFeed(DataFeed):
                     )
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
+                    # Only clear stop_event when we're about to retry (spawn new thread)
+                    stop_event.clear()
                     continue
 
-                # Unknown/unexpected error — don't swallow it
+                # Unknown/unexpected error — don't clear stop_event, let thread die
                 raise
 
     async def _polling_loop(
@@ -588,6 +592,8 @@ class MongoDBFeed(DataFeed):
         backoff = _INITIAL_BACKOFF_SECONDS
         # Base batch size — increased dynamically if watermark gets stuck
         batch_limit = 100
+        # When True, use $gt instead of $gte to force past a stuck timestamp
+        force_gt_next = False
 
         logger.info(
             "mongodb feed polling every %.1fs by %s (listen_mode=poll)",
@@ -602,7 +608,8 @@ class MongoDBFeed(DataFeed):
                 if sub.subjects:
                     query[self._subject_field] = {"$in": list(sub.subjects)}
                 if watermark is not None:
-                    query[self._inserted_at_field] = {"$gte": watermark}
+                    op = "$gt" if force_gt_next else "$gte"
+                    query[self._inserted_at_field] = {op: watermark}
 
                 # Snapshot query dict and coll into closure defaults so they
                 # are not affected by reassignment in the next loop iteration.
@@ -642,7 +649,25 @@ class MongoDBFeed(DataFeed):
                     inserted_at = doc.get(self._inserted_at_field)
                     new_wm = _to_watermark(inserted_at)
                     if new_wm is not None:
-                        if watermark is None or new_wm > watermark:
+                        try:
+                            advanced = watermark is None or new_wm > watermark
+                        except TypeError:
+                            # Mixed types (e.g. datetime vs int after schema migration).
+                            # Can't compare — log and skip watermark update for this doc.
+                            logger.warning(
+                                "mongodb poll: watermark type mismatch — current watermark "
+                                "is %s (%s) but document has %s (%s). Skipping watermark "
+                                "update. This usually means inserted_at_field '%s' has "
+                                "inconsistent types across documents.",
+                                watermark,
+                                type(watermark).__name__,
+                                new_wm,
+                                type(new_wm).__name__,
+                                self._inserted_at_field,
+                            )
+                            advanced = False
+
+                        if advanced:
                             # Watermark advanced — reset seen set for new value
                             watermark = new_wm
                             seen_ids_at_watermark = set()
@@ -665,23 +690,46 @@ class MongoDBFeed(DataFeed):
                 # Detect stuck watermark: batch was full but watermark didn't advance.
                 # This means >batch_limit docs share the same inserted_at value.
                 # Double the limit so the next poll can drain them all.
+                _MAX_SEEN_IDS = 50_000
+
                 if (
                     len(docs) >= batch_limit
                     and watermark == watermark_before
                     and watermark is not None
                 ):
-                    batch_limit = min(batch_limit * 2, 10_000)
-                    logger.warning(
-                        "mongodb poll: watermark stuck at %s with %d docs at same timestamp. "
-                        "Increasing batch limit to %d to drain backlog. Consider using a "
-                        "higher-granularity inserted_at_field to avoid this.",
-                        watermark,
-                        len(seen_ids_at_watermark),
-                        batch_limit,
-                    )
+                    if len(seen_ids_at_watermark) >= _MAX_SEEN_IDS:
+                        # Safety valve: too many docs at one timestamp.
+                        # Force past this timestamp by using $gt (not $gte) next poll.
+                        # This may skip remaining unseen docs at this exact timestamp.
+                        logger.critical(
+                            "mongodb poll: %d+ documents share timestamp %s, exceeding "
+                            "dedup capacity (%d). Forcing watermark past this timestamp. "
+                            "Some documents at this timestamp may be skipped. "
+                            "Use a higher-granularity inserted_at_field to prevent this.",
+                            len(seen_ids_at_watermark),
+                            watermark,
+                            _MAX_SEEN_IDS,
+                        )
+                        # Clear seen set and set force_gt flag for next query
+                        seen_ids_at_watermark = set()
+                        force_gt_next = True
+                    else:
+                        batch_limit = min(batch_limit * 2, 10_000)
+                        logger.warning(
+                            "mongodb poll: watermark stuck at %s with %d docs at same timestamp. "
+                            "Increasing batch limit to %d to drain backlog. Consider using a "
+                            "higher-granularity inserted_at_field to avoid this.",
+                            watermark,
+                            len(seen_ids_at_watermark),
+                            batch_limit,
+                        )
+                        force_gt_next = False
                 elif new_docs_count > 0:
                     # Watermark advanced — reset batch limit to normal
                     batch_limit = 100
+                    force_gt_next = False
+                else:
+                    force_gt_next = False
 
                 # Reset error state on success
                 consecutive_errors = 0
@@ -766,16 +814,28 @@ class MongoDBFeed(DataFeed):
             coll = self._conn.collection
             ts_field = self._timestamp_field
 
-            def _detect() -> bool:
+            def _detect() -> bool | None:
                 sample = coll.find_one(
                     {ts_field: {"$exists": True}},
                     projection={ts_field: 1},
                 )
                 if sample is not None:
                     return isinstance(sample.get(ts_field), datetime)
-                return False
+                return None  # No documents — can't determine type yet
 
             result = await asyncio.to_thread(_detect)
+            if result is None:
+                # Collection is empty or has no documents with the timestamp field.
+                # Default to numeric but don't cache — re-detect on next call
+                # when documents may exist.
+                logger.info(
+                    "mongodb timestamp_type: no documents found with field '%s'. "
+                    "Defaulting to numeric. Will re-detect on next fetch() call. "
+                    "Set FEED_OPT_timestamp_type explicitly to avoid this.",
+                    ts_field,
+                )
+                return False
+
             self._timestamp_is_datetime = result
             detected = "datetime" if result else "numeric"
             logger.warning(
