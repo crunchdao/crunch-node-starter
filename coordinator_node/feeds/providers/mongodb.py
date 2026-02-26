@@ -111,15 +111,30 @@ def _redact_uri(uri: str) -> str:
         return "<unparseable-uri>"
 
 
-def _to_watermark(value: Any) -> datetime | None:
-    """Convert a document field value to a datetime watermark.
+def _validate_field_name(name: str, label: str) -> None:
+    """Validate that a MongoDB field name is safe for use in queries and aggregations.
 
-    Handles both datetime objects and numeric unix timestamps.
+    Field names must contain only alphanumerics, underscores, and dots (for nested paths).
+    This prevents injection if a field name is used in aggregation expressions like "$fieldname".
+    """
+    if not name or not all(c.isalnum() or c in ("_", ".") for c in name):
+        raise ValueError(
+            f"Invalid {label}={name!r}. "
+            f"Field names must contain only alphanumerics, underscores, and dots."
+        )
+
+
+def _to_watermark(value: Any) -> datetime | float | int | None:
+    """Return the raw watermark value, preserving its original type.
+
+    This is critical for poll-mode queries: the $gt comparison must use the
+    same BSON type as the stored field. Comparing a datetime watermark against
+    numeric values (or vice versa) produces incorrect results due to BSON type ordering.
     """
     if isinstance(value, datetime):
         return value
     if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value, tz=UTC)
+        return value
     return None
 
 
@@ -283,6 +298,11 @@ class MongoDBFeed(DataFeed):
         self._poll_seconds = float(_opt(settings, "poll_seconds", "5"))
         self._subject_limit = int(_opt(settings, "subject_limit", "500"))
 
+        # Validate field names to prevent injection in query keys / aggregation expressions
+        _validate_field_name(self._subject_field, "subject_field")
+        _validate_field_name(self._timestamp_field, "timestamp_field")
+        _validate_field_name(self._inserted_at_field, "inserted_at_field")
+
         # Validate listen_mode
         self._listen_mode = _opt(settings, "listen_mode", "changestream").strip().lower()
         if self._listen_mode not in _VALID_LISTEN_MODES:
@@ -290,6 +310,9 @@ class MongoDBFeed(DataFeed):
                 f"Invalid FEED_OPT_listen_mode={self._listen_mode!r}. "
                 f"Must be one of: {', '.join(_VALID_LISTEN_MODES)}"
             )
+
+        # Lock for one-time timestamp type detection (fetch path)
+        self._ts_detect_lock = asyncio.Lock()
 
     async def list_subjects(self) -> Sequence[SubjectDescriptor]:
         """Discover subjects by querying distinct values of the subject field.
@@ -308,14 +331,19 @@ class MongoDBFeed(DataFeed):
 
         subjects = await asyncio.to_thread(_fetch_subjects)
 
+        # Use configured kind/granularity so callers see the actual capabilities,
+        # not hardcoded "event". Falls back to ("event",) if not configured.
+        configured_kind = _opt(self.settings, "default_kind", "event")
+        configured_granularity = _opt(self.settings, "default_granularity", "event")
+
         descriptors: list[SubjectDescriptor] = []
         for subject in subjects:
             descriptors.append(
                 SubjectDescriptor(
                     symbol=str(subject),
                     display_name=str(subject),
-                    kinds=("event",),
-                    granularities=("event",),
+                    kinds=(configured_kind,),
+                    granularities=(configured_granularity,),
                     source="mongodb",
                 )
             )
@@ -382,7 +410,9 @@ class MongoDBFeed(DataFeed):
 
                 # Run the entire watch + iteration loop in a single thread
                 # to avoid thread-safety issues with PyMongo cursors.
-                queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+                # Bounded queue provides backpressure — if the consumer is slow,
+                # the producer thread will wait rather than growing unbounded.
+                queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=1000)
 
                 def _watch_and_iterate() -> None:
                     """Blocking loop: watch change stream, push docs to queue.
@@ -400,7 +430,14 @@ class MongoDBFeed(DataFeed):
                             if change is not None:
                                 doc = change.get("fullDocument", {})
                                 if doc:
-                                    queue.put_nowait(doc)
+                                    # Block until space is available, checking
+                                    # stop_event periodically to allow shutdown.
+                                    while not stop_event.is_set():
+                                        try:
+                                            queue.put_nowait(doc)
+                                            break
+                                        except asyncio.QueueFull:
+                                            stop_event.wait(timeout=0.1)
 
                 # Start the blocking watch loop in a background thread
                 loop = asyncio.get_running_loop()
@@ -410,9 +447,9 @@ class MongoDBFeed(DataFeed):
                     "mongodb feed using change streams (listen_mode=changestream)"
                 )
 
-                # Reset error state on successful connection
-                consecutive_errors = 0
-                backoff = _INITIAL_BACKOFF_SECONDS
+                # Don't reset error counters yet — wait until the watch cursor
+                # is confirmed working (first document or successful try_next).
+                stream_confirmed = False
 
                 # Consume documents from the queue
                 while True:
@@ -426,7 +463,19 @@ class MongoDBFeed(DataFeed):
                     try:
                         doc = await asyncio.wait_for(queue.get(), timeout=1.0)
                     except TimeoutError:
+                        # A timeout means try_next returned None (no new docs)
+                        # but the stream is alive — count this as confirmed.
+                        if not stream_confirmed:
+                            stream_confirmed = True
+                            consecutive_errors = 0
+                            backoff = _INITIAL_BACKOFF_SECONDS
                         continue
+
+                    # First document received — stream is definitely working
+                    if not stream_confirmed:
+                        stream_confirmed = True
+                        consecutive_errors = 0
+                        backoff = _INITIAL_BACKOFF_SECONDS
 
                     record = _doc_to_record(
                         doc,
@@ -504,7 +553,7 @@ class MongoDBFeed(DataFeed):
         self, sub: FeedSubscription, sink: FeedSink, conn: _MongoConnection
     ) -> None:
         """Poll for new documents by inserted_at_field."""
-        watermark: datetime | None = None
+        watermark: datetime | float | int | None = None
         consecutive_errors = 0
         backoff = _INITIAL_BACKOFF_SECONDS
 
@@ -611,26 +660,33 @@ class MongoDBFeed(DataFeed):
         """Detect whether the timestamp field stores BSON datetimes or numeric values.
 
         Runs the detection query in a thread and caches the result on the instance.
+        Uses an asyncio.Lock so concurrent fetch() calls don't race on detection.
         Returns True if the field stores datetimes, False for numeric values.
         """
+        # Fast path — already cached
         if hasattr(self, "_timestamp_is_datetime"):
             return self._timestamp_is_datetime
 
-        coll = self._conn.collection
-        ts_field = self._timestamp_field
+        async with self._ts_detect_lock:
+            # Re-check after acquiring lock (another coroutine may have set it)
+            if hasattr(self, "_timestamp_is_datetime"):
+                return self._timestamp_is_datetime
 
-        def _detect() -> bool:
-            sample = coll.find_one(
-                {ts_field: {"$exists": True}},
-                projection={ts_field: 1},
-            )
-            if sample is not None:
-                return isinstance(sample.get(ts_field), datetime)
-            return False
+            coll = self._conn.collection
+            ts_field = self._timestamp_field
 
-        result = await asyncio.to_thread(_detect)
-        self._timestamp_is_datetime = result
-        return result
+            def _detect() -> bool:
+                sample = coll.find_one(
+                    {ts_field: {"$exists": True}},
+                    projection={ts_field: 1},
+                )
+                if sample is not None:
+                    return isinstance(sample.get(ts_field), datetime)
+                return False
+
+            result = await asyncio.to_thread(_detect)
+            self._timestamp_is_datetime = result
+            return result
 
     async def fetch(self, req: FeedFetchRequest) -> Sequence[FeedDataRecord]:
         """Query historical documents by timestamp range.

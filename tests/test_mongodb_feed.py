@@ -207,6 +207,31 @@ class TestRequiredSettings(unittest.TestCase):
             MongoDBFeed(settings)
 
 
+class TestFieldNameValidation(unittest.TestCase):
+    def test_valid_simple_field(self):
+        # Should not raise
+        MongoDBFeed(_make_settings(subject_field="mint"))
+
+    def test_valid_dotted_field(self):
+        # Nested paths like "data.price" are valid
+        MongoDBFeed(_make_settings(subject_field="data.mint"))
+
+    def test_invalid_field_with_dollar(self):
+        with self.assertRaises(ValueError) as ctx:
+            MongoDBFeed(_make_settings(subject_field="$gt"))
+        assert "subject_field" in str(ctx.exception)
+
+    def test_invalid_field_with_braces(self):
+        with self.assertRaises(ValueError) as ctx:
+            MongoDBFeed(_make_settings(subject_field="field{inject}"))
+        assert "subject_field" in str(ctx.exception)
+
+    def test_invalid_timestamp_field(self):
+        with self.assertRaises(ValueError) as ctx:
+            MongoDBFeed(_make_settings(timestamp_field="$where"))
+        assert "timestamp_field" in str(ctx.exception)
+
+
 class TestRedactUri(unittest.TestCase):
     def test_redacts_credentials(self):
         from coordinator_node.feeds.providers.mongodb import _redact_uri
@@ -232,14 +257,16 @@ class TestWatermarkConversion(unittest.TestCase):
         from coordinator_node.feeds.providers.mongodb import _to_watermark
 
         wm = _to_watermark(1700000000)
-        assert isinstance(wm, datetime)
-        assert int(wm.timestamp()) == 1700000000
+        # Numeric timestamps are preserved as-is for correct BSON type comparison
+        assert isinstance(wm, int)
+        assert wm == 1700000000
 
     def test_float_timestamp_watermark(self):
         from coordinator_node.feeds.providers.mongodb import _to_watermark
 
         wm = _to_watermark(1700000000.5)
-        assert isinstance(wm, datetime)
+        assert isinstance(wm, float)
+        assert wm == 1700000000.5
 
     def test_none_for_unsupported_type(self):
         from coordinator_node.feeds.providers.mongodb import _to_watermark
