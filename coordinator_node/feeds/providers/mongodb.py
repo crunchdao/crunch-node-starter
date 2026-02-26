@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -184,19 +185,30 @@ class _MongoConnection:
 
 
 class _MongoFeedHandle:
-    """Feed handle that cleans up both the async task and the MongoDB connection."""
+    """Feed handle that cleans up the async task, background thread, and MongoDB connection."""
 
-    def __init__(self, task: asyncio.Task[None], conn: _MongoConnection):
+    def __init__(
+        self,
+        task: asyncio.Task[None],
+        conn: _MongoConnection,
+        stop_event: threading.Event | None = None,
+    ):
         self._task = task
         self._conn = conn
+        self._stop_event = stop_event
 
     async def stop(self) -> None:
+        # Signal the background thread to exit (if change stream mode)
+        if self._stop_event is not None:
+            self._stop_event.set()
         self._task.cancel()
         try:
             await self._task
         except asyncio.CancelledError:
             pass
-        # Close the MongoDB connection to avoid leaking sockets
+        # Close the MongoDB connection to avoid leaking sockets.
+        # This also interrupts any blocking MongoDB operation in the thread,
+        # causing it to raise and exit.
         self._conn.close()
 
 
@@ -313,31 +325,48 @@ class MongoDBFeed(DataFeed):
     async def listen(self, sub: FeedSubscription, sink: FeedSink) -> FeedHandle:
         """Stream new documents to the sink.
 
+        Each call creates its own MongoDB connection so that multiple handles
+        can be stopped independently without killing each other's connections.
+
         Uses the configured listen_mode:
         - "changestream": MongoDB change streams (requires replica set)
         - "poll": Polls by inserted_at_field (works on any deployment)
         """
-        if self._listen_mode == "changestream":
-            task = asyncio.create_task(self._change_stream_loop(sub, sink))
-        else:
-            task = asyncio.create_task(self._polling_loop(sub, sink))
+        # Each handle owns its own connection to avoid shared-state issues
+        conn = _MongoConnection(self.settings)
+        stop_event = threading.Event()
 
-        return _MongoFeedHandle(task, self._conn)
+        if self._listen_mode == "changestream":
+            task = asyncio.create_task(
+                self._change_stream_loop(sub, sink, conn, stop_event)
+            )
+        else:
+            task = asyncio.create_task(self._polling_loop(sub, sink, conn))
+            stop_event = None  # polling doesn't use a background thread
+
+        return _MongoFeedHandle(task, conn, stop_event)
 
     async def _change_stream_loop(
-        self, sub: FeedSubscription, sink: FeedSink
+        self,
+        sub: FeedSubscription,
+        sink: FeedSink,
+        conn: _MongoConnection,
+        stop_event: threading.Event,
     ) -> None:
         """Watch for new inserts via MongoDB change streams.
 
         Retries on transient network errors. Raises on permanent errors
         (unsupported deployment, auth failures) with actionable messages.
+
+        The blocking watch loop runs in a single dedicated thread and checks
+        stop_event between iterations so it can be cleanly shut down.
         """
         consecutive_errors = 0
         backoff = _INITIAL_BACKOFF_SECONDS
 
         while True:
             try:
-                coll = self._conn.collection
+                coll = conn.collection
                 pipeline = [{"$match": {"operationType": "insert"}}]
                 if sub.subjects:
                     pipeline = [
@@ -356,19 +385,26 @@ class MongoDBFeed(DataFeed):
                 queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
                 def _watch_and_iterate() -> None:
-                    """Blocking loop: watch change stream, push docs to queue."""
-                    with coll.watch(pipeline, full_document="updateLookup") as stream:
-                        for change in stream:
-                            doc = change.get("fullDocument", {})
-                            if doc:
-                                # Put into queue — will block if queue is full,
-                                # but asyncio.Queue has no max by default.
-                                queue.put_nowait(doc)
+                    """Blocking loop: watch change stream, push docs to queue.
+
+                    Uses max_await_time_ms so the cursor returns periodically,
+                    allowing us to check the stop_event between iterations.
+                    """
+                    with coll.watch(
+                        pipeline,
+                        full_document="updateLookup",
+                        max_await_time_ms=1000,
+                    ) as stream:
+                        while not stop_event.is_set():
+                            change = stream.try_next()
+                            if change is not None:
+                                doc = change.get("fullDocument", {})
+                                if doc:
+                                    queue.put_nowait(doc)
 
                 # Start the blocking watch loop in a background thread
-                watch_task = asyncio.get_event_loop().run_in_executor(
-                    None, _watch_and_iterate
-                )
+                loop = asyncio.get_running_loop()
+                watch_task = loop.run_in_executor(None, _watch_and_iterate)
 
                 logger.info(
                     "mongodb feed using change streams (listen_mode=changestream)"
@@ -384,7 +420,8 @@ class MongoDBFeed(DataFeed):
                     if watch_task.done():
                         # Re-raise any exception from the watch thread
                         watch_task.result()
-                        break
+                        # Thread exited cleanly (stop_event was set)
+                        return
 
                     try:
                         doc = await asyncio.wait_for(queue.get(), timeout=1.0)
@@ -402,9 +439,27 @@ class MongoDBFeed(DataFeed):
                         await sink.on_record(record)
 
             except asyncio.CancelledError:
+                # Signal the thread to stop and wait for it
+                stop_event.set()
+                if "watch_task" in locals() and not watch_task.done():
+                    # Give the thread a moment to exit cleanly
+                    try:
+                        await asyncio.wait_for(asyncio.shield(watch_task), timeout=5.0)
+                    except (TimeoutError, asyncio.CancelledError, Exception):
+                        pass
                 raise
 
             except Exception as exc:
+                # Signal the old thread to stop before retrying
+                stop_event.set()
+                if "watch_task" in locals() and not watch_task.done():
+                    try:
+                        await asyncio.wait_for(asyncio.shield(watch_task), timeout=5.0)
+                    except (TimeoutError, asyncio.CancelledError, Exception):
+                        pass
+                # Reset the event for the next iteration
+                stop_event.clear()
+
                 # Classify the error
                 if OperationFailure is not None and isinstance(exc, OperationFailure):
                     code = exc.code
@@ -445,7 +500,9 @@ class MongoDBFeed(DataFeed):
                 # Unknown/unexpected error — don't swallow it
                 raise
 
-    async def _polling_loop(self, sub: FeedSubscription, sink: FeedSink) -> None:
+    async def _polling_loop(
+        self, sub: FeedSubscription, sink: FeedSink, conn: _MongoConnection
+    ) -> None:
         """Poll for new documents by inserted_at_field."""
         watermark: datetime | None = None
         consecutive_errors = 0
@@ -459,16 +516,18 @@ class MongoDBFeed(DataFeed):
 
         while True:
             try:
-                coll = self._conn.collection
+                coll = conn.collection
                 query: dict[str, Any] = {}
                 if sub.subjects:
                     query[self._subject_field] = {"$in": list(sub.subjects)}
                 if watermark is not None:
                     query[self._inserted_at_field] = {"$gt": watermark}
 
-                def _find():
+                # Snapshot the query dict so the closure is not affected by
+                # mutations in the next loop iteration.
+                def _find(q=dict(query)):
                     return list(
-                        coll.find(query).sort(self._inserted_at_field, 1).limit(100)
+                        coll.find(q).sort(self._inserted_at_field, 1).limit(100)
                     )
 
                 docs = await asyncio.to_thread(_find)
@@ -548,6 +607,31 @@ class MongoDBFeed(DataFeed):
 
             await asyncio.sleep(max(0.5, self._poll_seconds))
 
+    async def _detect_timestamp_type(self) -> bool:
+        """Detect whether the timestamp field stores BSON datetimes or numeric values.
+
+        Runs the detection query in a thread and caches the result on the instance.
+        Returns True if the field stores datetimes, False for numeric values.
+        """
+        if hasattr(self, "_timestamp_is_datetime"):
+            return self._timestamp_is_datetime
+
+        coll = self._conn.collection
+        ts_field = self._timestamp_field
+
+        def _detect() -> bool:
+            sample = coll.find_one(
+                {ts_field: {"$exists": True}},
+                projection={ts_field: 1},
+            )
+            if sample is not None:
+                return isinstance(sample.get(ts_field), datetime)
+            return False
+
+        result = await asyncio.to_thread(_detect)
+        self._timestamp_is_datetime = result
+        return result
+
     async def fetch(self, req: FeedFetchRequest) -> Sequence[FeedDataRecord]:
         """Query historical documents by timestamp range.
 
@@ -568,48 +652,31 @@ class MongoDBFeed(DataFeed):
 
         limit = req.limit or 500
 
-        # Detect whether the timestamp field stores BSON datetimes or numeric values.
-        # Cache the result on the instance to avoid repeated detection.
-        timestamp_is_datetime = getattr(self, "_timestamp_is_datetime", None)
-
-        def _query():
-            nonlocal timestamp_is_datetime
-
-            local_ts_filter: dict[str, Any] = dict(ts_filter)
-
-            # Detect timestamp field type on first fetch
-            if timestamp_is_datetime is None and local_ts_filter:
-                sample = coll.find_one(
-                    {self._timestamp_field: {"$exists": True}},
-                    projection={self._timestamp_field: 1},
-                )
-                if sample is not None:
-                    value = sample.get(self._timestamp_field)
-                    timestamp_is_datetime = isinstance(value, datetime)
-                else:
-                    timestamp_is_datetime = False
-                # Cache for future calls
-                setattr(self, "_timestamp_is_datetime", timestamp_is_datetime)
+        # Detect timestamp field type on the main thread (cached after first call)
+        if ts_filter:
+            timestamp_is_datetime = await self._detect_timestamp_type()
 
             # Convert numeric unix-second bounds to BSON datetimes if needed
-            if timestamp_is_datetime and local_ts_filter:
+            if timestamp_is_datetime:
                 converted: dict[str, Any] = {}
-                if "$gte" in local_ts_filter:
+                if "$gte" in ts_filter:
                     converted["$gte"] = datetime.fromtimestamp(
-                        local_ts_filter["$gte"], tz=UTC
+                        ts_filter["$gte"], tz=UTC
                     )
-                if "$lte" in local_ts_filter:
+                if "$lte" in ts_filter:
                     converted["$lte"] = datetime.fromtimestamp(
-                        local_ts_filter["$lte"], tz=UTC
+                        ts_filter["$lte"], tz=UTC
                     )
-                local_ts_filter = converted
+                ts_filter = converted
 
-            local_query = dict(query)
-            if local_ts_filter:
-                local_query[self._timestamp_field] = local_ts_filter
+        # Build final query — snapshot into closure to avoid mutation races
+        final_query = dict(query)
+        if ts_filter:
+            final_query[self._timestamp_field] = ts_filter
 
+        def _query(q=dict(final_query)):
             return list(
-                coll.find(local_query)
+                coll.find(q)
                 .sort(self._timestamp_field, -1)
                 .limit(limit)
             )

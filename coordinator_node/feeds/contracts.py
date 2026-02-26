@@ -5,6 +5,9 @@ from typing import Any, Literal, Union
 
 # Built-in kinds for market data feeds. Custom providers may extend with any string.
 BuiltinFeedDataKind = Literal["tick", "candle", "depth", "funding"]
+# NOTE: Union[Literal[...], str] collapses to str at runtime and in type checkers.
+# This is intentional — FeedDataKind is documentation-only, signalling that built-in
+# kinds exist but any string is accepted for custom providers (e.g. "event", "aggregate").
 FeedDataKind = Union[BuiltinFeedDataKind, str]
 
 
