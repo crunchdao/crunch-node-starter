@@ -5,10 +5,9 @@ Standalone node runtime workspace for `starter-challenge`.
 ## What belongs here
 
 - local deployment/runtime config (`docker-compose.yml`, `Dockerfile`, `.local.env`)
-- callable path configuration (`config/callables.env`)
+- competition config (`config/crunch_config.py`)
 - node-private adapters (`plugins/`) and overrides (`extensions/`)
-- node-private runtime callables (`config/`)
-- vendored runtime packages under `runtime/`
+- custom API endpoints (`api/`)
 
 This folder is self-contained and runnable without referencing a parent starter repo.
 

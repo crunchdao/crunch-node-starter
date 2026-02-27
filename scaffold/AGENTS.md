@@ -1,146 +1,112 @@
-# Coordinator Workspace — Agent Instructions
+# Coordinator Workspace
 
-## Post-Deploy Monitoring (PRIMARY TASK)
+Crunch coordinator node. `node/` runs the infrastructure, `challenge/` is the participant-facing package.
 
-**Your main job after any deploy is to ensure everything works end-to-end.**
+## Workflow
 
-After running `make deploy`:
-
-1. **Run `make verify-e2e`** to confirm all services come up healthy.
-2. **Continuously monitor for at least 20 minutes.** Re-run verification checks every few minutes — don't just check once and walk away.
-3. **Cross-check data consistency** across all three layers on every pass:
-   - **API** — hit every endpoint, confirm responses are well-formed and data is fresh.
-   - **Database** — query the DB directly, confirm records match what the API returns (counts, latest timestamps, scores, leaderboard rankings).
-   - **Website (UI)** — check browser UI pages to confirm they render the same data the API and DB show.
-4. **If anything is inconsistent or broken, fix it immediately.** Diagnose via docker logs, DB queries, and API responses. Apply code fixes, redeploy if needed, and restart the monitoring clock.
-5. **Only declare success after 20 minutes of all-green, consistent results** across API, DB, and UI with no errors in docker logs.
-
-**Checklist per monitoring pass:**
-- [ ] All docker containers running (`docker ps`)
-- [ ] No errors/tracebacks in docker logs
-- [ ] API endpoints return correct, fresh data
-- [ ] DB records match API responses (counts, values, timestamps)
-- [ ] UI pages render and show data consistent with API/DB
-- [ ] Pipeline flow working: predictions → scores → snapshots → leaderboard
-
-## Commands
-
-From workspace root (proxies to `node/`):
-
-| Command | Purpose |
-|---------|---------|
-| `make deploy` | Validate config → build → start all services |
-| `make preflight` | deploy → check-models → verify-e2e (full) |
-| `make verify-e2e` | API + container + pipeline checks |
-| `make check-models` | Verify model runners are healthy |
-| `make validate` | Pre-deploy config validation (no Docker) |
-| `make logs` | Stream all service logs |
-| `make down` | Tear down all containers |
-| `make init-db` | Initialize database |
-| `make reset-db` | Reset database |
-| `make starter` | Switch to starter UI |
-| `make platform` | Switch to platform UI |
-| `make backfill` | Backfill historical feed data |
-| `make test` | Run challenge unit tests |
-
-## Troubleshooting
-
-### Ports already in use
-Preflight will halt if required ports are busy. Inspect:
+### 1. Verify baseline
+Deploy the scaffold as-is. Confirm it works before changing anything.
 ```bash
-lsof -nP -iTCP:3000 -sTCP:LISTEN   # report-ui
-lsof -nP -iTCP:8000 -sTCP:LISTEN   # report-worker
-lsof -nP -iTCP:9091 -sTCP:LISTEN   # model-orchestrator
-lsof -nP -iTCP:5432 -sTCP:LISTEN   # postgres
-```
-
-### BAD_IMPLEMENTATION / model runner failures
-- Confirm `MODEL_BASE_CLASSNAME=tracker.TrackerBase` in `node/.local.env`
-- Ensure challenge package path is wired in `pyproject.toml` under `[tool.uv.sources]`
-
-### NEXT_PUBLIC_API_URL must be Docker-internal
-The UI's Next.js `rewrites()` proxy runs server-side inside Docker. Never set to `localhost`.
-- ✅ `http://report-worker:8000` (Docker DNS)
-- ❌ `http://localhost:8000` → ECONNREFUSED inside container
-
-### Clean reset
-```bash
-make down
-rm -rf .venv
 make deploy
 make verify-e2e
 ```
+If this fails, fix it first — you need a working baseline.
 
-## Workers
+### 2. Agree on the spec
+Before writing code, confirm with the user:
+- What is the Crunch about?
+- What do participants predict? (inference input and output format)
+- Whats the interface of the base model participants use?
+- How are predictions scored?
+- What data feeds the competition? (source, subjects, granularity)
+- How often do models predict? What's the resolution horizon?
+- How is ground truth derived from feed data?
 
-| Container | Purpose |
-|---|---|
-| `feed-data-worker` | Ingests feed data (Pyth, Binance) |
-| `predict-worker` | Event-driven: feed → models → predictions |
-| `score-worker` | Resolves actuals → scores → snapshots → leaderboard |
-| `checkpoint-worker` | Aggregates snapshots → EmissionCheckpoint |
-| `report-worker` | FastAPI serving all report endpoints |
+Do not carry over [starter placeholder values](.agent/guide.md#starter-placeholders). Confirm every one and help the user to understand what each value is used for if necessary.
 
-## Report API
+### 3. Implement
+Follow the [Implementation Guide](.agent/guide.md) — types/tracker, examples, feeds, ground truth, then scoring. Order matters.
+Validate proposals you have with the user and help them to make good decisions here by giving context and guidance. 
 
-| Endpoint | Description |
-|---|---|
-| `GET /healthz` | Health check |
-| `GET /info` | Node identity (crunch_id, address, network) |
-| `GET /reports/schema` | Auto-generated report schema |
-| `GET /reports/models` | Registered models |
-| `GET /reports/leaderboard` | Current leaderboard |
-| `GET /reports/models/global` | Per-model windowed scores |
-| `GET /reports/models/params` | Scores grouped by scope |
-| `GET /reports/models/metrics` | Metrics timeseries |
-| `GET /reports/models/summary` | Latest snapshot per model |
-| `GET /reports/predictions` | Prediction history |
-| `GET /reports/feeds` | Active feed subscriptions |
-| `GET /reports/feeds/tail` | Latest feed records |
-| `GET /reports/snapshots` | Per-model period summaries |
-| `GET /reports/checkpoints` | Checkpoint history |
-| `GET /reports/diversity` | Model diversity overview |
-| `GET /reports/ensemble/history` | Ensemble performance over time |
-| `GET /reports/merkle/cycles` | Merkle tamper evidence |
+### 4. Wire in CrunchConfig
+Connect everything in `node/config/crunch_config.py` — the single source of truth for types, scoring, schedules, and callables.
 
-## Key Architecture
-
-### Pipeline
+### 5. Test
+```bash
+make test
 ```
-Feed → Input (dumb log) → Prediction (owns resolution) → Score → Snapshot → Leaderboard → Checkpoint
+All unit tests green. Scoring `xfail` markers removed. Examples updated to match new types.
+
+### 6. Deploy & verify
+```bash
+make deploy
+make verify-e2e
 ```
+Then check manually:
+- **Logs:** `make logs` — no errors or tracebacks in any worker. Check that models are running, predicting and are being scored
+- **API:** `curl localhost:8000/reports/leaderboard` — scores are non-zero and models are ranked differently
+- **API:** `curl localhost:8000/reports/predictions` — predictions exist and are being scored
+- **UI:** open `localhost:3000` — pages render (Leaderboard, Models, Logs, Metrics), data matches what the API shows. 
 
-### resolve_horizon_seconds
-- `0` = immediate resolution (live trading). Ground truth from `InputRecord.raw_data`.
-- `> 0` = deferred. Must exceed feed data interval, otherwise no feed records exist for scoring.
+Choose a meaningful timeframe to let the system run (depends on how long it takes for models to be scored) and check in on all of the above to verify that it is running, no errors are reported, the values make sense. 
 
-### Aggregation
-- `value_field` = score field to average in windows (default `"value"`)
-- `ranking_key` = which metric to rank by (can be window name or score field)
+Log anything that doesn't look right and give this information to the user. 
 
-### CrunchConfig.scoring_function
-- If set, takes precedence over `SCORING_FUNCTION` env var
-- Enables stateful scoring (e.g. PositionManager-backed trading)
+### 7. Fix loop
+If anything is wrong:
+1. Read `make logs` for the failing worker
+2. Check [Gotchas](.agent/context.md#gotchas) for known issues
+3. Fix → go back to step 5 (if code change) or step 6 (if config change)
 
-### Where to edit
+**Keep looping until step 6 passes completely.**
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `make test` | Unit tests (no Docker) |
+| `make deploy` | Validate → build → start all services |
+| `make verify-e2e` | Containers + API + scored predictions + leaderboard |
+| `make preflight` | deploy → check-models → verify-e2e |
+| `make logs` | Stream all service logs |
+| `make down` | Tear down containers |
+| `make reset-db` | Reset database (destructive) |
+| `make backfill` | Backfill historical feed data |
+
+## Where to Edit
 
 | What to change | Where |
 |---|---|
-| Competition types, scoring, schedules | `node/config/crunch_config.py` |
-| Challenge behavior (tracker, examples) | `challenge/starter_challenge/` |
-| Node env config | `node/.local.env` |
-| Custom API endpoints | `node/api/` |
+| Types, scoring, schedules | `node/config/crunch_config.py` |
+| Feed source, subjects, timing | `node/.local.env` |
+| Custom API endpoints | `node/api/` (auto-discovered) |
 | Node-side extensions | `node/extensions/` |
-| Deployment assets (orchestrator, UI) | `node/deployment/` |
+| Model interface | `challenge/starter_challenge/tracker.py` |
+| Scoring function | `challenge/starter_challenge/scoring.py` |
+| Example models | `challenge/starter_challenge/examples/` |
+| Docker / deployment | `node/deployment/` |
 
-### Folder layout
-```
-├── node/          ← docker-compose, workers, config (uses coordinator-node from PyPI)
-│   ├── config/    ← crunch_config.py — all type shapes, callables, schedules
-│   ├── api/       ← custom FastAPI endpoints (auto-discovered)
-│   ├── extensions/← node-side extensions (position manager, etc.)
-│   ├── deployment/← model-orchestrator, report-ui config
-│   └── scripts/   ← verify, backfill, validate utilities
-├── challenge/     ← participant-facing package (tracker, scoring, examples)
-└── Makefile       ← proxies to node/
-```
+## Done Criteria
+
+Do not declare done until:
+- [ ] `make test` passes
+- [ ] `make verify-e2e` passes — models registered, scores non-zero, leaderboard populated
+- [ ] `make logs` shows no errors in any worker
+- [ ] API returns correct, fresh data
+- [ ] UI loads and shows data consistent with API
+- [ ] Documentation written (below)
+
+### Documentation Output
+Produce before declaring done:
+- **What was built** — components implemented and how they connect
+- **Design decisions** — scoring logic, type choices, schedule parameters
+- **Assumptions** — anything inferred rather than explicitly confirmed
+- **Verification result** — pass/fail of each check above
+- **Risks** — what could break, especially around scoring or emission
+
+## Reference
+
+- [Implementation Guide](.agent/guide.md) — how to build each component
+- [Architecture](.agent/context.md) — pipeline, workers, CrunchConfig, API, gotchas
+- [Policy](.agent/policy.md) — approval gates, allowed operations
+- [Production Deploy](.agent/release.md) — when going to mainnet
