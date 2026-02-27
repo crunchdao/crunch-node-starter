@@ -10,6 +10,7 @@ from typing import Any
 
 from coordinator_node.crunch_config import CrunchConfig
 from coordinator_node.db.repositories import (
+    DBCheckpointRepository,
     DBInputRepository,
     DBLeaderboardRepository,
     DBMerkleCycleRepository,
@@ -25,6 +26,7 @@ from coordinator_node.entities.prediction import (
     SnapshotRecord,
 )
 from coordinator_node.merkle.service import MerkleService
+from coordinator_node.services.checkpoint import CheckpointService
 from coordinator_node.services.feed_reader import FeedReader
 
 
@@ -42,6 +44,7 @@ class ScoreService:
         leaderboard_repository: DBLeaderboardRepository | None = None,
         merkle_cycle_repository: DBMerkleCycleRepository | None = None,
         merkle_node_repository: DBMerkleNodeRepository | None = None,
+        checkpoint_repository: DBCheckpointRepository | None = None,
         contract: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
         **kwargs: Any,
@@ -68,6 +71,20 @@ class ScoreService:
             )
         else:
             self.merkle_service = None
+
+        # Checkpoint service (composed, not a separate container)
+        if checkpoint_repository and snapshot_repository and model_repository:
+            self._checkpoint_service: CheckpointService | None = CheckpointService(
+                snapshot_repository=snapshot_repository,
+                checkpoint_repository=checkpoint_repository,
+                model_repository=model_repository,
+                contract=self.contract,
+                interval_seconds=checkpoint_interval_seconds,
+                merkle_service=self.merkle_service,
+            )
+        else:
+            self._checkpoint_service = None
+        self._last_checkpoint_at: datetime | None = None
 
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
@@ -257,6 +274,10 @@ class ScoreService:
 
         # 4. rebuild leaderboard from snapshots
         self._rebuild_leaderboard()
+
+        # 5. create checkpoint if interval elapsed
+        self._maybe_checkpoint(now)
+
         return True
 
     async def shutdown(self) -> None:
@@ -630,7 +651,32 @@ class ScoreService:
                 {m: round(w, 3) for m, w in weights.items()},
             )
 
-    # ── 5. leaderboard ──
+    # ── 5. checkpoint ──
+
+    def _maybe_checkpoint(self, now: datetime) -> None:
+        """Create a checkpoint if the checkpoint interval has elapsed."""
+        if self._checkpoint_service is None:
+            return
+
+        if self._last_checkpoint_at is None:
+            # On first run, check if there's an existing checkpoint
+            latest = self._checkpoint_service.checkpoint_repository.get_latest()
+            self._last_checkpoint_at = (
+                latest.period_end if latest else datetime.min.replace(tzinfo=UTC)
+            )
+
+        elapsed = (now - self._last_checkpoint_at).total_seconds()
+        if elapsed < self.checkpoint_interval_seconds:
+            return
+
+        try:
+            checkpoint = self._checkpoint_service.create_checkpoint()
+            if checkpoint is not None:
+                self._last_checkpoint_at = now
+        except Exception as exc:
+            self.logger.exception("Checkpoint creation failed: %s", exc)
+
+    # ── 6. leaderboard ──
 
     def _rebuild_leaderboard(self) -> None:
         models = self.model_repository.fetch_all()
