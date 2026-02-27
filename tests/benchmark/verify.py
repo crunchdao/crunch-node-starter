@@ -1,6 +1,7 @@
 """Milestone verification — checks the workspace independently of the agent.
 
 Each check_* function returns (passed: bool, details: str).
+The workspace is the root scaffold directory (contains node/, challenge/, Makefile).
 """
 
 from __future__ import annotations
@@ -39,6 +40,11 @@ def _load_module_from_file(path: str, module_name: str) -> types.ModuleType:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _node_dir(workspace: str) -> str:
+    """Return the node/ subdirectory path."""
+    return os.path.join(workspace, "node")
 
 
 # --- M1: Types correct ---
@@ -193,7 +199,7 @@ def check_examples(workspace: str) -> tuple[bool, str]:
 
 
 def check_tests(workspace: str) -> tuple[bool, str]:
-    """Run make test and check exit code."""
+    """Run make test (from workspace root, proxies to challenge/)."""
     try:
         result = _run("make test", cwd=workspace, timeout=120)
     except subprocess.TimeoutExpired:
@@ -212,11 +218,17 @@ def check_tests(workspace: str) -> tuple[bool, str]:
 
 
 def check_deploy(workspace: str) -> tuple[bool, str]:
-    """Check docker containers are running."""
+    """Check docker containers are running (docker-compose is in node/)."""
+    node = _node_dir(workspace)
+    env_file = os.path.join(node, ".local.env")
+
+    if not os.path.exists(env_file):
+        return False, f".local.env not found at {env_file}"
+
     try:
         result = _run(
             "docker compose -f docker-compose.yml --env-file .local.env ps --format json",
-            cwd=workspace,
+            cwd=node,
             timeout=30,
         )
     except subprocess.TimeoutExpired:
@@ -264,12 +276,79 @@ def check_deploy(workspace: str) -> tuple[bool, str]:
 # --- M6: E2E verified ---
 
 
-def check_e2e(workspace: str) -> tuple[bool, str]:
-    """Run make verify-e2e and check exit code."""
+def _ensure_deploy(workspace: str) -> tuple[bool, str]:
+    """Ensure containers are running. Skips if already healthy.
+
+    First checks if key services are already up (agent may have deployed).
+    Only runs `docker compose up -d` if not enough containers are found.
+    """
+    node = _node_dir(workspace)
+    env_file = os.path.join(node, ".local.env")
+    compose_file = os.path.join(node, "docker-compose.yml")
+
+    if not os.path.exists(env_file) or not os.path.exists(compose_file):
+        return False, "missing .local.env or docker-compose.yml"
+
+    # Check if containers are already running
     try:
-        result = _run("make verify-e2e", cwd=workspace, timeout=300)
+        ps_result = _run(
+            "docker compose -f docker-compose.yml --env-file .local.env ps -q",
+            cwd=node,
+            timeout=15,
+        )
+        running_count = len(
+            [
+                line
+                for line in (ps_result.stdout or "").strip().splitlines()
+                if line.strip()
+            ]
+        )
+        if running_count >= 4:
+            return True, f"already running ({running_count} containers)"
+    except (subprocess.TimeoutExpired, Exception):
+        pass
+
+    # Not enough containers — try to bring them up
+    try:
+        result = _run(
+            "docker compose -f docker-compose.yml --env-file .local.env up -d",
+            cwd=node,
+            timeout=180,
+        )
     except subprocess.TimeoutExpired:
-        return False, "make verify-e2e timed out (300s)"
+        return False, "docker compose up timed out"
+
+    if result.returncode != 0:
+        stderr = (result.stderr or "")[-200:]
+        return False, f"docker compose up failed: {stderr}"
+    return True, "containers started"
+
+
+def check_e2e(workspace: str) -> tuple[bool, str]:
+    """Run make verify-e2e (from workspace root, proxies to node/).
+
+    If the agent was killed mid-deploy, attempts to complete deployment first.
+    Uses a generous timeout — the pipeline needs time to bootstrap
+    (build models, start feeds, accumulate predictions, score them).
+    """
+    # Ensure deployment is complete before verifying
+    deploy_ok, deploy_detail = _ensure_deploy(workspace)
+    if not deploy_ok:
+        return False, f"could not complete deploy: {deploy_detail}"
+
+    env = {**os.environ, "E2E_VERIFY_TIMEOUT_SECONDS": "300"}
+    try:
+        result = subprocess.run(
+            "make verify-e2e",
+            shell=True,
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=360,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        return False, "make verify-e2e timed out (360s)"
 
     output = (result.stdout or "") + "\n" + (result.stderr or "")
 

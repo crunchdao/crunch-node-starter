@@ -35,8 +35,39 @@ def _iso_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _teardown_existing(workspace: str) -> None:
+    """Tear down any running containers from a previous workspace."""
+    node_dir = os.path.join(workspace, "node")
+    env_file = os.path.join(node_dir, ".local.env")
+    if os.path.exists(env_file) and os.path.exists(
+        os.path.join(node_dir, "docker-compose.yml")
+    ):
+        print(f"[benchmark] Tearing down containers in {node_dir}...")
+        try:
+            subprocess.run(
+                "docker compose -f docker-compose.yml --env-file .local.env down -v --remove-orphans",
+                shell=True,
+                cwd=node_dir,
+                capture_output=True,
+                timeout=120,
+            )
+        except subprocess.TimeoutExpired:
+            print("[benchmark] Warning: teardown timed out, continuing anyway")
+
+
+def _ignore_patterns(directory: str, contents: list[str]) -> set[str]:
+    """Ignore .venv, __pycache__, .pyc files when copying scaffold."""
+    ignored = set()
+    for item in contents:
+        if item in (".venv", "__pycache__", ".pytest_cache", ".ruff_cache"):
+            ignored.add(item)
+        elif item.endswith(".pyc"):
+            ignored.add(item)
+    return ignored
+
+
 def setup_workspace(repo_root: str, target: str | None = None) -> str:
-    """Copy scaffold/ to a fresh temp directory."""
+    """Copy scaffold/ to a fresh temp directory (excluding venvs and caches)."""
     scaffold_src = os.path.join(repo_root, "scaffold")
     if not os.path.isdir(scaffold_src):
         raise FileNotFoundError(f"scaffold/ not found at {scaffold_src}")
@@ -44,13 +75,42 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
     if target:
         workspace = target
         if os.path.exists(workspace):
+            _teardown_existing(workspace)
             shutil.rmtree(workspace)
     else:
         workspace = tempfile.mkdtemp(prefix="benchmark-scaffold-")
 
-    shutil.copytree(scaffold_src, workspace, dirs_exist_ok=True)
+    shutil.copytree(
+        scaffold_src, workspace, ignore=_ignore_patterns, dirs_exist_ok=True
+    )
     print(f"[benchmark] Workspace: {workspace}")
     return workspace
+
+
+AGENT_CONFIGS = {
+    "pi": {
+        "cmd": "pi -p --no-session @BENCHMARK_SPEC.md",
+        "needs_prompt_arg": False,
+    },
+    "claude": {
+        "cmd": "claude -p --dangerously-skip-permissions --verbose",
+        "needs_prompt_arg": True,
+    },
+}
+
+
+def _build_agent_command(agent_cmd: str) -> tuple[str, bool]:
+    """Return (shell_command_template, needs_prompt_as_arg).
+
+    Known agents get optimized flags. Unknown agents get a generic invocation.
+    """
+    # Check if it's a known agent
+    for name, config in AGENT_CONFIGS.items():
+        if name in agent_cmd.lower():
+            return config["cmd"], config["needs_prompt_arg"]
+
+    # Unknown agent — assume it accepts a prompt as argument
+    return agent_cmd, True
 
 
 def invoke_agent(
@@ -69,9 +129,16 @@ def invoke_agent(
     with open(prompt_file, "w") as f:
         f.write(prompt)
 
-    # Build the command — pass the prompt via stdin or as argument
-    # Most agent CLIs accept a quoted prompt as argument
-    full_cmd = f'{agent_cmd} "Read BENCHMARK_SPEC.md and follow all instructions in it. Do not ask questions — execute everything."'
+    cmd_template, needs_prompt_arg = _build_agent_command(agent_cmd)
+
+    if needs_prompt_arg:
+        full_cmd = (
+            f'{cmd_template} "Read BENCHMARK_SPEC.md and follow all instructions '
+            f'in it. Do not ask questions — execute everything."'
+        )
+    else:
+        # Agent reads the file directly (e.g., pi -p @BENCHMARK_SPEC.md)
+        full_cmd = cmd_template
 
     print(f"[benchmark] Running: {full_cmd}")
     print(f"[benchmark] Timeout: {timeout}s")
@@ -80,20 +147,23 @@ def invoke_agent(
     start = time.time()
     timed_out = False
 
-    with open(log_path, "w") as log_file:
-        try:
-            result = subprocess.run(
-                full_cmd,
-                shell=True,
-                cwd=workspace,
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                timeout=timeout,
-            )
-            exit_code = result.returncode
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            exit_code = -1
+    # Redirect stdout/stderr to log file. Note: agent output may be
+    # empty if the agent is killed before completing (pi -p buffers
+    # all output until the end).
+    logged_cmd = f'{{ {full_cmd} ; }} > "{log_path}" 2>&1'
+
+    try:
+        proc = subprocess.Popen(
+            logged_cmd,
+            shell=True,
+            cwd=workspace,
+        )
+        exit_code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        timed_out = True
+        exit_code = -1
 
     duration = time.time() - start
     print(
@@ -111,6 +181,7 @@ def record_result(
     timed_out: bool,
     milestones: dict,
     log_path: str,
+    workspace: str = "",
 ) -> str:
     """Write result JSON and return the file path."""
     passed = sum(1 for m in milestones.values() if m.get("passed"))
@@ -126,6 +197,7 @@ def record_result(
         "milestones": milestones,
         "milestone_count": f"{passed}/{total}",
         "agent_log_file": os.path.basename(log_path),
+        "workspace": workspace,
     }
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -189,6 +261,10 @@ def main() -> int:
         duration = 0.0
         timed_out = False
     else:
+        # Tear down any existing scaffold containers to free ports
+        existing_scaffold = os.path.join(repo_root, "scaffold")
+        _teardown_existing(existing_scaffold)
+
         # Full run
         workspace = setup_workspace(repo_root, args.workspace)
         exit_code, duration, timed_out = invoke_agent(
@@ -202,9 +278,22 @@ def main() -> int:
 
     # Record
     print()
-    record_result(
-        ts, args.agent_cmd, exit_code, duration, timed_out, milestones, log_path
+    result_path = record_result(
+        ts,
+        args.agent_cmd,
+        exit_code,
+        duration,
+        timed_out,
+        milestones,
+        log_path,
+        workspace=workspace,
     )
+
+    # Cleanup containers after verification
+    if not args.verify_only:
+        print()
+        print("[benchmark] Cleaning up containers...")
+        _teardown_existing(workspace)
 
     # Compare with previous
     print()
