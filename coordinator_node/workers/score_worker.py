@@ -7,6 +7,7 @@ from coordinator_node.config.extensions import ExtensionSettings
 from coordinator_node.config.runtime import RuntimeSettings
 from coordinator_node.config_loader import load_config
 from coordinator_node.db import (
+    DBCheckpointRepository,
     DBInputRepository,
     DBLeaderboardRepository,
     DBMerkleCycleRepository,
@@ -57,6 +58,7 @@ def build_service() -> ScoreService:
         snapshot_repository=DBSnapshotRepository(session),
         model_repository=DBModelRepository(session),
         leaderboard_repository=DBLeaderboardRepository(session),
+        checkpoint_repository=DBCheckpointRepository(session),
         merkle_cycle_repository=DBMerkleCycleRepository(session),
         merkle_node_repository=DBMerkleNodeRepository(session),
         contract=contract,
