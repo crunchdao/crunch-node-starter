@@ -41,16 +41,17 @@ All unit tests green. Scoring `xfail` markers removed. Examples updated to match
 ```bash
 make deploy
 make verify-e2e
+make report
 ```
-Then check manually:
-- **Logs:** `make logs` — no errors or tracebacks in any worker. Check that models are running, predicting and are being scored
-- **API:** `curl localhost:8000/reports/leaderboard` — scores are non-zero and models are ranked differently
-- **API:** `curl localhost:8000/reports/predictions` — predictions exist and are being scored
-- **UI:** open `localhost:3000` — pages render (Leaderboard, Models, Logs, Metrics), data matches what the API shows. 
+`make report` generates `node/report.md` — containers, all API responses, per-model score analysis, docker log errors, and UI status in one file. Read it and verify:
+- Scores are non-zero and differentiated across models
+- Predictions are flowing and being scored
+- No errors in docker logs
+- UI is reachable
 
-Choose a meaningful timeframe to let the system run (depends on how long it takes for models to be scored) and check in on all of the above to verify that it is running, no errors are reported, the values make sense. 
+Choose a meaningful timeframe to let the system run (depends on how long it takes for models to be scored). Re-run `make report` periodically to check that values are stable and make sense.
 
-Log anything that doesn't look right and give this information to the user. 
+Log anything that doesn't look right and give this information to the user.
 
 ### 7. Fix loop
 If anything is wrong:
@@ -72,6 +73,7 @@ If anything is wrong:
 | `make down` | Tear down containers |
 | `make reset-db` | Reset database (destructive) |
 | `make backfill` | Backfill historical feed data |
+| `make report` | Generate `node/report.md` — full system snapshot for review |
 
 ## Where to Edit
 
@@ -81,9 +83,9 @@ If anything is wrong:
 | Feed source, subjects, timing | `node/.local.env` |
 | Custom API endpoints | `node/api/` (auto-discovered) |
 | Node-side extensions | `node/extensions/` |
-| Model interface | `challenge/starter_challenge/tracker.py` |
-| Scoring function | `challenge/starter_challenge/scoring.py` |
-| Example models | `challenge/starter_challenge/examples/` |
+| Model interface | `challenge/***/tracker.py` |
+| Scoring function | `challenge/***/scoring.py` |
+| Example models | `challenge/***/examples/` |
 | Docker / deployment | `node/deployment/` |
 
 ## Done Criteria
@@ -91,9 +93,7 @@ If anything is wrong:
 Do not declare done until:
 - [ ] `make test` passes
 - [ ] `make verify-e2e` passes — models registered, scores non-zero, leaderboard populated
-- [ ] `make logs` shows no errors in any worker
-- [ ] API returns correct, fresh data
-- [ ] UI loads and shows data consistent with API
+- [ ] `make report` reviewed — scores differentiated, no log errors, UI reachable (re-run over time to confirm stability)
 - [ ] Documentation written (below)
 
 ### Documentation Output
@@ -109,4 +109,3 @@ Produce before declaring done:
 - [Implementation Guide](.agent/guide.md) — how to build each component
 - [Architecture](.agent/context.md) — pipeline, workers, CrunchConfig, API, gotchas
 - [Policy](.agent/policy.md) — approval gates, allowed operations
-- [Production Deploy](.agent/release.md) — when going to mainnet
