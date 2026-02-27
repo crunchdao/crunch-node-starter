@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -18,12 +19,19 @@ from coordinator_node.feeds.contracts import (
 )
 from coordinator_node.feeds.registry import FeedSettings
 
+_logger = logging.getLogger(__name__)
+
 _PYTH_HERMES = "https://hermes.pyth.network"
 
 _DEFAULT_FEED_IDS = {
     "BTC": "0xe62df6c8b4a85fe1cc8b337a5f8854d9c1f5f59e4cb4ce8b063a492f6ed5b5b6",
     "ETH": "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
 }
+
+# Maximum consecutive errors before raising in polling loops
+_MAX_CONSECUTIVE_ERRORS = 10
+_INITIAL_BACKOFF_SECONDS = 1.0
+_MAX_BACKOFF_SECONDS = 60.0
 
 
 @dataclass
@@ -39,8 +47,13 @@ class PythHermesClient:
         )
         response.raise_for_status()
         payload = response.json()
-        parsed = payload.get("parsed") if isinstance(payload, dict) else []
-        return parsed if isinstance(parsed, list) else []
+        parsed = payload.get("parsed") if isinstance(payload, dict) else None
+        if not isinstance(parsed, list):
+            raise TypeError(
+                f"Unexpected Pyth latest_prices response: expected dict with 'parsed' list, "
+                f"got {type(payload).__name__}."
+            )
+        return parsed
 
     def price_feeds(self) -> list[dict[str, Any]]:
         response = requests.get(
@@ -49,7 +62,12 @@ class PythHermesClient:
         )
         response.raise_for_status()
         payload = response.json()
-        return payload if isinstance(payload, list) else []
+        if not isinstance(payload, list):
+            raise TypeError(
+                f"Unexpected Pyth price_feeds response: expected list, "
+                f"got {type(payload).__name__}."
+            )
+        return payload
 
 
 class _PollingFeedHandle:
@@ -72,64 +90,46 @@ class PythFeed(DataFeed):
             timeout_seconds=float(settings.options.get("timeout_seconds", "8")),
         )
         self.poll_seconds = float(settings.options.get("poll_seconds", "5"))
-        self._fallback_price: dict[str, float] = {}
-        self._fallback_tick: int = 0
-
-    def _fallback_point(self, asset: str, target_ts: int | None) -> tuple[float, int]:
-        base = self._fallback_price.get(asset, 45_000.0)
-        self._fallback_tick += 1
-        drift = float(((self._fallback_tick % 9) - 4) * 2.5)
-        updated = max(1_000.0, base + drift)
-        self._fallback_price[asset] = updated
-        ts_event = int(target_ts or datetime.now(UTC).timestamp())
-        return updated, ts_event
 
     async def list_subjects(self) -> Sequence[SubjectDescriptor]:
         feed_map = _load_feed_map(self.settings)
 
-        try:
-            rows = await asyncio.to_thread(self.client.price_feeds)
-        except Exception:
-            rows = []
+        rows = await asyncio.to_thread(self.client.price_feeds)
 
         descriptors: list[SubjectDescriptor] = []
-        if isinstance(rows, list):
-            for row in rows:
-                if not isinstance(row, dict):
-                    continue
-                symbol = _normalize_symbol(row)
-                if not symbol:
-                    continue
-                feed_id = row.get("id")
-                descriptors.append(
-                    SubjectDescriptor(
-                        symbol=symbol,
-                        display_name=symbol,
-                        kinds=("tick", "candle"),
-                        granularities=("1s", "1m", "5m"),
-                        source="pyth",
-                        metadata={"feed_id": feed_id},
-                    )
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            symbol = _normalize_symbol(row)
+            if not symbol:
+                continue
+            feed_id = row.get("id")
+            descriptors.append(
+                SubjectDescriptor(
+                    symbol=symbol,
+                    display_name=symbol,
+                    kinds=("tick", "candle"),
+                    granularities=("1s", "1m", "5m"),
+                    source="pyth",
+                    metadata={"feed_id": feed_id},
                 )
-
-        if descriptors:
-            return descriptors
-
-        return [
-            SubjectDescriptor(
-                symbol=symbol,
-                display_name=symbol,
-                kinds=("tick", "candle"),
-                granularities=("1s", "1m", "5m"),
-                source="pyth",
-                metadata={"feed_id": feed_id, "fallback": True},
             )
-            for symbol, feed_id in sorted(feed_map.items())
-        ]
+
+        if not descriptors:
+            raise RuntimeError(
+                "Pyth price_feeds returned no usable subjects. "
+                "The Hermes API may be down or returning unexpected data. "
+                f"Configured feed_map has {len(feed_map)} entries."
+            )
+
+        return descriptors
 
     async def listen(self, sub: FeedSubscription, sink: FeedSink) -> FeedHandle:
         async def _loop() -> None:
             watermark: dict[str, int] = {}
+            consecutive_errors = 0
+            backoff = _INITIAL_BACKOFF_SECONDS
+
             while True:
                 try:
                     now_ts = int(datetime.now(UTC).timestamp())
@@ -147,10 +147,30 @@ class PythFeed(DataFeed):
                             continue
                         watermark[record.subject] = record.ts_event
                         await sink.on_record(record)
+
+                    # Reset error state on success
+                    consecutive_errors = 0
+                    backoff = _INITIAL_BACKOFF_SECONDS
+
                 except asyncio.CancelledError:
                     raise
-                except Exception:
-                    pass
+                except Exception as exc:
+                    consecutive_errors += 1
+                    if consecutive_errors >= _MAX_CONSECUTIVE_ERRORS:
+                        raise RuntimeError(
+                            f"Pyth feed polling failed {consecutive_errors} "
+                            f"consecutive times, last error: {exc}"
+                        ) from exc
+                    _logger.warning(
+                        "Pyth feed polling error (%d/%d): %s — retrying in %.1fs",
+                        consecutive_errors,
+                        _MAX_CONSECUTIVE_ERRORS,
+                        exc,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
+                    continue
 
                 await asyncio.sleep(max(0.5, self.poll_seconds))
 
@@ -161,14 +181,16 @@ class PythFeed(DataFeed):
         feed_map = _load_feed_map(self.settings)
         requested_assets = [asset for asset in req.subjects if asset in feed_map]
         if not requested_assets:
-            return []
+            missing = [a for a in req.subjects if a not in feed_map]
+            raise ValueError(
+                f"No Pyth feed IDs configured for requested subjects: {missing}. "
+                f"Available subjects: {sorted(feed_map.keys())}. "
+                f"Add mappings via FEED_OPT_feed_id_<SYMBOL>=<hex_id>."
+            )
 
         feed_ids = [feed_map[asset] for asset in requested_assets]
 
-        try:
-            rows = await asyncio.to_thread(self.client.latest_prices, feed_ids)
-        except Exception:
-            rows = []
+        rows = await asyncio.to_thread(self.client.latest_prices, feed_ids)
 
         by_feed_id: dict[str, dict[str, Any]] = {}
         for row in rows:
@@ -181,28 +203,37 @@ class PythFeed(DataFeed):
             feed_id = feed_map[asset]
             parsed = by_feed_id.get(feed_id.lower())
 
-            value: float | None = None
-            ts_event: int = int(req.end_ts or datetime.now(UTC).timestamp())
+            if parsed is None:
+                _logger.warning(
+                    "Pyth returned no price data for %s (feed_id=%s). "
+                    "The feed ID may be invalid or the asset may be temporarily "
+                    "unavailable on Pyth. Skipping this subject.",
+                    asset,
+                    feed_id,
+                )
+                continue
 
-            if parsed:
-                price = parsed.get("price") if isinstance(parsed, dict) else None
-                if isinstance(price, dict):
-                    try:
-                        raw_price = int(price.get("price", 0))
-                        expo = int(price.get("expo", 0))
-                        publish_time = int(
-                            price.get(
-                                "publish_time",
-                                req.end_ts or datetime.now(UTC).timestamp(),
-                            )
-                        )
-                        value = float(raw_price) * (10**expo)
-                        ts_event = int(publish_time)
-                    except Exception:
-                        value = None
+            price = parsed.get("price") if isinstance(parsed, dict) else None
+            if not isinstance(price, dict):
+                _logger.warning(
+                    "Pyth price data for %s has unexpected format: "
+                    "missing or non-dict 'price' field (got %s). "
+                    "Skipping this subject.",
+                    asset,
+                    type(price).__name__,
+                )
+                continue
 
-            if value is None:
-                value, ts_event = self._fallback_point(asset, req.end_ts)
+            raw_price = int(price["price"])
+            expo = int(price["expo"])
+            publish_time = int(
+                price.get(
+                    "publish_time",
+                    req.end_ts or datetime.now(UTC).timestamp(),
+                )
+            )
+            value = float(raw_price) * (10**expo)
+            ts_event = int(publish_time)
 
             if req.start_ts is not None and ts_event < req.start_ts:
                 continue

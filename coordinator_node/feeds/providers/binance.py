@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 import requests
 
@@ -24,15 +25,39 @@ except (
 ):  # pragma: no cover - keep runtime resilient when dependency is missing
     BinanceSDKClient = None
 
+_logger = logging.getLogger(__name__)
 
 _BINANCE_API = "https://api.binance.com"
+
+# Maximum consecutive errors before raising in polling loops
+_MAX_CONSECUTIVE_ERRORS = 10
+_INITIAL_BACKOFF_SECONDS = 1.0
+_MAX_BACKOFF_SECONDS = 60.0
+
+
+@runtime_checkable
+class BinanceSDK(Protocol):
+    """Typed interface for the subset of python-binance's Client we use.
+
+    python-binance does not ship type stubs (returns bare ``Dict`` / ``**params``).
+    This protocol pins down the exact methods and signatures we rely on so that
+    ``sdk_client`` is not ``Any``.
+    """
+
+    def get_exchange_info(self) -> dict[str, Any]: ...
+
+    def get_klines(self, **params: Any) -> list[list[Any]]: ...
+
+    def get_symbol_ticker(
+        self, **params: Any
+    ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 @dataclass
 class BinanceRestClient:
     base_url: str = _BINANCE_API
     timeout_seconds: float = 8.0
-    sdk_client: Any | None = None
+    sdk_client: BinanceSDK | None = field(default=None)
 
     def __post_init__(self) -> None:
         if self.sdk_client is None:
@@ -43,7 +68,12 @@ class BinanceRestClient:
     def exchange_info(self) -> dict[str, Any]:
         if self.sdk_client is not None:
             payload = self.sdk_client.get_exchange_info()
-            return payload if isinstance(payload, dict) else {}
+            if not isinstance(payload, dict):
+                raise TypeError(
+                    f"Unexpected exchange_info payload type from Binance SDK: "
+                    f"{type(payload).__name__}. Expected dict."
+                )
+            return payload
 
         response = requests.get(
             f"{self.base_url}/api/v3/exchangeInfo",
@@ -74,7 +104,12 @@ class BinanceRestClient:
 
         if self.sdk_client is not None:
             payload = self.sdk_client.get_klines(**params)
-            return payload if isinstance(payload, list) else []
+            if not isinstance(payload, list):
+                raise TypeError(
+                    f"Unexpected klines payload type from Binance SDK: "
+                    f"{type(payload).__name__}. Expected list."
+                )
+            return payload
 
         response = requests.get(
             f"{self.base_url}/api/v3/klines",
@@ -83,7 +118,12 @@ class BinanceRestClient:
         )
         response.raise_for_status()
         payload = response.json()
-        return payload if isinstance(payload, list) else []
+        if not isinstance(payload, list):
+            raise TypeError(
+                f"Unexpected klines response type from Binance API: "
+                f"{type(payload).__name__}. Expected list."
+            )
+        return payload
 
     def depth(self, symbol: str, limit: int = 10) -> dict[str, Any]:
         """Fetch order book depth snapshot (spot).
@@ -133,7 +173,10 @@ class BinanceRestClient:
                 return float(payload["price"])
             if isinstance(payload, list) and payload and isinstance(payload[0], dict):
                 return float(payload[0]["price"])
-            raise ValueError("Unexpected ticker payload from Binance SDK client")
+            raise ValueError(
+                f"Unexpected ticker payload from Binance SDK client: "
+                f"{type(payload).__name__}"
+            )
 
         response = requests.get(
             f"{self.base_url}/api/v3/ticker/price",
@@ -157,11 +200,6 @@ class _PollingFeedHandle:
             pass
 
 
-import logging as _logging
-
-_logger = _logging.getLogger(__name__)
-
-
 class BinanceFeed(DataFeed):
     def __init__(self, settings: FeedSettings, client: BinanceRestClient | None = None):
         self.settings = settings
@@ -169,25 +207,19 @@ class BinanceFeed(DataFeed):
         self.poll_seconds = float(settings.options.get("poll_seconds", "5"))
 
     async def list_subjects(self) -> Sequence[SubjectDescriptor]:
-        try:
-            payload = await asyncio.to_thread(self.client.exchange_info)
-            symbols = payload.get("symbols") if isinstance(payload, dict) else []
-            if not isinstance(symbols, list):
-                symbols = []
-        except Exception:
-            symbols = []
+        payload = await asyncio.to_thread(self.client.exchange_info)
+        symbols = payload.get("symbols") if isinstance(payload, dict) else None
+        if not isinstance(symbols, list):
+            raise RuntimeError(
+                "Binance exchange_info response missing 'symbols' list. "
+                "API may be down or returning unexpected format."
+            )
 
         if not symbols:
-            return [
-                SubjectDescriptor(
-                    symbol="BTCUSDT",
-                    display_name="BTC / USDT",
-                    kinds=("tick", "candle"),
-                    granularities=("1m", "5m", "15m", "1h"),
-                    source="binance",
-                    metadata={"fallback": True},
-                )
-            ]
+            raise RuntimeError(
+                "Binance exchange_info returned empty symbols list. "
+                "API may be experiencing issues."
+            )
 
         descriptors: list[SubjectDescriptor] = []
         for row in symbols[:500]:
@@ -216,6 +248,9 @@ class BinanceFeed(DataFeed):
     async def listen(self, sub: FeedSubscription, sink: FeedSink) -> FeedHandle:
         async def _loop() -> None:
             watermark: dict[str, int] = {}
+            consecutive_errors = 0
+            backoff = _INITIAL_BACKOFF_SECONDS
+
             while True:
                 try:
                     now_ts = int(datetime.now(UTC).timestamp())
@@ -233,10 +268,30 @@ class BinanceFeed(DataFeed):
                             continue
                         watermark[record.subject] = record.ts_event
                         await sink.on_record(record)
+
+                    # Reset error state on success
+                    consecutive_errors = 0
+                    backoff = _INITIAL_BACKOFF_SECONDS
+
                 except asyncio.CancelledError:
                     raise
-                except Exception:
-                    pass
+                except Exception as exc:
+                    consecutive_errors += 1
+                    if consecutive_errors >= _MAX_CONSECUTIVE_ERRORS:
+                        raise RuntimeError(
+                            f"Binance feed polling failed {consecutive_errors} "
+                            f"consecutive times, last error: {exc}"
+                        ) from exc
+                    _logger.warning(
+                        "Binance feed polling error (%d/%d): %s — retrying in %.1fs",
+                        consecutive_errors,
+                        _MAX_CONSECUTIVE_ERRORS,
+                        exc,
+                        backoff,
+                    )
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, _MAX_BACKOFF_SECONDS)
+                    continue
 
                 await asyncio.sleep(max(0.5, self.poll_seconds))
 
@@ -283,30 +338,37 @@ class BinanceFeed(DataFeed):
                     end_ms=end_ms,
                     limit=limit,
                 )
-            except Exception:
-                rows = []
+            except Exception as exc:
+                _logger.warning(
+                    "Binance klines fetch failed for %s: %s. "
+                    "Symbol may be invalid or delisted. Skipping.",
+                    asset,
+                    exc,
+                )
+                continue
 
             for row in rows:
                 if not isinstance(row, list) or len(row) < 6:
-                    continue
-                try:
-                    ts_event = int(row[0]) // 1000
-                    record = FeedDataRecord(
-                        subject=asset,
-                        kind="candle",
-                        granularity=req.granularity,
-                        ts_event=ts_event,
-                        values={
-                            "open": float(row[1]),
-                            "high": float(row[2]),
-                            "low": float(row[3]),
-                            "close": float(row[4]),
-                            "volume": float(row[5]),
-                        },
-                        source="binance",
+                    raise ValueError(
+                        f"Binance kline row for {asset} has unexpected format: "
+                        f"expected list with ≥6 elements, got {type(row).__name__} "
+                        f"with {len(row) if isinstance(row, list) else 'N/A'} elements"
                     )
-                except Exception:
-                    continue
+                ts_event = int(row[0]) // 1000
+                record = FeedDataRecord(
+                    subject=asset,
+                    kind="candle",
+                    granularity=req.granularity,
+                    ts_event=ts_event,
+                    values={
+                        "open": float(row[1]),
+                        "high": float(row[2]),
+                        "low": float(row[3]),
+                        "close": float(row[4]),
+                        "volume": float(row[5]),
+                    },
+                    source="binance",
+                )
                 records.append(record)
 
         return records
@@ -323,7 +385,12 @@ class BinanceFeed(DataFeed):
                     self.client.depth, asset, limit=depth_limit
                 )
             except Exception as exc:
-                _logger.warning("depth fetch failed for %s: %s", asset, exc)
+                _logger.warning(
+                    "Binance depth fetch failed for %s: %s. "
+                    "Symbol may be invalid or not available. Skipping.",
+                    asset,
+                    exc,
+                )
                 continue
 
             bids = data.get("bids", [])
@@ -382,10 +449,20 @@ class BinanceFeed(DataFeed):
             try:
                 mark_data = await asyncio.to_thread(self.client.mark_price, asset)
             except Exception as exc:
-                _logger.warning("funding/mark fetch failed for %s: %s", asset, exc)
+                _logger.warning(
+                    "Binance mark_price fetch failed for %s: %s. "
+                    "Symbol may not be listed on Binance Futures. Skipping.",
+                    asset,
+                    exc,
+                )
                 continue
 
             if not isinstance(mark_data, dict):
+                _logger.warning(
+                    "Unexpected mark_price response for %s: %s. Expected dict. Skipping.",
+                    asset,
+                    type(mark_data).__name__,
+                )
                 continue
 
             funding_rate = float(mark_data.get("lastFundingRate", 0.0))
@@ -422,7 +499,13 @@ class BinanceFeed(DataFeed):
         for asset in req.subjects:
             try:
                 price = await asyncio.to_thread(self.client.ticker_price, asset)
-            except Exception:
+            except Exception as exc:
+                _logger.warning(
+                    "Binance ticker_price fetch failed for %s: %s. "
+                    "Symbol may be invalid or delisted. Skipping.",
+                    asset,
+                    exc,
+                )
                 continue
 
             records.append(
@@ -443,8 +526,12 @@ def build_binance_feed(settings: FeedSettings) -> BinanceFeed:
     return BinanceFeed(settings)
 
 
-def _build_default_sdk_client(*, timeout_seconds: float) -> Any | None:
+def _build_default_sdk_client(*, timeout_seconds: float) -> BinanceSDK | None:
     if BinanceSDKClient is None:
+        _logger.info(
+            "python-binance SDK not installed — using direct REST API calls. "
+            "Install with: pip install python-binance"
+        )
         return None
 
     try:
@@ -454,7 +541,12 @@ def _build_default_sdk_client(*, timeout_seconds: float) -> Any | None:
             requests_params={"timeout": timeout_seconds},
             ping=False,
         )
-    except Exception:
+    except Exception as exc:
+        _logger.warning(
+            "Failed to initialize Binance SDK client: %s — "
+            "falling back to direct REST API calls.",
+            exc,
+        )
         return None
 
 
