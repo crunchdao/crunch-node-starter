@@ -224,6 +224,16 @@ class PythFeed(DataFeed):
                 )
                 continue
 
+            missing_keys = [k for k in ("price", "expo") if k not in price]
+            if missing_keys:
+                _logger.warning(
+                    "Pyth price data for %s missing required field(s): %s. "
+                    "Skipping this subject.",
+                    asset,
+                    ", ".join(missing_keys),
+                )
+                continue
+
             raw_price = int(price["price"])
             expo = int(price["expo"])
             publish_time = int(

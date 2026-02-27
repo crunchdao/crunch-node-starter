@@ -349,11 +349,15 @@ class BinanceFeed(DataFeed):
 
             for row in rows:
                 if not isinstance(row, list) or len(row) < 6:
-                    raise ValueError(
-                        f"Binance kline row for {asset} has unexpected format: "
-                        f"expected list with ≥6 elements, got {type(row).__name__} "
-                        f"with {len(row) if isinstance(row, list) else 'N/A'} elements"
+                    _logger.warning(
+                        "Binance kline row for %s has unexpected format: "
+                        "expected list with ≥6 elements, got %s "
+                        "with %s elements. Skipping row.",
+                        asset,
+                        type(row).__name__,
+                        len(row) if isinstance(row, list) else "N/A",
                     )
+                    continue
                 ts_event = int(row[0]) // 1000
                 record = FeedDataRecord(
                     subject=asset,
