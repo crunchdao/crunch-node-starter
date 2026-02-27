@@ -12,6 +12,7 @@ def __getattr__(name: str):
             MongoDBFeed,
             build_mongodb_feed,
         )
+
         _lazy = {"MongoDBFeed": MongoDBFeed, "build_mongodb_feed": build_mongodb_feed}
         # Cache on the module so __getattr__ is only called once
         globals().update(_lazy)

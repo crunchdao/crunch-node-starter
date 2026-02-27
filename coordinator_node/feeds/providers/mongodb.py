@@ -66,19 +66,23 @@ _MAX_BACKOFF_SECONDS = 60.0
 
 # MongoDB error codes that mean "change streams are not supported on this deployment".
 # These are permanent — retrying will never help, the user must switch to poll mode.
-_CHANGE_STREAM_UNSUPPORTED_CODES = frozenset({
-    40573,  # "$changeStream only supported on replica sets" (standalone MongoDB)
-    40324,  # "Unrecognized pipeline stage '$changeStream'" (old MongoDB, FerretDB)
-    303,    # "Change streams not supported" (AWS DocumentDB)
-    115,    # "Command not supported" (Azure CosmosDB)
-    160,    # "Unknown error" (CosmosDB variant)
-})
+_CHANGE_STREAM_UNSUPPORTED_CODES = frozenset(
+    {
+        40573,  # "$changeStream only supported on replica sets" (standalone MongoDB)
+        40324,  # "Unrecognized pipeline stage '$changeStream'" (old MongoDB, FerretDB)
+        303,  # "Change streams not supported" (AWS DocumentDB)
+        115,  # "Command not supported" (Azure CosmosDB)
+        160,  # "Unknown error" (CosmosDB variant)
+    }
+)
 
 # MongoDB error codes that mean "permission denied" — permanent, user must fix config.
-_AUTH_ERROR_CODES = frozenset({
-    13,     # Unauthorized
-    18,     # AuthenticationFailed
-})
+_AUTH_ERROR_CODES = frozenset(
+    {
+        13,  # Unauthorized
+        18,  # AuthenticationFailed
+    }
+)
 
 # Valid listen_mode values
 _VALID_LISTEN_MODES = ("changestream", "poll")
@@ -194,7 +198,9 @@ def _is_transient_error(exc: Exception) -> bool:
         return True
     if NetworkTimeout is not None and isinstance(exc, NetworkTimeout):
         return True
-    if ServerSelectionTimeoutError is not None and isinstance(exc, ServerSelectionTimeoutError):
+    if ServerSelectionTimeoutError is not None and isinstance(
+        exc, ServerSelectionTimeoutError
+    ):
         return True
     if OperationFailure is not None and isinstance(exc, OperationFailure):
         # Network-level operation failures (e.g. cursor lost) are transient
@@ -367,7 +373,9 @@ class MongoDBFeed(DataFeed):
         _validate_field_name(self._inserted_at_field, "inserted_at_field")
 
         # Validate listen_mode
-        self._listen_mode = _opt(settings, "listen_mode", "changestream").strip().lower()
+        self._listen_mode = (
+            _opt(settings, "listen_mode", "changestream").strip().lower()
+        )
         if self._listen_mode not in _VALID_LISTEN_MODES:
             raise ValueError(
                 f"Invalid FEED_OPT_listen_mode={self._listen_mode!r}. "
@@ -494,7 +502,9 @@ class MongoDBFeed(DataFeed):
                 # thread-safe and must not be used from background threads.
                 # Bounded queue provides backpressure — if the consumer is slow,
                 # the producer thread blocks rather than growing unbounded.
-                doc_queue: queue_mod.Queue[dict[str, Any]] = queue_mod.Queue(maxsize=1000)
+                doc_queue: queue_mod.Queue[dict[str, Any]] = queue_mod.Queue(
+                    maxsize=1000
+                )
 
                 def _watch_and_iterate() -> None:
                     """Blocking loop: watch change stream, push docs to queue.
@@ -634,7 +644,9 @@ class MongoDBFeed(DataFeed):
                     # to avoid zombie threads pushing into orphaned queues.
                     if watch_task is not None and not watch_task.done():
                         try:
-                            await asyncio.wait_for(asyncio.shield(watch_task), timeout=10.0)
+                            await asyncio.wait_for(
+                                asyncio.shield(watch_task), timeout=10.0
+                            )
                         except (TimeoutError, Exception):
                             logger.warning(
                                 "mongodb change stream: old thread did not exit within timeout. "
@@ -730,10 +742,10 @@ class MongoDBFeed(DataFeed):
                 inserted_at_field = self._inserted_at_field
                 current_limit = batch_limit
 
-                def _find(q=dict(query), c=coll, f=inserted_at_field, lim=current_limit):
-                    return list(
-                        c.find(q).sort(f, 1).limit(lim)
-                    )
+                def _find(
+                    q=dict(query), c=coll, f=inserted_at_field, lim=current_limit
+                ):
+                    return list(c.find(q).sort(f, 1).limit(lim))
 
                 docs = await asyncio.to_thread(_find)
 
@@ -1003,11 +1015,7 @@ class MongoDBFeed(DataFeed):
             final_query[self._timestamp_field] = ts_filter
 
         def _query(q=dict(final_query)):
-            return list(
-                coll.find(q)
-                .sort(self._timestamp_field, -1)
-                .limit(limit)
-            )
+            return list(coll.find(q).sort(self._timestamp_field, -1).limit(limit))
 
         docs = await asyncio.to_thread(_query)
 
