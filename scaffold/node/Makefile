@@ -1,6 +1,6 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 
-.PHONY: deploy down logs logs-capture verify-e2e check-models validate preflight report starter platform backfill init-db reset-db
+.PHONY: deploy down logs logs-capture verify-e2e check-models validate preflight starter platform backfill init-db reset-db
 
 # ── Pre-deploy validation (no Docker needed) ─────────────────────────
 validate:
@@ -39,9 +39,6 @@ check-models:
 
 verify-e2e: check-models
 	uv run --with requests python scripts/verify_e2e.py
-
-report:
-	uv run --with requests python scripts/generate_report.py --output report.md
 
 starter:
 	@sed -i.bak 's/^REPORT_UI_APP=.*/REPORT_UI_APP=starter/' .local.env

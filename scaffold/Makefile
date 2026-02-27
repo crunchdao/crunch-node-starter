@@ -1,5 +1,5 @@
 # Workspace-level convenience — proxies to node/
-.PHONY: deploy down logs logs-capture verify-e2e check-models preflight report init-db reset-db starter platform backfill test test-challenge validate
+.PHONY: deploy down logs logs-capture verify-e2e check-models preflight init-db reset-db starter platform backfill test test-challenge validate
 
 deploy:
 	cd node && make deploy
@@ -21,9 +21,6 @@ preflight:
 
 validate:
 	cd node && make validate
-
-report:
-	cd node && make report
 
 check-models:
 	cd node && make check-models
