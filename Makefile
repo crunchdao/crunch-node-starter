@@ -1,6 +1,6 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 
-.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration
+.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify
 
 # ── Code quality ─────────────────────────────────────────────────────
 fmt:
@@ -41,6 +41,19 @@ verify-ui:
 	bash tests/test_e2e_ui_smoke.sh
 
 verify-all: verify verify-ui
+
+# ── Benchmark ─────────────────────────────────────────────────────────
+AGENT_CMD ?= pi
+BENCHMARK_TIMEOUT ?= 900
+
+benchmark:
+	uv run python -m tests.benchmark.run_benchmark --agent-cmd "$(AGENT_CMD)" --timeout $(BENCHMARK_TIMEOUT)
+
+benchmark-compare:
+	uv run python -m tests.benchmark.run_benchmark --compare
+
+benchmark-verify:
+	uv run python -m tests.benchmark.run_benchmark --verify-only $(WORKSPACE)
 
 # Database migrations (Alembic)
 migrate:
