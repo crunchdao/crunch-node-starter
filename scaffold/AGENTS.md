@@ -41,17 +41,16 @@ All unit tests green. Scoring `xfail` markers removed. Examples updated to match
 ```bash
 make deploy
 make verify-e2e
-make report
 ```
-`make report` generates `node/report.md` — containers, all API responses, per-model score analysis, docker log errors, and UI status in one file. Read it and verify:
+Then observe the running system over time. How long depends on the prediction interval and resolve horizon — the system needs enough time to ingest feed data, generate predictions, and score them.
+
+Re-run `make report` periodically to check progress. It generates `node/report.md` — containers, all API responses, per-model score analysis, docker log errors, and UI status. Read it and verify:
 - Scores are non-zero and differentiated across models
 - Predictions are flowing and being scored
 - No errors in docker logs
-- UI is reachable
+- UI is reachable and shows data consistent with the API
 
-Choose a meaningful timeframe to let the system run (depends on how long it takes for models to be scored). Re-run `make report` periodically to check that values are stable and make sense.
-
-Log anything that doesn't look right and give this information to the user.
+Keep monitoring until scores are stable and the leaderboard makes sense. Log anything that doesn't look right and give this information to the user.
 
 ### 7. Fix loop
 If anything is wrong:
@@ -93,7 +92,7 @@ If anything is wrong:
 Do not declare done until:
 - [ ] `make test` passes
 - [ ] `make verify-e2e` passes — models registered, scores non-zero, leaderboard populated
-- [ ] `make report` reviewed — scores differentiated, no log errors, UI reachable (re-run over time to confirm stability)
+- [ ] System observed over time — `make report` re-run periodically, scores stable and differentiated, no log errors, UI consistent with API
 - [ ] Documentation written (below)
 
 ### Documentation Output
