@@ -46,6 +46,7 @@ services:
   init-db:
     <<: *common-build
     container_name: crunch-node-${CRUNCH_ID:-starter}-init-db
+    profiles: [init]
     environment:
       <<: *common-db-env
       PYTHONUNBUFFERED: "1"
@@ -93,8 +94,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
     networks: [backend, external]
 
   predict-worker:
@@ -121,8 +120,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
       feed-data-worker:
         condition: service_started
       model-orchestrator:
@@ -148,8 +145,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
       feed-data-worker:
         condition: service_started
     networks: [backend]
@@ -168,8 +163,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
     networks: [backend]
 
   report-worker:
@@ -188,8 +181,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
     networks: [frontend, backend]
 
   model-orchestrator:
