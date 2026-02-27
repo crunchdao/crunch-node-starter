@@ -18,6 +18,10 @@ These changes require explicit human approval. Do not implement autonomously.
 | Infrastructure | `docker-compose.yml`, `Dockerfile`, production config, CI workflows |
 | Cryptography | Merkle tree logic |
 
+## Defaults
+
+- **Database tables** — all new tables must be PostgreSQL via SQLModel/SQLAlchemy with Alembic migrations. No SQLite, no raw SQL CREATE TABLE, no in-memory stores for persistent data.
+
 ## Allowed Operations
 
 **Commands (run freely):**
