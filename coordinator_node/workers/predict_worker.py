@@ -12,7 +12,10 @@ from coordinator_node.db import (
     create_session,
 )
 from coordinator_node.services.feed_reader import FeedReader
+from coordinator_node.services.predict import PredictService
 from coordinator_node.services.realtime_predict import RealtimePredictService
+
+logger = logging.getLogger(__name__)
 
 
 def configure_logging() -> None:
@@ -23,14 +26,39 @@ def configure_logging() -> None:
     )
 
 
-def build_service() -> RealtimePredictService:
+def _resolve_service_class(config) -> type[PredictService]:
+    """Resolve the predict service class from CrunchConfig.
+
+    Priority:
+      1. ``config.predict_service_class`` (explicit override)
+      2. ``RealtimePredictService`` (default)
+
+    Validates that the resolved class is a PredictService subclass.
+    """
+    cls = getattr(config, "predict_service_class", None)
+
+    if cls is None:
+        return RealtimePredictService
+
+    if not isinstance(cls, type) or not issubclass(cls, PredictService):
+        raise TypeError(
+            f"predict_service_class must be a PredictService subclass, got {cls!r}"
+        )
+
+    return cls
+
+
+def build_service() -> PredictService:
     runtime_settings = RuntimeSettings.from_env()
+    config = load_config()
     session = create_session()
 
-    return RealtimePredictService(
-        checkpoint_interval_seconds=runtime_settings.checkpoint_interval_seconds,
+    service_class = _resolve_service_class(config)
+    logger.info("Using predict service: %s", service_class.__name__)
+
+    kwargs = dict(
         feed_reader=FeedReader.from_env(),
-        contract=load_config(),
+        contract=config,
         input_repository=DBInputRepository(session),
         model_repository=DBModelRepository(session),
         prediction_repository=DBPredictionRepository(session),
@@ -43,10 +71,18 @@ def build_service() -> RealtimePredictService:
         secure_cert_dir=runtime_settings.secure_cert_dir,
     )
 
+    # Pass checkpoint_interval_seconds only if the class accepts it
+    # (RealtimePredictService does, base PredictService does not)
+    if issubclass(service_class, RealtimePredictService):
+        kwargs["checkpoint_interval_seconds"] = (
+            runtime_settings.checkpoint_interval_seconds
+        )
+
+    return service_class(**kwargs)
+
 
 async def main() -> None:
     configure_logging()
-    logger = logging.getLogger(__name__)
     logger.info("predict worker bootstrap")
 
     service = build_service()

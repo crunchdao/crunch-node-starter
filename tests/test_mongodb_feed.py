@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 
 from coordinator_node.feeds.contracts import FeedFetchRequest, FeedSubscription
 from coordinator_node.feeds.providers.mongodb import (
-    MongoDBFeed,
-    _CHANGE_STREAM_UNSUPPORTED_CODES,
     _AUTH_ERROR_CODES,
+    _CHANGE_STREAM_UNSUPPORTED_CODES,
+    MongoDBFeed,
     _doc_to_record,
     _is_transient_error,
     build_mongodb_feed,
@@ -234,13 +234,13 @@ class TestErrorClassification(unittest.TestCase):
         """Verify all expected 'not supported' codes are in the set."""
         assert 40573 in _CHANGE_STREAM_UNSUPPORTED_CODES  # standalone
         assert 40324 in _CHANGE_STREAM_UNSUPPORTED_CODES  # old MongoDB
-        assert 303 in _CHANGE_STREAM_UNSUPPORTED_CODES    # DocumentDB
-        assert 115 in _CHANGE_STREAM_UNSUPPORTED_CODES    # CosmosDB
-        assert 160 in _CHANGE_STREAM_UNSUPPORTED_CODES    # CosmosDB variant
+        assert 303 in _CHANGE_STREAM_UNSUPPORTED_CODES  # DocumentDB
+        assert 115 in _CHANGE_STREAM_UNSUPPORTED_CODES  # CosmosDB
+        assert 160 in _CHANGE_STREAM_UNSUPPORTED_CODES  # CosmosDB variant
 
     def test_auth_codes_are_known(self):
-        assert 13 in _AUTH_ERROR_CODES   # Unauthorized
-        assert 18 in _AUTH_ERROR_CODES   # AuthenticationFailed
+        assert 13 in _AUTH_ERROR_CODES  # Unauthorized
+        assert 18 in _AUTH_ERROR_CODES  # AuthenticationFailed
 
     def test_transient_error_detection(self):
         """OperationFailure with unknown codes should be treated as transient."""
@@ -259,7 +259,9 @@ class TestErrorClassification(unittest.TestCase):
             assert _is_transient_error(OperationFailure("cursor lost", code=999))
 
             # "Not supported" codes are NOT transient
-            assert not _is_transient_error(OperationFailure("no changestream", code=40573))
+            assert not _is_transient_error(
+                OperationFailure("no changestream", code=40573)
+            )
 
             # Auth codes are NOT transient
             assert not _is_transient_error(OperationFailure("unauthorized", code=13))
