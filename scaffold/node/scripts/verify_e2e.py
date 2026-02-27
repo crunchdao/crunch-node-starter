@@ -85,6 +85,77 @@ def check_score_quality(scored: list[dict]) -> tuple[bool, str]:
     return True, "ok"
 
 
+def _print_summary(
+    base_url: str,
+    models: list[dict],
+    scored: list[dict],
+    leaderboard: list[dict],
+    since: datetime,
+) -> None:
+    """Print a detailed summary for agent review."""
+    now = datetime.now(UTC)
+
+    print()
+    print("=" * 70)
+    print("  VERIFICATION SUMMARY")
+    print("=" * 70)
+
+    # Leaderboard
+    print()
+    print("  LEADERBOARD:")
+    print(f"  {'Rank':<6} {'Model':<35} {'Score':<12}")
+    print("  " + "-" * 55)
+    for entry in leaderboard:
+        rank = entry.get("rank", "?")
+        model_id = entry.get("model_id", "?")
+        score_val = entry.get("score_ranking", {}).get("value")
+        score_str = f"{score_val:.6f}" if score_val is not None else "null"
+        print(f"  #{rank:<5} {model_id:<35} {score_str}")
+
+    # Per-model score breakdown
+    by_model: dict[str, list[float]] = {}
+    for p in scored:
+        mid = p.get("model_id", "?")
+        by_model.setdefault(mid, []).append(p["score_value"])
+
+    print()
+    print("  SCORES PER MODEL:")
+    print(f"  {'Model':<35} {'Count':<7} {'Mean':<12} {'Min':<12} {'Max':<12}")
+    print("  " + "-" * 78)
+    for mid, vals in sorted(by_model.items()):
+        mean = sum(vals) / len(vals)
+        print(
+            f"  {mid:<35} {len(vals):<7} {mean:<12.6f} {min(vals):<12.6f} {max(vals):<12.6f}"
+        )
+
+    # Feed data
+    try:
+        feeds_tail = _get_json(base_url, "/reports/feeds/tail")
+        if feeds_tail:
+            print()
+            print("  LATEST FEED DATA:")
+            for rec in feeds_tail[:3]:
+                source = rec.get("source", "?")
+                subject = rec.get("subject", "?")
+                ts = rec.get("received_at") or rec.get("ts", "?")
+                print(f"    {source}/{subject}  received_at={ts}")
+    except Exception:
+        pass
+
+    # Failed predictions
+    failed = [p for p in scored if p.get("score_failed")]
+    if failed:
+        print()
+        print(f"  FAILED PREDICTIONS: {len(failed)}")
+        for p in failed[-3:]:
+            print(
+                f"    model={p.get('model_id')} reason={p.get('score_failed_reason', '?')}"
+            )
+
+    print()
+    print("=" * 70)
+
+
 def main() -> int:
     port = os.getenv("REPORT_API_PORT", "8000")
     base_url = os.getenv("REPORT_API_URL", f"http://localhost:{port}")
@@ -145,7 +216,9 @@ def main() -> int:
                 )
                 if not quality_ok:
                     print(f"[verify-e2e] FAILED: {quality_reason}")
+                    _print_summary(base_url, models, scored, leaderboard, since)
                     return 1
+                _print_summary(base_url, models, scored, leaderboard, since)
                 return 0
 
             raise RuntimeError(

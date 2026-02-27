@@ -42,15 +42,16 @@ All unit tests green. Scoring `xfail` markers removed. Examples updated to match
 make deploy
 make verify-e2e
 ```
-Then check manually:
-- **Logs:** `make logs` — no errors or tracebacks in any worker. Check that models are running, predicting and are being scored
-- **API:** `curl localhost:8000/reports/leaderboard` — scores are non-zero and models are ranked differently
-- **API:** `curl localhost:8000/reports/predictions` — predictions exist and are being scored
-- **UI:** open `localhost:3000` — pages render (Leaderboard, Models, Logs, Metrics), data matches what the API shows. 
+`verify-e2e` prints a summary on completion: leaderboard rankings, per-model score stats, latest feed timestamps, and any failed predictions. Read it carefully.
 
-Choose a meaningful timeframe to let the system run (depends on how long it takes for models to be scored) and check in on all of the above to verify that it is running, no errors are reported, the values make sense. 
+Then observe over time:
+- **Logs:** `make logs` — no errors or tracebacks in any worker
+- **DB:** query postgres directly for pipeline health — see [Querying the Database](.agent/context.md#querying-the-database-directly)
+- **UI:** open `localhost:3000` — pages render (Leaderboard, Models, Logs, Metrics), data matches what the API and DB show
 
-Log anything that doesn't look right and give this information to the user. 
+Let the system run long enough for predictions to be scored (depends on `prediction_interval_seconds` and `resolve_horizon_seconds`). Re-run `make verify-e2e` periodically to check that scores are accumulating and stable.
+
+Log anything that doesn't look right and give this information to the user.
 
 ### 7. Fix loop
 If anything is wrong:

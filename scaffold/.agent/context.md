@@ -117,3 +117,48 @@ Check `MODEL_BASE_CLASSNAME=tracker.TrackerBase` in `node/.local.env`.
 ```bash
 make down && rm -rf .venv && make deploy && make verify-e2e
 ```
+
+## Querying the Database Directly
+
+For debugging during observation, query postgres via docker exec:
+
+```bash
+docker exec -i crunch-node-${CRUNCH_ID:-starter-challenge}-postgres \
+  psql -U ${CRUNCH_ID:-starter-challenge} -d ${CRUNCH_ID:-starter-challenge} \
+  -c "<SQL>"
+```
+
+Key tables and useful queries:
+
+| Table | Contents |
+|---|---|
+| `feed_records` | Raw feed data (source, subject, values JSONB, received_at) |
+| `predictions` | Model predictions (model_id, scope_key, status, inference_output JSONB, performed_at) |
+| `scores` | Score results (prediction_id, result JSONB, success, scored_at) |
+| `snapshots` | Period aggregations (model_id, result_summary JSONB) |
+| `leaderboards` | Current rankings (model_id, metrics JSONB, rank) |
+| `models` | Registered models (id, name) |
+| `checkpoints` | Emission checkpoints (status, created_at) |
+
+```sql
+-- Pipeline health: recent counts per status
+SELECT status, count(*) FROM predictions
+WHERE performed_at > now() - interval '1 hour' GROUP BY status;
+
+-- Per-model score distribution
+SELECT p.model_id, count(*) as scored,
+       round(avg((s.result_jsonb->>'value')::numeric), 4) as avg_score
+FROM scores s JOIN predictions p ON s.prediction_id = p.id
+WHERE s.scored_at > now() - interval '1 hour'
+GROUP BY p.model_id ORDER BY avg_score DESC;
+
+-- Latest feed data timestamps
+SELECT source, subject, max(received_at) as latest
+FROM feed_records GROUP BY source, subject;
+
+-- Failed predictions
+SELECT p.model_id, p.status, s.failed_reason, p.performed_at
+FROM predictions p LEFT JOIN scores s ON s.prediction_id = p.id
+WHERE p.status IN ('FAILED', 'ABSENT')
+ORDER BY p.performed_at DESC LIMIT 10;
+```
