@@ -14,7 +14,11 @@ def database_url() -> str:
     return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
 
 
-engine = create_engine(database_url())
+engine = create_engine(
+    database_url(),
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 
 
 def create_session() -> Session:
