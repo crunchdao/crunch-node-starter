@@ -485,6 +485,18 @@ class CrunchConfig(BaseModel):
         default=None, description="Data provider wallet pubkey"
     )
 
+    # Service classes — override to swap service implementations
+    predict_service_class: type | None = Field(
+        default=None,
+        description=(
+            "PredictService subclass to use for the predict worker. "
+            "Defaults to None which means RealtimePredictService. "
+            "Set to coordinator_node.services.predict.PredictService "
+            "for the base (no run loop), or provide your own subclass. "
+            "The class must accept the same **kwargs as PredictService.__init__."
+        ),
+    )
+
     # Callables
     scoring_function: (
         Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None
