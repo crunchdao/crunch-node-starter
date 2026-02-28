@@ -17,8 +17,11 @@ import time
 from datetime import UTC, datetime
 
 from tests.benchmark.compare import compare_last_two
+from tests.benchmark.evidence import collect_evidence
 from tests.benchmark.spec import AGENT_PROMPT, SPEC_VERSION
 from tests.benchmark.verify import run_all
+
+EVIDENCE_LEVELS = ("fast", "standard", "full")
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 LOGS_DIR = os.path.join(os.path.dirname(__file__), "logs")
@@ -87,27 +90,24 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
     return workspace
 
 
-AGENT_CONFIGS = {
-    "pi": {
-        "cmd": "pi -p --no-session @BENCHMARK_SPEC.md",
-        "needs_prompt_arg": False,
-    },
-    "claude": {
-        "cmd": "claude -p --dangerously-skip-permissions --verbose",
-        "needs_prompt_arg": True,
-    },
-}
+def _build_agent_command(agent_cmd: str, session_path: str) -> tuple[str, bool]:
+    """Return (shell_command, needs_prompt_as_arg).
 
-
-def _build_agent_command(agent_cmd: str) -> tuple[str, bool]:
-    """Return (shell_command_template, needs_prompt_as_arg).
-
-    Known agents get optimized flags. Unknown agents get a generic invocation.
+    Known agents get optimized flags appended. Extra flags from the user's
+    --agent-cmd are preserved (e.g., --provider, --model).
     """
-    # Check if it's a known agent
-    for name, config in AGENT_CONFIGS.items():
-        if name in agent_cmd.lower():
-            return config["cmd"], config["needs_prompt_arg"]
+    agent_lower = agent_cmd.lower().strip()
+
+    if agent_lower.startswith("pi"):
+        # Preserve extra flags (--provider, --model, etc.)
+        extra = agent_cmd[len("pi") :].strip() if len(agent_cmd) > 2 else ""
+        cmd = f"pi -p --session {session_path} {extra} @BENCHMARK_SPEC.md"
+        return cmd, False
+
+    if "claude" in agent_lower:
+        extra = agent_cmd.replace("claude", "", 1).strip()
+        cmd = f"claude -p --dangerously-skip-permissions --verbose {extra}"
+        return cmd, True
 
     # Unknown agent — assume it accepts a prompt as argument
     return agent_cmd, True
@@ -119,6 +119,7 @@ def invoke_agent(
     prompt: str,
     timeout: int,
     log_path: str,
+    session_path: str | None = None,
 ) -> tuple[int, float, bool]:
     """Run the agent command in the workspace directory.
 
@@ -129,7 +130,8 @@ def invoke_agent(
     with open(prompt_file, "w") as f:
         f.write(prompt)
 
-    cmd_template, needs_prompt_arg = _build_agent_command(agent_cmd)
+    _session = session_path or os.path.join(workspace, "session.jsonl")
+    cmd_template, needs_prompt_arg = _build_agent_command(agent_cmd, _session)
 
     if needs_prompt_arg:
         full_cmd = (
@@ -182,6 +184,7 @@ def record_result(
     milestones: dict,
     log_path: str,
     workspace: str = "",
+    evidence: dict | None = None,
 ) -> str:
     """Write result JSON and return the file path."""
     passed = sum(1 for m in milestones.values() if m.get("passed"))
@@ -199,6 +202,9 @@ def record_result(
         "agent_log_file": os.path.basename(log_path),
         "workspace": workspace,
     }
+
+    if evidence:
+        result["evidence"] = evidence
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
     result_path = os.path.join(RESULTS_DIR, f"{ts}.json")
@@ -237,6 +243,12 @@ def main() -> int:
         help="Skip agent invocation, just verify an existing workspace",
     )
     parser.add_argument(
+        "--evidence",
+        choices=EVIDENCE_LEVELS,
+        default=os.getenv("BENCHMARK_EVIDENCE", "standard"),
+        help="Evidence level: fast (milestones only), standard (+session), full (+screenshots)",
+    )
+    parser.add_argument(
         "--compare",
         action="store_true",
         help="Just compare last two results (no run)",
@@ -253,6 +265,9 @@ def main() -> int:
     os.makedirs(LOGS_DIR, exist_ok=True)
     log_path = os.path.join(LOGS_DIR, f"{ts}.log")
 
+    session_path = os.path.join(LOGS_DIR, f"{ts}-session.jsonl")
+    evidence_dir = os.path.join(LOGS_DIR, f"{ts}-evidence")
+
     if args.verify_only:
         # Skip setup and agent — just verify
         workspace = args.verify_only
@@ -268,13 +283,34 @@ def main() -> int:
         # Full run
         workspace = setup_workspace(repo_root, args.workspace)
         exit_code, duration, timed_out = invoke_agent(
-            args.agent_cmd, workspace, AGENT_PROMPT, args.timeout, log_path
+            args.agent_cmd,
+            workspace,
+            AGENT_PROMPT,
+            args.timeout,
+            log_path,
+            session_path=session_path,
         )
 
     # Verify milestones
     print()
     print("[benchmark] Verifying milestones...")
     milestones = run_all(workspace)
+
+    # Collect evidence BEFORE teardown (screenshots need running containers)
+    print()
+    print(f"[benchmark] Collecting evidence (level={args.evidence})...")
+    # Session file may be in workspace if agent saved it there
+    actual_session = session_path
+    workspace_session = os.path.join(workspace, "session.jsonl")
+    if not os.path.exists(actual_session) and os.path.exists(workspace_session):
+        actual_session = workspace_session
+
+    evidence = collect_evidence(
+        level=args.evidence,
+        workspace=workspace,
+        evidence_dir=evidence_dir,
+        session_path=actual_session if os.path.exists(actual_session) else None,
+    )
 
     # Record
     print()
@@ -287,9 +323,10 @@ def main() -> int:
         milestones,
         log_path,
         workspace=workspace,
+        evidence=evidence,
     )
 
-    # Cleanup containers after verification
+    # Cleanup containers AFTER evidence collection
     if not args.verify_only:
         print()
         print("[benchmark] Cleaning up containers...")

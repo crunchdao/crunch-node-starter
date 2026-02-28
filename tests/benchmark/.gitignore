@@ -1,1 +1,3 @@
 logs/*.log
+logs/*-session.jsonl
+logs/*-evidence/

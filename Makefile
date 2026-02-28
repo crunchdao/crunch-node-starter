@@ -45,9 +45,10 @@ verify-all: verify verify-ui
 # ── Benchmark ─────────────────────────────────────────────────────────
 AGENT_CMD ?= pi
 BENCHMARK_TIMEOUT ?= 900
+BENCHMARK_EVIDENCE ?= standard
 
 benchmark:
-	uv run python -m tests.benchmark.run_benchmark --agent-cmd "$(AGENT_CMD)" --timeout $(BENCHMARK_TIMEOUT)
+	uv run python -m tests.benchmark.run_benchmark --agent-cmd "$(AGENT_CMD)" --timeout $(BENCHMARK_TIMEOUT) --evidence $(BENCHMARK_EVIDENCE)
 
 benchmark-compare:
 	uv run python -m tests.benchmark.run_benchmark --compare
