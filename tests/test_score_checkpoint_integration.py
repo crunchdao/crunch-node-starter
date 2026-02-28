@@ -176,7 +176,7 @@ def _make_input(prediction: PredictionRecord) -> InputRecord:
         raw_data={
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         },
         received_at=prediction.performed_at,

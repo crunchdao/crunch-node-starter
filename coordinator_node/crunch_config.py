@@ -252,7 +252,7 @@ def default_resolve_ground_truth(
     return {
         "entry_price": entry_price,
         "resolved_price": resolved_price,
-        "return": (resolved_price - entry_price) / max(abs(entry_price), 1e-9),
+        "profit": (resolved_price - entry_price) / max(abs(entry_price), 1e-9),
         "direction_up": resolved_price > entry_price,
     }
 

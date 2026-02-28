@@ -14,7 +14,7 @@ def score_prediction(prediction: dict, ground_truth: dict) -> dict:
 
     Args:
         prediction: Model output, expects ``{"value": float}``.
-        ground_truth: Resolved outcome, expects ``{"return": float}``.
+        ground_truth: Resolved outcome, expects ``{"profit": float}``.
 
     Returns:
         Dict matching ScoreResult shape.
@@ -30,7 +30,7 @@ def score_prediction(prediction: dict, ground_truth: dict) -> dict:
             "failed_reason": f"Invalid prediction: {prediction.get('value')!r}",
         }
 
-    actual_return = float(ground_truth.get("return", 0.0))
+    actual_return = float(ground_truth.get("profit", 0.0))
 
     # Direction match
     direction_correct = (pred_value > 0 and actual_return > 0) or (

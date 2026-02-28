@@ -106,7 +106,7 @@ class ScoreService:
                 {
                     "entry_price": 40000,
                     "resolved_price": 40100,
-                    "return": 0.0025,
+                    "profit": 0.0025,
                     "direction_up": True,
                 },
             ),
@@ -115,7 +115,7 @@ class ScoreService:
                 {
                     "entry_price": 40000,
                     "resolved_price": 39900,
-                    "return": -0.0025,
+                    "profit": -0.0025,
                     "direction_up": False,
                 },
             ),
@@ -124,7 +124,7 @@ class ScoreService:
                 {
                     "entry_price": 40000,
                     "resolved_price": 40500,
-                    "return": 0.0125,
+                    "profit": 0.0125,
                     "direction_up": True,
                 },
             ),

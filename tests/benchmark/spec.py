@@ -32,10 +32,10 @@ ScoreResult — what scoring produces:
 
 score_prediction(prediction, ground_truth) -> dict:
 - If prediction["direction"] matches ground truth direction:
-    score = +prediction["confidence"] * abs(ground_truth["return"])
+    score = +prediction["confidence"] * abs(ground_truth["profit"])
 - If wrong:
-    score = -prediction["confidence"] * abs(ground_truth["return"])
-- Ground truth has keys: "return" (float), "direction_up" (bool)
+    score = -prediction["confidence"] * abs(ground_truth["profit"])
+- Ground truth has keys: "profit" (float), "direction_up" (bool)
 - prediction["direction"] == "up" should be compared to ground_truth["direction_up"]
 - Always return {"value": score, "success": True, "failed_reason": None}
 
@@ -115,25 +115,25 @@ SCORING_TEST_CASES = [
     # Correct: up prediction, price went up → positive
     (
         {"direction": "up", "confidence": 0.8},
-        {"return": 0.02, "direction_up": True},
+        {"profit": 0.02, "direction_up": True},
         "positive",
     ),
     # Wrong: up prediction, price went down → negative
     (
         {"direction": "up", "confidence": 0.8},
-        {"return": -0.02, "direction_up": False},
+        {"profit": -0.02, "direction_up": False},
         "negative",
     ),
     # Correct: down prediction, price went down → positive
     (
         {"direction": "down", "confidence": 0.6},
-        {"return": -0.03, "direction_up": False},
+        {"profit": -0.03, "direction_up": False},
         "positive",
     ),
     # Wrong: down prediction, price went up → negative
     (
         {"direction": "down", "confidence": 0.6},
-        {"return": 0.03, "direction_up": True},
+        {"profit": 0.03, "direction_up": True},
         "negative",
     ),
 ]

@@ -189,7 +189,7 @@ class TestGroundTruthResolution:
         ]
         result = crunch_config.resolve_ground_truth(records)
         # Default resolver produces these keys — scoring function must read them
-        for key in ("entry_price", "resolved_price", "return", "direction_up"):
+        for key in ("entry_price", "resolved_price", "profit", "direction_up"):
             assert key in result, (
                 f"resolve_ground_truth missing key '{key}'. "
                 f"Scoring function may KeyError at runtime."
@@ -202,7 +202,7 @@ class TestGroundTruthResolution:
             self._make_feed_record("BTC", 40100.0, now),
         ]
         result = crunch_config.resolve_ground_truth(records)
-        assert result["return"] != 0.0, (
+        assert result["profit"] != 0.0, (
             "resolve_ground_truth returned 0.0 for different prices. "
             "All scores will be identical."
         )
@@ -227,7 +227,7 @@ class TestScoringPipelineRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         # Must not raise
@@ -241,7 +241,7 @@ class TestScoringPipelineRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         result = scoring_function(sample_output, sample_gt)
@@ -258,7 +258,7 @@ class TestScoringPipelineRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         result = scoring_function(sample_output, sample_gt)
@@ -279,7 +279,7 @@ class TestAggregationRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         score_result = scoring_function(sample_output, sample_gt)
@@ -304,7 +304,7 @@ class TestAggregationRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         score_result = scoring_function(sample_output, sample_gt)
@@ -333,7 +333,7 @@ class TestAggregationRoundtrip:
         sample_gt = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
         score_result = scoring_function(sample_output, sample_gt)
@@ -423,7 +423,7 @@ class TestTrackerOutputMatchesInferenceOutput:
         ground_truth = {
             "entry_price": 40000,
             "resolved_price": 40100,
-            "return": 0.0025,
+            "profit": 0.0025,
             "direction_up": True,
         }
 

@@ -68,7 +68,7 @@ Edit `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`, `FEED_KIND`, `FEED_GRANU
 
 How "what actually happened" is derived from feed data. If this returns None or zero, all scores are zero regardless of model quality.
 
-- Default: compares first/last record's close price → `entry_price`, `resolved_price`, `return`, `direction_up`
+- Default: compares first/last record's close price → `entry_price`, `resolved_price`, `profit`, `direction_up`
 - Override: set `CrunchConfig.resolve_ground_truth` for custom logic
 
 **Verify** non-zero returns with your feed granularity. A 60s horizon with 1m candles may produce 0.0 returns if only one candle falls in the window.

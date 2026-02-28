@@ -86,8 +86,39 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
     shutil.copytree(
         scaffold_src, workspace, ignore=_ignore_patterns, dirs_exist_ok=True
     )
+
+    # Patch CRUNCH_ID to a unique value so Docker containers don't clash
+    # with other benchmark runs or the real scaffold
+    _patch_crunch_id(workspace)
+
     print(f"[benchmark] Workspace: {workspace}")
     return workspace
+
+
+def _patch_crunch_id(workspace: str) -> None:
+    """Set a unique CRUNCH_ID in .local.env to avoid Docker name collisions."""
+    env_file = os.path.join(workspace, "node", ".local.env")
+    if not os.path.exists(env_file):
+        return
+
+    unique_id = f"bench-{_timestamp()}"
+
+    with open(env_file) as f:
+        content = f.read()
+
+    import re
+
+    content = re.sub(
+        r"^CRUNCH_ID=.*$",
+        f"CRUNCH_ID={unique_id}",
+        content,
+        flags=re.MULTILINE,
+    )
+
+    with open(env_file, "w") as f:
+        f.write(content)
+
+    print(f"[benchmark] Patched CRUNCH_ID={unique_id}")
 
 
 def _build_agent_command(agent_cmd: str, session_path: str) -> tuple[str, bool]:

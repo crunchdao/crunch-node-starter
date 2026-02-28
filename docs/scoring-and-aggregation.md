@@ -44,7 +44,7 @@ def default_resolve_ground_truth(feed_records: list[FeedRecord]) -> dict | None:
     return {
         "entry_price": entry_price,
         "resolved_price": resolved_price,
-        "return": (resolved_price - entry_price) / abs(entry_price),
+        "profit": (resolved_price - entry_price) / abs(entry_price),
         "direction_up": resolved_price > entry_price,
     }
 ```
@@ -56,7 +56,7 @@ The scoring function receives the prediction output and ground truth as dicts, a
 ```python
 def my_scorer(prediction: dict, ground_truth: dict) -> dict:
     pred_value = prediction["value"]
-    actual_return = ground_truth["return"]
+    actual_return = ground_truth["profit"]
     pnl = pred_value * actual_return
     return {
         "value": pnl,
