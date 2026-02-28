@@ -6,7 +6,7 @@ used by verify.py to check milestones.
 
 from __future__ import annotations
 
-SPEC_VERSION = "btc-direction-v1"
+SPEC_VERSION = "btc-direction-v2"
 
 AGENT_PROMPT = """\
 Build a BTC price direction competition from this scaffold workspace.
@@ -63,13 +63,13 @@ Create exactly 3 example trackers:
 All trackers extend TrackerBase. predict() returns a dict, not a Pydantic model.
 Use _get_data(subject) to access latest tick data, extract closes from candles_1m.
 
-## Schedule & Feed
+## Schedule & Feed (edit node/config/crunch_config.py scheduled_predictions)
 
-Keep ALL defaults:
-- subject: BTCUSDT
-- prediction_interval_seconds: 15
-- resolve_horizon_seconds: 60
-- Feed: pyth, 1s granularity
+IMPORTANT: Change these from the scaffold defaults:
+- subject: BTCUSDT (keep default)
+- prediction_interval_seconds: 5  (change from default 15)
+- resolve_horizon_seconds: 10  (change from default 60)
+- Feed: pyth, 1s granularity (keep default)
 
 ## Tests
 
