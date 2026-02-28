@@ -57,6 +57,18 @@ def _teardown_existing(workspace: str) -> None:
         except subprocess.TimeoutExpired:
             print("[benchmark] Warning: teardown timed out, continuing anyway")
 
+    # Kill any model-runner containers left by the orchestrator and
+    # prune dangling networks/volumes to avoid connectivity errors
+    for cleanup_cmd in [
+        "docker rm -f $(docker ps -aq --filter name=crunchdao-model-runner) 2>/dev/null || true",
+        "docker network prune -f",
+        "docker volume prune -f",
+    ]:
+        try:
+            subprocess.run(cleanup_cmd, shell=True, capture_output=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
+
 
 def _ignore_patterns(directory: str, contents: list[str]) -> set[str]:
     """Ignore .venv, __pycache__, .pyc files when copying scaffold."""
