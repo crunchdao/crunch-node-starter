@@ -360,21 +360,20 @@ def main() -> int:
             if health.get("status") != "ok":
                 raise RuntimeError(f"healthcheck not ok: {health}")
 
-            models = _get_json(base_url, "/reports/models")
-            if not models:
-                raise RuntimeError("no models registered yet")
-
-            # Tournament mode: trigger a round once models are ready
+            # Tournament mode: trigger a round without waiting for models.
+            # Models get registered in the DB only when inference runs,
+            # so we can't gate on /reports/models first.
             if tournament_mode and not tournament_round_triggered:
-                print(
-                    f"[verify-e2e] {len(models)} models registered, "
-                    f"triggering tournament round..."
-                )
+                print("[verify-e2e] Triggering tournament round...")
                 ok, reason = _run_tournament_round(base_url)
                 if not ok:
                     raise RuntimeError(f"tournament round failed: {reason}")
                 tournament_round_triggered = True
                 print(f"[verify-e2e] Tournament round complete: {reason}")
+
+            models = _get_json(base_url, "/reports/models")
+            if not models:
+                raise RuntimeError("no models registered yet")
 
             # Check for scored predictions + leaderboard
             model_id = models[0]["model_id"]
