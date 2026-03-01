@@ -119,6 +119,48 @@ docker logs for errors, and checks UI reachability.
 - **CrunchConfig.scoring_function**: Stateful callables (e.g. PositionManager) supported
 - **auto_report_schema**: Leaderboard columns auto-generated from score_type fields
 
+## Benchmarking
+
+The benchmark (`tests/benchmark/`) gives an agent the scaffold workspace and a spec (build a BTC direction competition), then verifies 7 milestones: types, ground truth, scoring, examples, tests, deploy, and e2e.
+
+**Run a benchmark:**
+```bash
+# Default (pi, 15min timeout, standard evidence)
+python -m tests.benchmark.run_benchmark
+
+# With a specific model and timeout
+python -m tests.benchmark.run_benchmark --agent-cmd "pi --model claude-opus-4-6" --timeout 180
+
+# With Claude Code instead of pi
+python -m tests.benchmark.run_benchmark --agent-cmd claude --timeout 600
+```
+
+**Key options:**
+| Flag | Default | Purpose |
+|------|---------|---------|
+| `--agent-cmd` | `pi` | Agent CLI command (extra flags like `--model` are preserved) |
+| `--timeout` | `900` (15min) | Kill the agent after this many seconds |
+| `--evidence` | `standard` | `fast` (milestones only), `standard` (+session), `full` (+screenshots) |
+| `--workspace` | temp dir | Use a fixed directory (useful for debugging) |
+| `--verify-only DIR` | — | Skip agent, just verify an existing workspace |
+| `--compare` | — | Compare last two results (no run) |
+
+**Outputs:**
+- `tests/benchmark/results/<timestamp>.json` — milestone results + token/cost stats
+- `tests/benchmark/logs/<timestamp>.log` — agent stdout/stderr
+- `tests/benchmark/logs/<timestamp>-session.jsonl` — pi session file
+- `tests/benchmark/logs/<timestamp>-evidence/session.html` — browsable session export
+
+**View session HTML:**
+```bash
+open tests/benchmark/logs/<timestamp>-evidence/session.html
+```
+
+**Compare last two runs:**
+```bash
+python -m tests.benchmark.run_benchmark --compare
+```
+
 ## PyPI Publishing
 
 ```bash

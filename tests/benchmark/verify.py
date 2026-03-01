@@ -16,6 +16,7 @@ import types
 
 from tests.benchmark.spec import (
     EXPECTED_EXAMPLES,
+    EXPECTED_GROUND_TRUTH_FIELDS,
     EXPECTED_OUTPUT_FIELDS,
     SCORING_TEST_CASES,
 )
@@ -105,6 +106,78 @@ def check_types(workspace: str) -> tuple[bool, str]:
         )
 
     return True, f"Found fields: {list(found_fields.keys())}"
+
+
+# --- M1b: GroundTruth type has profit + direction_up with defaults ---
+
+
+def check_ground_truth_type(workspace: str) -> tuple[bool, str]:
+    """Check that a GroundTruth type defines profit:float and direction_up:bool with defaults.
+
+    The score worker dry-runs scoring at startup using GroundTruth() defaults.
+    If the GroundTruth type doesn't have these fields (with defaults), the scoring
+    function raises a KeyError and the worker crashes in a restart loop.
+    """
+    config_path = os.path.join(workspace, "node", "config", "crunch_config.py")
+    if not os.path.exists(config_path):
+        return False, f"crunch_config.py not found at {config_path}"
+
+    with open(config_path) as f:
+        source = f.read()
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as e:
+        return False, f"SyntaxError in crunch_config.py: {e}"
+
+    # Find any class that looks like a ground truth type
+    gt_fields: dict[str, bool] = {}  # field_name → has_default
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            name_lower = node.name.lower()
+            if "ground" in name_lower or "truth" in name_lower or "gt" == name_lower:
+                for item in node.body:
+                    if isinstance(item, ast.AnnAssign) and isinstance(
+                        item.target, ast.Name
+                    ):
+                        has_default = item.value is not None
+                        gt_fields[item.target.id] = has_default
+
+    if not gt_fields:
+        # Fallback: regex — look for profit and direction_up field definitions
+        profit_match = re.search(r"profit\s*:\s*float\s*=", source)
+        dir_match = re.search(r"direction_up\s*:\s*bool\s*=", source)
+        if profit_match and dir_match:
+            return True, "profit: float, direction_up: bool with defaults (regex match)"
+        return False, (
+            "No GroundTruth class found with profit/direction_up fields. "
+            "The score worker dry-runs scoring at startup using GroundTruth() defaults — "
+            "without these fields the scoring function will KeyError and crash."
+        )
+
+    missing = []
+    no_default = []
+    for field in EXPECTED_GROUND_TRUTH_FIELDS:
+        if field not in gt_fields:
+            missing.append(field)
+        elif not gt_fields[field]:
+            no_default.append(field)
+
+    if missing:
+        return (
+            False,
+            f"Missing fields in GroundTruth: {missing}. Found: {list(gt_fields.keys())}",
+        )
+    if no_default:
+        return (
+            False,
+            f"Fields without defaults in GroundTruth: {no_default}. "
+            f"The score worker constructs GroundTruth() at startup for dry-run validation — "
+            f"all fields need defaults.",
+        )
+
+    return True, f"Found fields with defaults: {list(gt_fields.keys())}"
 
 
 # --- M2: Scoring implemented ---
@@ -372,6 +445,7 @@ def check_e2e(workspace: str) -> tuple[bool, str]:
 
 MILESTONES = [
     ("types_correct", check_types),
+    ("ground_truth_type", check_ground_truth_type),
     ("scoring_implemented", check_scoring),
     ("examples_exist", check_examples),
     ("tests_pass", check_tests),

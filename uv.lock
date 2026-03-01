@@ -318,7 +318,7 @@ wheels = [
 
 [[package]]
 name = "coordinator-node"
-version = "0.1.79"
+version = "0.1.81"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

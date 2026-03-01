@@ -6,7 +6,7 @@ used by verify.py to check milestones.
 
 from __future__ import annotations
 
-SPEC_VERSION = "btc-direction-v2"
+SPEC_VERSION = "btc-direction-v3"
 
 AGENT_PROMPT = """\
 Build a BTC price direction competition from this scaffold workspace.
@@ -14,6 +14,11 @@ Build a BTC price direction competition from this scaffold workspace.
 Read the .agent/ docs to understand the workflow. Follow the implementation
 guide. Run make test, make deploy, and make verify-e2e yourself. Read logs
 and fix any issues until everything passes.
+
+IMPORTANT: All base types (InferenceOutput, GroundTruth, ScoreResult, etc.)
+are imported from `coordinator_node.crunch_config` in node/config/crunch_config.py.
+You don't need to find the library source — just override the types in your
+CrunchConfig subclass. The defaults have a single `value: float` field.
 
 Here is the exact specification:
 
@@ -27,6 +32,14 @@ ScoreResult — what scoring produces:
 - value: float
 - success: bool
 - failed_reason: str | None
+
+GroundTruth — what the actual outcome looks like:
+- profit: float = 0.0
+- direction_up: bool = True
+IMPORTANT: You MUST override the GroundTruth class with these fields (with defaults).
+The score worker dry-runs scoring at startup using GroundTruth() defaults.
+If the fields don't exist, scoring raises a KeyError and the worker crashes.
+Set ground_truth_type = BtcGroundTruth (or whatever you name it) in CrunchConfig.
 
 ## Scoring (edit challenge/starter_challenge/scoring.py)
 
@@ -42,7 +55,8 @@ score_prediction(prediction, ground_truth) -> dict:
 ## Ground Truth
 
 Use the default resolve_ground_truth (close price comparison).
-Do NOT implement a custom one.
+Do NOT implement a custom one — the default already returns
+{"entry_price", "resolved_price", "profit", "direction_up"}.
 
 ## Examples (edit challenge/starter_challenge/examples/)
 
@@ -67,9 +81,9 @@ Use _get_data(subject) to access latest tick data, extract closes from candles_1
 
 IMPORTANT: Change these from the scaffold defaults:
 - subject: BTCUSDT (keep default)
-- prediction_interval_seconds: 5  (change from default 15)
-- resolve_horizon_seconds: 10  (change from default 60)
-- Feed: pyth, 1s granularity (keep default)
+- prediction_interval_seconds: 15  (keep default)
+- resolve_horizon_seconds: 60  (keep default)
+- Feed: binance, kline, 1s granularity (keep defaults from .local.env)
 
 ## Tests
 
@@ -80,9 +94,13 @@ IMPORTANT: Change these from the scaffold defaults:
 ## Deploy & Verify
 
 - Run make deploy
-- Run make verify-e2e
+- Run make verify-e2e (it has its own polling — do NOT sleep or wait before running it)
 - Read logs with make logs if anything fails
 - Fix and retry until make verify-e2e passes
+
+IMPORTANT: Never use `sleep` commands. `make verify-e2e` already polls and
+waits for the pipeline to be ready. Sleeping wastes your time budget.
+If deploy fails due to port conflicts, run `make down` and retry on different ports.
 """
 
 # --- Expected values for milestone verification ---
@@ -96,6 +114,11 @@ EXPECTED_SCORE_FIELDS = {
     "value": "float",
     "success": "bool",
     "failed_reason": ("str", "None"),
+}
+
+EXPECTED_GROUND_TRUTH_FIELDS = {
+    "profit": "float",
+    "direction_up": "bool",
 }
 
 EXPECTED_EXAMPLES = [

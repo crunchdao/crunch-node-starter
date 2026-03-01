@@ -11,7 +11,7 @@ The scaffold ships with working-but-meaningless values. **Confirm every one with
 | `subject: "BTCUSDT"` | CrunchConfig, tracker, examples, `.local.env` |
 | `horizon_seconds: 60` | `scheduled_predictions` |
 | `prediction_interval_seconds: 15` | `scheduled_predictions` |
-| `FEED_SOURCE: pyth` | `.local.env` |
+| `FEED_SOURCE: binance` | `.local.env` |
 | `FEED_GRANULARITY: 1s` | `.local.env` |
 | `InferenceOutput.value: float` | `crunch_config.py`, tracker, scoring |
 | `scoring: return 0.0` | `scoring.py` (stub) |
@@ -70,6 +70,7 @@ How "what actually happened" is derived from feed data. If this returns None or 
 
 - Default: compares first/last record's close price → `entry_price`, `resolved_price`, `profit`, `direction_up`
 - Override: set `CrunchConfig.resolve_ground_truth` for custom logic
+- Signature: `resolve_ground_truth(feed_records, prediction)` — receives all feed records in the window plus the prediction being scored. Use `prediction.scope` to filter records in multi-asset competitions.
 
 **Verify** non-zero returns with your feed granularity. A 60s horizon with 1m candles may produce 0.0 returns if only one candle falls in the window.
 

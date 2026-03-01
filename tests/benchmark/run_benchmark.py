@@ -26,7 +26,7 @@ EVIDENCE_LEVELS = ("fast", "standard", "full")
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 LOGS_DIR = os.path.join(os.path.dirname(__file__), "logs")
 
-DEFAULT_TIMEOUT = 900  # 15 minutes
+DEFAULT_TIMEOUT = 450  # 7.5 minutes
 DEFAULT_AGENT_CMD = "pi"
 
 
@@ -57,9 +57,11 @@ def _teardown_existing(workspace: str) -> None:
         except subprocess.TimeoutExpired:
             print("[benchmark] Warning: teardown timed out, continuing anyway")
 
-    # Kill any model-runner containers left by the orchestrator and
-    # prune dangling networks/volumes to avoid connectivity errors
+    # Kill ALL crunch-node containers (from any previous benchmark or dev run)
+    # to free ports. Previous runs with different CRUNCH_IDs won't be caught
+    # by the compose-down above.
     for cleanup_cmd in [
+        "docker rm -f $(docker ps -aq --filter name=crunch-node-) 2>/dev/null || true",
         "docker rm -f $(docker ps -aq --filter name=crunchdao-model-runner) 2>/dev/null || true",
         "docker network prune -f",
         "docker volume prune -f",
@@ -198,14 +200,22 @@ def invoke_agent(
     logged_cmd = f'{{ {full_cmd} ; }} > "{log_path}" 2>&1'
 
     try:
+        # Use process group so we can kill the agent and all its children
         proc = subprocess.Popen(
             logged_cmd,
             shell=True,
             cwd=workspace,
+            start_new_session=True,
         )
         exit_code = proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        # Kill the entire process group (shell + pi + any children)
+        import signal
+
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         proc.wait()
         timed_out = True
         exit_code = -1
@@ -248,6 +258,17 @@ def record_result(
 
     if evidence:
         result["evidence"] = evidence
+
+        # Promote key session metrics to top level for easy comparison
+        session = evidence.get("session", {})
+        if isinstance(session, dict) and "error" not in session:
+            tokens = session.get("tokens", {})
+            result["tokens"] = tokens
+            result["cost_usd"] = session.get("cost_usd", 0)
+            result["turns"] = session.get("turns", 0)
+            result["tool_calls"] = session.get("tool_calls", 0)
+            result["compaction_count"] = session.get("compaction_count", 0)
+            result["efficiency"] = session.get("efficiency", {})
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
     result_path = os.path.join(RESULTS_DIR, f"{ts}.json")

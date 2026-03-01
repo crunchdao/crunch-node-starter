@@ -24,7 +24,7 @@ class RawInput(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    symbol: str = "BTC"
+    symbol: str = "BTCUSDT"
     asof_ts: int = 0
 
     candles_1m: list[dict] = Field(default_factory=list)
@@ -76,9 +76,11 @@ class CrunchConfig(BaseCrunchConfig):
     # Prediction schedule — what to predict, how often, when to resolve
     scheduled_predictions: list[ScheduledPrediction] = [
         ScheduledPrediction(
-            scope_key="realtime-btc-price-60s",
-            scope={"subject": "BTCUSDT"},  # these get added to the request when called
-            prediction_interval_seconds=15,  # how often it is called
-            resolve_horizon_seconds=60,  # how long to wait for the ground truth
+            scope_key="realtime-btc-price-10s",
+            scope={
+                "subject": "BTCUSDT"
+            },  # passed to model.predict(); feed resolution is automatic
+            prediction_interval_seconds=1,  # how often it is called
+            resolve_horizon_seconds=10,  # how long to wait for the ground truth
         ),
     ]

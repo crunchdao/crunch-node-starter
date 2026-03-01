@@ -110,7 +110,7 @@ def check_timing():
     """resolve_horizon_seconds must exceed feed granularity, otherwise the
     score-worker's fetch_window returns zero records and predictions
     silently fail to score."""
-    print("\n[2/5] Timing consistency")
+    print("\n[2/6] Timing consistency")
     env = _load_env(NODE_DIR / ".local.env")
 
     feed_gran = env.get("FEED_GRANULARITY", "1s")
@@ -165,13 +165,64 @@ def check_timing():
             )
 
 
+# ── 2b. Subject mapping ──────────────────────────────────────────────
+
+
+def check_subjects():
+    """Informational: show scope vs feed subject mapping.
+
+    Scope subjects (what models predict) and feed subjects (what gets
+    ingested) are independent.  The score worker fetches all feed records
+    in the resolution window; resolve_ground_truth filters as needed.
+    """
+    print("\n[3/6] Subject mapping")
+    env = _load_env(NODE_DIR / ".local.env")
+
+    feed_subjects_raw = env.get("FEED_SUBJECTS", env.get("FEED_ASSETS", "BTC"))
+    feed_subjects = {s.strip() for s in feed_subjects_raw.split(",") if s.strip()} or {
+        "BTC"
+    }
+
+    try:
+        from config.crunch_config import CrunchConfig
+
+        cc = CrunchConfig()
+    except ImportError:
+        warn(
+            "CrunchConfig import",
+            "could not import — skipping subject checks",
+        )
+        return
+
+    scope_subjects = set()
+    for sp in cc.scheduled_predictions:
+        scope_subject = sp.scope.get("subject") if sp.scope else None
+        if scope_subject:
+            scope_subjects.add(scope_subject)
+
+    check(
+        f"Feed subjects: {sorted(feed_subjects)}, "
+        f"scope subjects: {sorted(scope_subjects)}",
+        True,
+    )
+
+    if scope_subjects and not scope_subjects & feed_subjects:
+        warn(
+            "No overlap between scope and feed subjects",
+            f"Scope uses {sorted(scope_subjects)}, feed ingests {sorted(feed_subjects)}. "
+            f"This is fine — resolve_ground_truth receives all feed records "
+            f"and the prediction. For multi-asset competitions, ensure your "
+            f"custom resolver filters by prediction.scope['subject'].",
+        )
+
+
 # ── 3. Scoring sanity ────────────────────────────────────────────────
 
 
 def check_scoring():
     """The scoring function must return non-zero for valid inputs and
     differentiate between opposing predictions."""
-    print("\n[3/5] Scoring sanity")
+    print("\n[4/6] Scoring sanity")
     env = _load_env(NODE_DIR / ".local.env")
     scoring_path = env.get("SCORING_FUNCTION", "")
 
@@ -239,7 +290,7 @@ def check_scoring():
 def check_model_submissions():
     """Model-runner containers don't have the challenge package installed.
     Submissions must be self-contained."""
-    print("\n[4/5] Model submissions")
+    print("\n[5/6] Model submissions")
     config_dir = NODE_DIR / "deployment" / "model-orchestrator-local" / "config"
 
     # Discover challenge package name
@@ -289,7 +340,7 @@ def check_model_submissions():
 
 def check_crunch_config():
     """Verify CrunchConfig loads and its callables/types are wired."""
-    print("\n[5/5] CrunchConfig wiring")
+    print("\n[6/6] CrunchConfig wiring")
     try:
         from config.crunch_config import CrunchConfig
     except ImportError as exc:
@@ -330,6 +381,7 @@ def main() -> int:
 
     check_docker_networking()
     check_timing()
+    check_subjects()
     check_scoring()
     check_model_submissions()
     check_crunch_config()

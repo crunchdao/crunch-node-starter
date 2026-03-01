@@ -22,7 +22,7 @@ def parse_session(session_path: str) -> dict:
     """Extract metadata from a pi/claude session .jsonl file.
 
     Returns a dict with: turns, tool_calls, tool_names, errors, model,
-    provider, files_modified, duration_estimate.
+    provider, files_modified, duration_estimate, and token usage.
     """
     if not os.path.exists(session_path):
         return {"error": f"session file not found: {session_path}"}
@@ -39,6 +39,14 @@ def parse_session(session_path: str) -> dict:
     files_written: set[str] = set()
     files_read: set[str] = set()
     bash_commands: list[str] = []
+
+    # Token usage tracking
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_cache_read_tokens = 0
+    total_cache_write_tokens = 0
+    total_cost = 0.0
+    compaction_count = 0
 
     with open(session_path) as f:
         for line in f:
@@ -62,12 +70,28 @@ def parse_session(session_path: str) -> dict:
                 model = obj.get("modelId")
                 provider = obj.get("provider")
 
+            elif obj_type == "compaction":
+                compaction_count += 1
+
             elif obj_type == "message":
                 msg = obj.get("message", {})
                 role = msg.get("role")
 
                 if role == "assistant":
                     turns += 1
+
+                    # Extract token usage from assistant messages
+                    usage = msg.get("usage", {})
+                    if isinstance(usage, dict):
+                        total_input_tokens += usage.get("input", 0) or 0
+                        total_output_tokens += usage.get("output", 0) or 0
+                        total_cache_read_tokens += usage.get("cacheRead", 0) or 0
+                        total_cache_write_tokens += usage.get("cacheWrite", 0) or 0
+                        cost = usage.get("cost", {})
+                        if isinstance(cost, dict):
+                            total_cost += cost.get("total", 0) or 0
+                        elif isinstance(cost, (int, float)):
+                            total_cost += cost
 
                 content = msg.get("content", [])
                 if not isinstance(content, list):
@@ -103,6 +127,21 @@ def parse_session(session_path: str) -> dict:
                             result_text = str(part.get("text", ""))[:200]
                             errors.append(result_text)
 
+    # Compute derived token metrics
+    total_all_tokens = (
+        total_input_tokens
+        + total_output_tokens
+        + total_cache_read_tokens
+        + total_cache_write_tokens
+    )
+    # Cache hit rate = cache_read / (cache_read + uncached input)
+    total_input_context = total_input_tokens + total_cache_read_tokens
+    cache_hit_rate = (
+        round(total_cache_read_tokens / max(total_input_context, 1) * 100, 1)
+        if total_input_context > 0
+        else 0.0
+    )
+
     return {
         "turns": turns,
         "tool_calls": tool_calls,
@@ -112,6 +151,27 @@ def parse_session(session_path: str) -> dict:
         "error_samples": errors[:10],
         "model": model,
         "provider": provider,
+        "tokens": {
+            "input": total_input_tokens,
+            "output": total_output_tokens,
+            "cache_read": total_cache_read_tokens,
+            "cache_write": total_cache_write_tokens,
+            "total": total_all_tokens,
+            "cache_hit_rate_pct": cache_hit_rate,
+        },
+        "cost_usd": round(total_cost, 4),
+        "compaction_count": compaction_count,
+        "efficiency": {
+            "tokens_per_turn": (
+                round(total_all_tokens / max(turns, 1)) if turns > 0 else 0
+            ),
+            "tool_calls_per_turn": (
+                round(tool_calls / max(turns, 1), 1) if turns > 0 else 0
+            ),
+            "output_tokens_per_tool_call": (
+                round(total_output_tokens / max(tool_calls, 1)) if tool_calls > 0 else 0
+            ),
+        },
         "files_written": sorted(files_written),
         "files_read": sorted(files_read)[:30],  # cap to avoid bloat
         "bash_command_count": len(bash_commands),
@@ -289,6 +349,13 @@ def collect_evidence(
         session_copy = os.path.join(evidence_dir, "session.jsonl")
         shutil.copy2(session_path, session_copy)
         evidence["session_file"] = session_copy
+
+        # Always export session HTML (useful for reviewing agent behavior)
+        html_path = os.path.join(evidence_dir, "session.html")
+        exported = export_session_html(session_path, html_path)
+        evidence["session_html"] = html_path if exported else None
+        if exported:
+            print(f"[evidence] Session HTML: {html_path}")
     else:
         evidence["session"] = {"error": "no session file available"}
 
@@ -300,11 +367,7 @@ def collect_evidence(
     if level == "standard":
         return evidence
 
-    # --- full: HTML export + screenshots ---
-    if session_path and os.path.exists(session_path):
-        html_path = os.path.join(evidence_dir, "session.html")
-        exported = export_session_html(session_path, html_path)
-        evidence["session_html"] = html_path if exported else None
+    # --- full: screenshots ---
 
     print("[evidence] Capturing screenshots...")
     screenshots = capture_screenshots(os.path.join(evidence_dir, "screenshots"))

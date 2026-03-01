@@ -9,6 +9,7 @@ from coordinator_node.entities.feed_record import FeedRecord
 from coordinator_node.entities.prediction import (
     CruncherReward,
     EmissionCheckpoint,
+    PredictionRecord,
     ProviderReward,
 )
 
@@ -223,8 +224,14 @@ class EnsembleConfig(BaseModel):
 
 def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
+    prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
     """Default resolver: compare first and last record's close/price in the window.
+
+    Args:
+        feed_records: All feed records in the resolution window (any subject).
+        prediction: The prediction being scored. Use ``prediction.scope`` to
+            filter records in multi-asset competitions.
 
     Override for custom ground truth (VWAP, cross-venue, labels, etc.).
     """
@@ -508,9 +515,9 @@ class CrunchConfig(BaseModel):
             "Use for stateful scoring (e.g. PositionManager-backed trading)."
         ),
     )
-    resolve_ground_truth: Callable[[list[FeedRecord]], dict[str, Any] | None] = (
-        default_resolve_ground_truth
-    )
+    resolve_ground_truth: Callable[
+        [list[FeedRecord], PredictionRecord | None], dict[str, Any] | None
+    ] = default_resolve_ground_truth
     aggregate_snapshot: Callable[[list[dict[str, Any]]], dict[str, Any]] = (
         default_aggregate_snapshot
     )

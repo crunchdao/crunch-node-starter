@@ -1,0 +1,164 @@
+{
+  "timestamp": "2026-02-28T15:32:12Z",
+  "agent_cmd": "pi",
+  "spec_version": "btc-direction-v3",
+  "duration_seconds": 300.0,
+  "agent_exit_code": -1,
+  "timed_out": true,
+  "milestones": {
+    "types_correct": {
+      "passed": true,
+      "details": "Found fields: ['direction', 'confidence']"
+    },
+    "ground_truth_type": {
+      "passed": true,
+      "details": "Found fields with defaults: ['profit', 'direction_up']"
+    },
+    "scoring_implemented": {
+      "passed": true,
+      "details": "OK: positive=0.016000; OK: negative=-0.016000; OK: positive=0.018000; OK: negative=-0.018000"
+    },
+    "examples_exist": {
+      "passed": true,
+      "details": "3/3 found, all have correct shape"
+    },
+    "tests_pass": {
+      "passed": true,
+      "details": "exit_code=0"
+    },
+    "deploy_succeeded": {
+      "passed": true,
+      "details": "7/7 containers running"
+    },
+    "e2e_verified": {
+      "passed": false,
+      "details": "exit_code=2\n[verify-e2e] waiting: waiting for scored predictions/leaderboard (predictions=77 leaderboard=0)\n[verify-e2e] waiting: waiting for scored predictions/leaderboard (predictions=78 leaderboard=0)\n[verify-e2e] waiting: waiting for scored predictions/leaderboard (predictions=79 leaderboard=0)\n[verify-e2e] waiting: waiting for scored predictions/leaderboard (predictions=80 leaderboard=0)\n[verify-e2e] waiting: waiting for scored predictions/leaderboard (predictions=81 leaderboard=0)\n[verify-e2e] waiting: ('Connection aborted.', ConnectionResetError(54, 'Connection reset by peer'))\n[verify-e2e] waiting: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /healthz (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 61] Connection refused\"))\n[verify-e2e] waiting: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /healthz (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 61] Connection refused\"))\n[verify-e2e] waiting: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /healthz (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 61] Connection refused\"))\n[verify-e2e] waiting: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /healthz (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 61] Connection refused\"))\n[verify-e2e] FAILED: timeout reached. last_error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /healthz (Caused by NewConnectionError(\"HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 61] Connection refused\"))\n\n[verify-e2e] === MODEL ORCHESTRATOR LOGS (last 30 lines) ===\n  \n\n\nwarning: `VIRTUAL_ENV=/Users/philippwassibauer/workspace/coordinator-node-starter/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nwarning: `VIRTUAL_ENV=/Users/philippwassibauer/workspace/coordinator-node-starter/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nmake[1]: *** [verify-e2e] Error 1\nmake: *** [verify-e2e] Error 2"
+    }
+  },
+  "milestone_count": "6/7",
+  "agent_log_file": "2026-02-28-15-22-05.log",
+  "workspace": "/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj",
+  "evidence": {
+    "level": "standard",
+    "session": {
+      "turns": 37,
+      "tool_calls": 50,
+      "tool_results": 0,
+      "tool_breakdown": {
+        "read": 15,
+        "bash": 26,
+        "write": 8,
+        "edit": 1
+      },
+      "errors_encountered": 0,
+      "error_samples": [],
+      "model": "claude-opus-4-6",
+      "provider": "anthropic",
+      "tokens": {
+        "input": 38,
+        "output": 15809,
+        "cache_read": 1317612,
+        "cache_write": 57515,
+        "total": 1390974,
+        "cache_hit_rate_pct": 100.0
+      },
+      "cost_usd": 1.4137,
+      "compaction_count": 0,
+      "efficiency": {
+        "tokens_per_turn": 37594,
+        "tool_calls_per_turn": 1.4,
+        "output_tokens_per_tool_call": 316
+      },
+      "files_written": [
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/__init__.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/always_up_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/mean_reversion_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/momentum_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/scoring.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_examples.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_scoring.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/config/crunch_config.py"
+      ],
+      "files_read": [
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/.agent/context.md",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/.agent/guide.md",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/.agent/policy.md",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/Makefile",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/__init__.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/mean_reversion_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/trend_following_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/volatility_regime_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/scoring.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_examples.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_scoring.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_tracker.py",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/.local.env",
+        "/private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/config/crunch_config.py"
+      ],
+      "bash_command_count": 26,
+      "bash_samples": [
+        "ls /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/exam",
+        "rm /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/exam",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && make test 2>&1",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && make down 2>&1 || true",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && make deploy 2>&1",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && make verify-e2e 2>&1",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && docker compose -f node/docker",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && docker compose -f node/docker",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && docker compose -f node/docker",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "docker exec -i crunch-node-bench-2026-02-28-15-22-08-postgres psql -U bench-2026-02-28-15-22-08 -d bench-2026-02-28-15-2",
+        "cd /private/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj && docker compose -f node/docker"
+      ],
+      "first_timestamp": "2026-02-28T15:22:09.519Z",
+      "last_timestamp": "2026-02-28T15:32:03.024Z"
+    },
+    "session_file": "/Users/philippwassibauer/workspace/nodes/coordinator-node-starter/tests/benchmark/logs/2026-02-28-15-22-05-evidence/session.jsonl",
+    "session_html": "/Users/philippwassibauer/workspace/nodes/coordinator-node-starter/tests/benchmark/logs/2026-02-28-15-22-05-evidence/session.html",
+    "files_changed": [
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/starter_challenge/examples/__init__.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/__init__.py differ",
+      "Only in /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples: always_up_tracker.py",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/starter_challenge/examples/mean_reversion_tracker.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples/mean_reversion_tracker.py differ",
+      "Only in /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/examples: momentum_tracker.py",
+      "Only in /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/starter_challenge/examples: trend_following_tracker.py",
+      "Only in /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/starter_challenge/examples: volatility_regime_tracker.py",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/starter_challenge/scoring.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/starter_challenge/scoring.py differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/tests/test_examples.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_examples.py differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/challenge/tests/test_scoring.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/challenge/tests/test_scoring.py differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/node/.local.env and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/.local.env differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/node/config/crunch_config.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/config/crunch_config.py differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/node/deployment/model-orchestrator-local/data/models.dev.yml and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data/models.dev.yml differ",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/node/deployment/model-orchestrator-local/data/orchestrator.dev.db and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data/orchestrator.dev.db differ",
+      "Only in /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data: orchestrator.dev.yml",
+      "Only in /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data/submissions: always-up-tracker",
+      "Files /Users/philippwassibauer/workspace/nodes/coordinator-node-starter/scaffold/node/deployment/model-orchestrator-local/data/submissions/mean-reversion-tracker/main.py and /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data/submissions/mean-reversion-tracker/main.py differ",
+      "Only in /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-scaffold-_jx1_oqj/node/deployment/model-orchestrator-local/data/submissions: momentum-tracker"
+    ]
+  },
+  "tokens": {
+    "input": 38,
+    "output": 15809,
+    "cache_read": 1317612,
+    "cache_write": 57515,
+    "total": 1390974,
+    "cache_hit_rate_pct": 100.0
+  },
+  "cost_usd": 1.4137,
+  "turns": 37,
+  "tool_calls": 50,
+  "compaction_count": 0,
+  "efficiency": {
+    "tokens_per_turn": 37594,
+    "tool_calls_per_turn": 1.4,
+    "output_tokens_per_tool_call": 316
+  }
+}

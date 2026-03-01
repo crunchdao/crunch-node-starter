@@ -28,7 +28,7 @@ Single source of truth for competition behavior:
 | `score_type` | What scoring produces |
 | `scheduled_predictions` | Scope, interval, horizon per prediction type |
 | `scoring_function` | Overrides `SCORING_FUNCTION` env var. Supports stateful callables. |
-| `resolve_ground_truth` | Derives actuals from feed data |
+| `resolve_ground_truth` | Derives actuals from feed data + prediction |
 | `aggregate_snapshot` | Aggregates scores into period summaries |
 | `build_emission` | Reward distribution logic |
 | `aggregation.value_field` | Score field to average in windows (default `"value"`) |
@@ -38,10 +38,11 @@ Loaded via `coordinator_node.config_loader.load_config()`.
 
 ## Scoring → Leaderboard Flow
 
-1. `scoring_function(prediction, ground_truth)` → dict matching `score_type`
-2. `aggregate_snapshot([results])` → `SnapshotRecord.result_summary`
-3. Window aggregation → averages `value_field` per window → leaderboard `metrics`
-4. `auto_report_schema()` → introspects `score_type` → auto-generates UI columns
+1. `resolve_ground_truth(feed_records, prediction)` → ground truth dict
+2. `scoring_function(prediction, ground_truth)` → dict matching `score_type`
+3. `aggregate_snapshot([results])` → `SnapshotRecord.result_summary`
+4. Window aggregation → averages `value_field` per window → leaderboard `metrics`
+5. `auto_report_schema()` → introspects `score_type` → auto-generates UI columns
 
 ## Status Lifecycles
 
@@ -83,6 +84,13 @@ Full schema at `/openapi.json`. Key endpoints:
 Four dimensions configured in `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`, `FEED_KIND`, `FEED_GRANULARITY`.
 
 ## Gotchas
+
+### Feed subjects vs scope subjects
+Feed subjects (e.g. `BTC`) and scope subjects (e.g. `BTCUSDT`) are independent.
+The score worker fetches **all** feed records in the resolution window regardless
+of subject. `resolve_ground_truth(records, prediction)` receives the full set and
+is responsible for filtering by `prediction.scope["subject"]` if needed. The default
+resolver ignores subject and just compares first/last price — works for single-asset.
 
 ### resolve_horizon_seconds must exceed feed interval
 - `0` = immediate resolution (ground truth from `InputRecord.raw_data`)

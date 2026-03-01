@@ -24,8 +24,8 @@ watcher:
     path: "/app/data/models.dev.yml"
 
 crunches:
-  - id: "starter-challenge"
-    name: "starter-challenge"
+  - id: "${CRUNCH_ID}"
+    name: "${CRUNCH_ID}"
     infrastructure:
       zone: "local"
 

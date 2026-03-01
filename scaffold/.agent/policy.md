@@ -22,6 +22,12 @@ These changes require explicit human approval. Do not implement autonomously.
 
 - **Database tables** — all new tables must be PostgreSQL via SQLModel/SQLAlchemy with Alembic migrations. No SQLite, no raw SQL CREATE TABLE, no in-memory stores for persistent data.
 
+## Efficiency Rules
+
+- **Never use `sleep` commands.** `make verify-e2e` and `make check-models` already poll and wait internally. Sleeping wastes time.
+- **Don't wait between deploy and verify.** Run `make verify-e2e` immediately after `make deploy` — it handles readiness checks.
+- **Port conflicts:** Run `make down` first. If ports are still held by other containers, use `docker rm -f $(docker ps -aq --filter name=crunch-node-)` to kill all crunch containers.
+
 ## Allowed Operations
 
 **Commands (run freely):**

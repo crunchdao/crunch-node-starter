@@ -323,12 +323,11 @@ class ScoreService:
             start=prediction.performed_at,
             end=prediction.resolvable_at,
             source=scope.get("source"),
-            subject=scope.get("subject"),
             kind=scope.get("kind"),
             granularity=scope.get("granularity"),
         )
 
-        actuals = self.contract.resolve_ground_truth(records)
+        actuals = self.contract.resolve_ground_truth(records, prediction)
         if actuals is None:
             return None
         # Validate through ground_truth_type
