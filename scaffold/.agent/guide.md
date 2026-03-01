@@ -45,23 +45,22 @@ model and assigning it in your CrunchConfig class:
 from coordinator_node.crunch_config import CrunchConfig as _Base, InferenceOutput
 
 class MyOutput(InferenceOutput):
-    direction: str = "up"
-    confidence: float = 0.5
+    # define whatever fields models should return for this competition
+    ...
 
 class CrunchConfig(_Base):
     output_type = MyOutput
 ```
 
-**IMPORTANT — GroundTruth fields MUST have defaults.** The score worker
-dry-runs the scoring function at startup using `GroundTruth()` (no args).
-If any field lacks a default, this raises a `ValidationError` and the
-worker crashes on boot. Always define defaults:
+**IMPORTANT — all type fields MUST have defaults.** The score worker
+dry-runs the scoring function at startup using `GroundTruth()` and
+`InferenceOutput()` (no args). If any field lacks a default, this raises
+a `ValidationError` and the worker crashes on boot.
 
-```python
-class BtcGroundTruth(GroundTruth):
-    profit: float = 0.0          # ← default required
-    direction_up: bool = True    # ← default required
-```
+**GroundTruth should match what `resolve_ground_truth` returns.** The
+default resolver compares first/last feed record prices and returns:
+`{entry_price, resolved_price, profit, direction_up}`. If you override
+`resolve_ground_truth`, update `ground_truth_type` to match its output.
 
 The five types to override:
 - `raw_input_type` — what the feed produces
@@ -88,16 +87,10 @@ Models extend `TrackerBase`. Key methods:
 
 The `data` dict passed to `tick()` has shape:
 ```python
-{"symbol": "BTCUSDT", "asof_ts": 1234567890, "candles_1m": [{"ts": ..., "open": ..., "high": ..., "low": ..., "close": ..., "volume": ...}, ...]}
+{"symbol": "...", "asof_ts": int, "candles_1m": [{"ts": int, "open": float, "high": float, "low": float, "close": float, "volume": float}, ...]}
 ```
 
-In `predict()`, call `self._get_data(subject)` then extract prices from `candles_1m`:
-```python
-data = self._get_data(subject)
-if not data:
-    return {"value": 0.0}
-closes = [c["close"] for c in data.get("candles_1m", [])]
-```
+In `predict()`, call `self._get_data(subject)` to access the latest data, then extract what you need from `candles_1m`.
 
 ## 2. Examples
 
