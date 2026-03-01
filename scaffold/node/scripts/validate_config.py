@@ -138,11 +138,22 @@ def check_timing():
         return
 
     if not configs:
-        check(
-            "scheduled_predictions defined",
-            False,
-            "no predictions found in CrunchConfig",
+        # Tournament mode has no scheduled predictions — that's expected
+        svc_class = getattr(cc, "predict_service_class", None)
+        is_tournament = svc_class is not None and "Tournament" in getattr(
+            svc_class, "__name__", ""
         )
+        if is_tournament:
+            check(
+                "Tournament mode — no scheduled_predictions needed",
+                True,
+            )
+        else:
+            check(
+                "scheduled_predictions defined",
+                False,
+                "no predictions found in CrunchConfig",
+            )
         return
 
     for cfg in configs:
@@ -199,6 +210,10 @@ def check_subjects():
         scope_subject = sp.scope.get("subject") if sp.scope else None
         if scope_subject:
             scope_subjects.add(scope_subject)
+
+    if not cc.scheduled_predictions:
+        check("Tournament mode — no feed/scope subjects to check", True)
+        return
 
     check(
         f"Feed subjects: {sorted(feed_subjects)}, "
