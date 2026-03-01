@@ -74,18 +74,18 @@ A round is just a `scope_key` string (e.g. `"round-001"`). No new table, no roun
 | Component | Location | Description |
 |-----------|----------|-------------|
 | `TournamentPredictService` | `coordinator_node/services/tournament_predict.py` | PredictService subclass, round-based |
-| Tournament API endpoints | `coordinator_node/api/tournament.py` | Two POST endpoints for inference + scoring |
 
-## What's Configured Per Competition (scaffold)
+## What's in the Pack (scaffold)
 
-| Config | Description |
-|--------|-------------|
-| `predict_service_class = TournamentPredictService` | Wired in CrunchConfig |
-| `input_type` | Features schema (what models receive) |
-| `ground_truth_type` | Ground truth schema (what scoring uses) |
-| `output_type` | What models return |
-| `score_type` | What scoring produces |
-| `scoring_function` | Competition-specific scoring logic |
+| Component | Location | Description |
+|-----------|----------|-------------|
+| Tournament API endpoints | `scaffold/node/api/tournament.py` | Two POST endpoints calling the service |
+| CrunchConfig | `scaffold/node/config/crunch_config.py` | `predict_service_class = TournamentPredictService` |
+| `input_type` | CrunchConfig | Features schema (what models receive) |
+| `ground_truth_type` | CrunchConfig | Ground truth schema (what scoring uses) |
+| `output_type` | CrunchConfig | What models return |
+| `score_type` | CrunchConfig | What scoring produces |
+| `scoring_function` | CrunchConfig | Competition-specific scoring logic |
 
 ## What's Explicitly Out of Scope
 
@@ -118,11 +118,12 @@ A round is just a `scope_key` string (e.g. `"round-001"`). No new table, no roun
 3. Implement `run_inference()` and `score_round()`
 4. Override `run()` as a no-op / wait-for-shutdown
 
-### Step 2: Tournament API endpoints (base package)
+### Step 2: Tournament pack (scaffold)
 
-1. Create `coordinator_node/api/tournament.py`
-2. Two POST endpoints wired to the service
-3. Auto-discovered by existing API discovery
+1. Create `scaffold/node/api/tournament.py` — two POST endpoints calling the service
+2. CrunchConfig with `predict_service_class = TournamentPredictService`
+3. Types, scoring function
+4. Auto-discovered by existing API discovery
 
 ### Step 3: Wire into predict_worker
 
