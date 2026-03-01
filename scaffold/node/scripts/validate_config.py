@@ -239,24 +239,27 @@ def check_scoring():
         check("Scoring function importable", False, str(exc))
         return
 
-    # Probe: feed the scoring function a synthetic prediction + ground truth
-    # Use generic shapes that work for both numeric and order-based competitions
+    # Probe: build test inputs from CrunchConfig types when available,
+    # fall back to generic shapes otherwise
     try:
-        # Try order-based shape first (action/leverage/entry_price)
-        pred = {
-            "action": "LONG",
-            "trade_pair": "BTCUSDT",
-            "leverage": 1.0,
-            "entry_price": 100.0,
-        }
-        gt = {"price": 105.0, "symbol": "BTCUSDT", "timestamp": 0}
-        result = score_fn(pred, gt)
+        pred = None
+        gt = None
 
-        if not isinstance(result, dict):
-            # Try numeric shape (value-based)
+        try:
+            from config.crunch_config import CrunchConfig
+
+            cc = CrunchConfig()
+            # Use default instances of the actual types
+            pred = cc.output_type().model_dump()
+            gt = cc.ground_truth_type().model_dump()
+        except Exception:
+            pass
+
+        if pred is None:
             pred = {"value": 105.0}
             gt = {"value": 100.0}
-            result = score_fn(pred, gt)
+
+        result = score_fn(pred, gt)
 
         check(
             "score_prediction returns dict",
@@ -274,9 +277,10 @@ def check_scoring():
         val = result.get("value", 0.0)
         if val == 0.0:
             warn(
-                "Score is zero for valid input",
-                "Scoring returns 0.0 for a 5% price move. If this is the "
-                "default stub, implement real scoring before deploying.",
+                "Score is zero for default types",
+                "Scoring returns 0.0 when called with default InferenceOutput "
+                "and GroundTruth values. This is often expected (e.g. profit=0.0 "
+                "defaults). Verify scoring returns non-zero for real inputs.",
             )
         else:
             check(f"Score is non-zero ({val:.6f})", True)
