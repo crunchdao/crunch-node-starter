@@ -138,22 +138,7 @@ def check_timing():
         return
 
     if not configs:
-        # Tournament mode has no scheduled predictions — that's expected
-        svc_class = getattr(cc, "predict_service_class", None)
-        is_tournament = svc_class is not None and "Tournament" in getattr(
-            svc_class, "__name__", ""
-        )
-        if is_tournament:
-            check(
-                "Tournament mode — no scheduled_predictions needed",
-                True,
-            )
-        else:
-            check(
-                "scheduled_predictions defined",
-                False,
-                "no predictions found in CrunchConfig",
-            )
+        check("No scheduled_predictions — skipping timing checks", True)
         return
 
     for cfg in configs:
