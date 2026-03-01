@@ -35,16 +35,69 @@ Three test files track your progress:
 Define the contract first — what models receive and what they return.
 
 **Types** — edit `node/config/crunch_config.py`:
-- `RawInput` — what the feed produces
-- `InferenceInput` — what models receive (can transform from RawInput)
-- `InferenceOutput` — what models return (this is the core design decision)
-- `ScoreResult` — what scoring produces (define after scoring, step 3)
+
+All types are Pydantic models imported from `coordinator_node.crunch_config`.
+The scaffold's `CrunchConfig` subclass overrides them. The base defaults all
+have a single `value: float` field. Override by defining your own Pydantic
+model and assigning it in your CrunchConfig class:
+
+```python
+from coordinator_node.crunch_config import CrunchConfig as _Base, InferenceOutput
+
+class MyOutput(InferenceOutput):
+    direction: str = "up"
+    confidence: float = 0.5
+
+class CrunchConfig(_Base):
+    output_type = MyOutput
+```
+
+**IMPORTANT — GroundTruth fields MUST have defaults.** The score worker
+dry-runs the scoring function at startup using `GroundTruth()` (no args).
+If any field lacks a default, this raises a `ValidationError` and the
+worker crashes on boot. Always define defaults:
+
+```python
+class BtcGroundTruth(GroundTruth):
+    profit: float = 0.0          # ← default required
+    direction_up: bool = True    # ← default required
+```
+
+The five types to override:
+- `raw_input_type` — what the feed produces
+- `input_type` — what models receive (can transform from raw)
+- `output_type` — what models return (this is the core design decision)
+- `ground_truth_type` — actual outcome shape (needs defaults!)
+- `score_type` — what scoring produces (define after scoring, step 3)
 
 **Tracker** — edit `challenge/starter_challenge/tracker.py`:
 - `tick(data)` — receives market data, maintains state per-subject via `data["symbol"]`
 - `predict(subject, resolve_horizon_seconds, step_seconds)` — returns dict matching `InferenceOutput`
 
 The tracker defines the participant interface. What `predict()` returns IS the competition.
+
+### TrackerBase API
+
+Models extend `TrackerBase`. Key methods:
+
+| Method | Purpose |
+|---|---|
+| `tick(data)` | Called with each feed update. Stores data by `data["symbol"]`. |
+| `_get_data(subject)` | Returns the latest tick data dict for a subject. |
+| `predict(subject, resolve_horizon_seconds, step_seconds)` | Must return a dict matching `InferenceOutput`. |
+
+The `data` dict passed to `tick()` has shape:
+```python
+{"symbol": "BTCUSDT", "asof_ts": 1234567890, "candles_1m": [{"ts": ..., "open": ..., "high": ..., "low": ..., "close": ..., "volume": ...}, ...]}
+```
+
+In `predict()`, call `self._get_data(subject)` then extract prices from `candles_1m`:
+```python
+data = self._get_data(subject)
+if not data:
+    return {"value": 0.0}
+closes = [c["close"] for c in data.get("candles_1m", [])]
+```
 
 ## 2. Examples
 
