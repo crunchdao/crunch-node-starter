@@ -61,6 +61,14 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
         scaffold_src, workspace, ignore=_ignore_patterns, dirs_exist_ok=True
     )
 
+    # Apply tournament pack overlay (tournament-aware scripts, config, etc.)
+    pack_dir = os.path.join(repo_root, "packs", "tournament")
+    if os.path.isdir(pack_dir):
+        shutil.copytree(
+            pack_dir, workspace, ignore=_ignore_patterns, dirs_exist_ok=True
+        )
+        print("[benchmark] Applied tournament pack overlay")
+
     print(f"[benchmark] Workspace: {workspace}")
     return workspace
 

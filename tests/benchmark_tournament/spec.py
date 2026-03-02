@@ -15,7 +15,8 @@ Read the .agent/ docs to understand the workflow. This is a TOURNAMENT
 competition, not a realtime one. The key difference:
 
 - No streaming feed. No ticking. No resolve_horizon_seconds.
-- Models receive a batch of property features and return predicted prices.
+- The tournament engine calls each model once PER PROPERTY. Each call
+  receives one feature dict and returns one prediction dict.
 - Ground truth (actual sale prices) arrives separately after inference.
 - Two API endpoints drive rounds: one for inference, one for scoring.
 
@@ -93,13 +94,17 @@ Create exactly 2 example trackers:
 
 1. median_price_tracker.py — MedianPriceTracker
    - Always predicts $350,000 (national median)
-   - predict() returns {"predicted_price": 350000.0}
+   - predict(features) receives one property's feature dict
+   - Returns {"predicted_price": 350000.0}
 
 2. sqft_price_tracker.py — SqftPriceTracker
    - Predicts based on square footage: price = living_area_sqft * 200
-   - predict() returns {"predicted_price": living_area_sqft * 200}
+   - predict(features) receives one property's feature dict
+   - Returns {"predicted_price": features["living_area_sqft"] * 200}
 
-All trackers extend TrackerBase. predict() returns a dict, not a Pydantic model.
+All trackers extend TrackerBase. predict(features) receives a single feature
+dict and returns a single prediction dict. The engine calls predict() once
+per property in the batch.
 
 ## Test Data (create challenge/starter_challenge/data/)
 

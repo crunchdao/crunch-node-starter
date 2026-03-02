@@ -53,9 +53,16 @@ class FakeRepo:
     def find(self, **kwargs):
         results = list(self.items.values())
         scope_key = kwargs.get("scope_key")
+        scope_key_prefix = kwargs.get("scope_key_prefix")
         status = kwargs.get("status")
         if scope_key:
             results = [r for r in results if getattr(r, "scope_key", None) == scope_key]
+        if scope_key_prefix:
+            results = [
+                r
+                for r in results
+                if (getattr(r, "scope_key", None) or "").startswith(scope_key_prefix)
+            ]
         if status:
             if isinstance(status, list):
                 results = [r for r in results if getattr(r, "status", None) in status]
@@ -263,32 +270,37 @@ class TestScoreRound(unittest.TestCase):
         self.assertIn("something broke", scores[0].failed_reason)
 
     def test_score_round_with_list_ground_truth(self):
-        """score_round accepts list of ground truth dicts."""
-        received_gt = {}
+        """score_round with list GT scores per-sample predictions 1:1."""
+        received_gts: list[dict] = []
 
         def scoring_fn(prediction, ground_truth):
-            received_gt.update(ground_truth)
+            received_gts.append(ground_truth)
             return {"value": 0.5, "success": True, "failed_reason": None}
 
         service = make_service(scoring_function=scoring_fn)
 
-        pred = PredictionRecord(
-            id="PRE_model1_round-list",
-            input_id="INP_round-list",
-            model_id="model1",
-            prediction_config_id=None,
-            scope_key="round-list",
-            scope={},
-            status=PredictionStatus.PENDING,
-            exec_time_ms=0.0,
-        )
-        service.prediction_repository.save(pred)
+        # Two per-sample predictions (as created by run_inference)
+        for idx in range(2):
+            pred = PredictionRecord(
+                id=f"PRE_model1_round-list_{idx}",
+                input_id="INP_round-list",
+                model_id="model1",
+                prediction_config_id=None,
+                scope_key=f"round-list:{idx}",
+                scope={"round_id": "round-list", "feature_index": idx},
+                status=PredictionStatus.PENDING,
+                exec_time_ms=0.0,
+            )
+            service.prediction_repository.save(pred)
 
         gt_list = [{"value": 1.0}, {"value": 2.0}]
         scores = service.score_round("round-list", gt_list)
-        self.assertEqual(len(scores), 1)
-        # Ground truth passed as {"items": [...]}
-        self.assertIn("items", received_gt)
+        # One score per sample
+        self.assertEqual(len(scores), 2)
+        # Each GT item passed individually to scoring function
+        self.assertEqual(len(received_gts), 2)
+        self.assertEqual(received_gts[0]["value"], 1.0)
+        self.assertEqual(received_gts[1]["value"], 2.0)
 
     def test_score_round_validates_ground_truth(self):
         """Ground truth is validated through ground_truth_type."""
@@ -366,13 +378,14 @@ class TestRoundQueries(unittest.TestCase):
     def test_get_round_status_inference_complete(self):
         service = make_service()
 
+        # Per-sample scope_key format
         pred = PredictionRecord(
-            id="PRE_model1_round-q",
+            id="PRE_model1_round-q_0",
             input_id="INP_round-q",
             model_id="model1",
             prediction_config_id=None,
-            scope_key="round-q",
-            scope={},
+            scope_key="round-q:0",
+            scope={"round_id": "round-q", "feature_index": 0},
             status=PredictionStatus.PENDING,
             exec_time_ms=0.0,
         )
@@ -386,12 +399,12 @@ class TestRoundQueries(unittest.TestCase):
         service = make_service()
 
         pred = PredictionRecord(
-            id="PRE_model1_round-s",
+            id="PRE_model1_round-s_0",
             input_id="INP_round-s",
             model_id="model1",
             prediction_config_id=None,
-            scope_key="round-s",
-            scope={},
+            scope_key="round-s:0",
+            scope={"round_id": "round-s", "feature_index": 0},
             status=PredictionStatus.SCORED,
             exec_time_ms=0.0,
         )
@@ -404,12 +417,12 @@ class TestRoundQueries(unittest.TestCase):
         service = make_service()
 
         pred = PredictionRecord(
-            id="PRE_model1_round-gp",
+            id="PRE_model1_round-gp_0",
             input_id="INP_round-gp",
             model_id="model1",
             prediction_config_id=None,
-            scope_key="round-gp",
-            scope={},
+            scope_key="round-gp:0",
+            scope={"round_id": "round-gp", "feature_index": 0},
             status=PredictionStatus.PENDING,
             exec_time_ms=0.0,
         )
