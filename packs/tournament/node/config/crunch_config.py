@@ -1,11 +1,11 @@
 """CrunchConfig for tournament-style competitions.
 
-Models receive a feature dataset and return a prediction per target.
-Ground truth is resolved after a longer horizon (e.g. 1 hour).
-Scoring uses IC (information coefficient) as the primary metric.
+Models receive a single feature dict and return a prediction.
+Ground truth is resolved via explicit API calls (not feed-based).
+Scoring uses IC (information coefficient) as the primary ranking metric.
 
-This is the classic quant-tournament format: submit predictions on a
-fixed schedule, wait for resolution, rank by statistical quality.
+This is the classic quant-tournament format: submit predictions,
+wait for resolution, rank by statistical quality.
 """
 
 from __future__ import annotations
@@ -17,7 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from coordinator_node.crunch_config import (
     Aggregation,
     AggregationWindow,
-    ScheduledPrediction,
+    CallMethodArg,
+    CallMethodConfig,
 )
 from coordinator_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
@@ -61,11 +62,13 @@ class GroundTruth(BaseModel):
 
 
 class InferenceOutput(BaseModel):
-    """What models must return: a prediction value.
+    """What models must return: a single prediction value.
 
     prediction: float — unbounded, but should be on a consistent scale.
     Models are ranked by correlation with the target, not absolute accuracy.
     """
+
+    model_config = ConfigDict(extra="allow")
 
     prediction: float = Field(
         default=0.0,
@@ -92,8 +95,11 @@ class ScoreResult(BaseModel):
 class CrunchConfig(BaseCrunchConfig):
     """Tournament-style competition configuration.
 
-    Longer horizon, batch resolution, IC-based ranking.
-    Predictions submitted every 5 minutes, resolved after 1 hour.
+    Models are called per-sample via the tournament API. Each model
+    receives one feature dict as a JSON argument and returns a single
+    prediction dict. ``run_inference`` loops over all features.
+
+    No feed, no scheduled predictions — rounds are API-driven.
     """
 
     raw_input_type: type[BaseModel] = RawInput
@@ -101,6 +107,17 @@ class CrunchConfig(BaseCrunchConfig):
     input_type: type[BaseModel] = InferenceInput
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
+
+    # Tournament: model.predict(features) where features is a single JSON dict
+    call_method: CallMethodConfig = Field(
+        default_factory=lambda: CallMethodConfig(
+            method="predict",
+            args=[CallMethodArg(name="features", type="JSON")],
+        )
+    )
+
+    # No scheduled predictions — rounds are API-driven
+    scheduled_predictions: list = Field(default_factory=list)
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(
@@ -122,16 +139,5 @@ class CrunchConfig(BaseCrunchConfig):
             "hit_rate",
             "max_drawdown",
             "model_correlation",
-        ]
-    )
-
-    scheduled_predictions: list[ScheduledPrediction] = Field(
-        default_factory=lambda: [
-            ScheduledPrediction(
-                scope_key="tournament-btc-1h",
-                scope={"subject": "BTC"},
-                prediction_interval_seconds=300,  # every 5 minutes
-                resolve_horizon_seconds=3600,  # resolved after 1 hour
-            ),
         ]
     )

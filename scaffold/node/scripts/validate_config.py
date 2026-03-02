@@ -138,11 +138,7 @@ def check_timing():
         return
 
     if not configs:
-        check(
-            "scheduled_predictions defined",
-            False,
-            "no predictions found in CrunchConfig",
-        )
+        check("No scheduled_predictions — skipping timing checks", True)
         return
 
     for cfg in configs:
@@ -199,6 +195,10 @@ def check_subjects():
         scope_subject = sp.scope.get("subject") if sp.scope else None
         if scope_subject:
             scope_subjects.add(scope_subject)
+
+    if not cc.scheduled_predictions:
+        check("Tournament mode — no feed/scope subjects to check", True)
+        return
 
     check(
         f"Feed subjects: {sorted(feed_subjects)}, "
