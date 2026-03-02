@@ -1,6 +1,6 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 
-.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify
+.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build
 
 # ── Code quality ─────────────────────────────────────────────────────
 fmt:
@@ -55,6 +55,11 @@ benchmark-compare:
 
 benchmark-verify:
 	uv run python -m tests.benchmark.run_benchmark --verify-only $(WORKSPACE)
+
+# ── Build & Publish ───────────────────────────────────────────────────
+# force-include in pyproject.toml bundles scaffold/ and packs/ into the wheel.
+build:
+	uv build
 
 # Database migrations (Alembic)
 migrate:

@@ -288,8 +288,12 @@ class TournamentPredictService(PredictService):
             if len(model_preds) != len(gt_items):
                 logger.warning(
                     "Round %s model %s: %d predictions vs %d GT items — scoring min(%d, %d)",
-                    round_id, model_id, len(model_preds), len(gt_items),
-                    len(model_preds), len(gt_items),
+                    round_id,
+                    model_id,
+                    len(model_preds),
+                    len(gt_items),
+                    len(model_preds),
+                    len(gt_items),
                 )
             for pred, gt in zip(model_preds, gt_items):
                 typed_output = dict(pred.inference_output or {})
