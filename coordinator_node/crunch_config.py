@@ -9,6 +9,7 @@ from coordinator_node.entities.feed_record import FeedRecord
 from coordinator_node.entities.prediction import (
     CruncherReward,
     EmissionCheckpoint,
+    InputRecord,
     PredictionRecord,
     ProviderReward,
 )
@@ -513,6 +514,17 @@ class CrunchConfig(BaseModel):
             "Scoring callable: (prediction_dict, ground_truth_dict) → score_dict. "
             "If set, takes precedence over the SCORING_FUNCTION env var. "
             "Use for stateful scoring (e.g. PositionManager-backed trading)."
+        ),
+    )
+    post_predict_hook: (
+        Callable[[list[PredictionRecord], InputRecord, Any], list[PredictionRecord]]
+        | None
+    ) = Field(
+        default=None,
+        description=(
+            "Hook called after models produce outputs but before predictions "
+            "are saved to the database. Receives (predictions, input_record, now) "
+            "and returns the (possibly modified) list of PredictionRecords."
         ),
     )
     resolve_ground_truth: Callable[

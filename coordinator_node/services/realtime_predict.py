@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -17,10 +18,20 @@ from coordinator_node.services.predict import PredictService
 
 class RealtimePredictService(PredictService):
     def __init__(
-        self, checkpoint_interval_seconds: int = 60 * 60, **kwargs: Any
+        self,
+        checkpoint_interval_seconds: int = 60 * 60,
+        post_predict_hook: (
+            Callable[
+                [list[PredictionRecord], InputRecord, datetime],
+                list[PredictionRecord],
+            ]
+            | None
+        ) = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.checkpoint_interval_seconds = checkpoint_interval_seconds
+        self.post_predict_hook = post_predict_hook
         self._next_run: dict[str, datetime] = {}
 
     @staticmethod
@@ -91,6 +102,10 @@ class RealtimePredictService(PredictService):
 
         # 2. run configs → build records → save
         predictions = await self._predict_all_configs(inp, now)
+
+        if self.post_predict_hook is not None:
+            predictions = self.post_predict_hook(predictions, inp, now)
+
         self._save(predictions)
         return len(predictions) > 0
 
