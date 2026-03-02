@@ -285,8 +285,14 @@ class TournamentPredictService(PredictService):
             model_preds.sort(key=lambda p: (p.scope or {}).get("feature_index", 0))
 
             # Score each prediction against corresponding GT item
+            if len(model_preds) != len(gt_items):
+                logger.warning(
+                    "Round %s model %s: %d predictions vs %d GT items — scoring min(%d, %d)",
+                    round_id, model_id, len(model_preds), len(gt_items),
+                    len(model_preds), len(gt_items),
+                )
             for pred, gt in zip(model_preds, gt_items):
-                typed_output = pred.inference_output or {}
+                typed_output = dict(pred.inference_output or {})
                 typed_output["model_id"] = pred.model_id
                 typed_output["prediction_id"] = pred.id
 
