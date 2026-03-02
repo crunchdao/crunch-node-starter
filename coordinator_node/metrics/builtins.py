@@ -66,8 +66,8 @@ def _extract_actual_returns(scores: list[dict[str, Any]]) -> list[float]:
     values = []
     for s in scores:
         result = s.get("result", {})
-        # Try 'actual_return' first, then 'return' from ground truth
-        for key in ("actual_return", "return"):
+        # Try 'actual_return' first, then 'profit' from ground truth
+        for key in ("actual_return", "profit"):
             v = result.get(key)
             if v is not None:
                 try:

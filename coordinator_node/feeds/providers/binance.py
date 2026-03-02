@@ -232,7 +232,7 @@ class BinanceFeed(DataFeed):
                 SubjectDescriptor(
                     symbol=symbol,
                     display_name=symbol,
-                    kinds=("tick", "candle"),
+                    kinds=("tick", "kline", "candle"),
                     granularities=("1m", "5m", "15m", "1h"),
                     source="binance",
                     metadata={
@@ -299,7 +299,7 @@ class BinanceFeed(DataFeed):
         return _PollingFeedHandle(task)
 
     async def fetch(self, req: FeedFetchRequest) -> Sequence[FeedDataRecord]:
-        if req.kind == "candle":
+        if req.kind in ("candle", "kline"):
             records = await self._fetch_candles(req)
         elif req.kind == "depth":
             records = await self._fetch_depth(req)
@@ -361,7 +361,7 @@ class BinanceFeed(DataFeed):
                 ts_event = int(row[0]) // 1000
                 record = FeedDataRecord(
                     subject=asset,
-                    kind="candle",
+                    kind=req.kind,
                     granularity=req.granularity,
                     ts_event=ts_event,
                     values={
@@ -515,7 +515,7 @@ class BinanceFeed(DataFeed):
             records.append(
                 FeedDataRecord(
                     subject=asset,
-                    kind="tick",
+                    kind=req.kind,
                     granularity=req.granularity,
                     ts_event=now_ts,
                     values={"price": float(price)},

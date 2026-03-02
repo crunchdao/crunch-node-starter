@@ -19,21 +19,21 @@ class TestScoringContract:
     """Shape/type requirements — must pass for ANY valid implementation."""
 
     def test_returns_dict(self):
-        result = score_prediction({"value": 0.5}, {"return": 0.01})
+        result = score_prediction({"value": 0.5}, {"profit": 0.01})
         assert isinstance(result, dict)
 
     def test_has_value_key(self):
-        result = score_prediction({"value": 0.5}, {"return": 0.01})
+        result = score_prediction({"value": 0.5}, {"profit": 0.01})
         assert "value" in result
         assert isinstance(result["value"], (int, float))
 
     def test_has_success_key(self):
-        result = score_prediction({"value": 0.5}, {"return": 0.01})
+        result = score_prediction({"value": 0.5}, {"profit": 0.01})
         assert "success" in result
         assert isinstance(result["success"], bool)
 
     def test_has_failed_reason_key(self):
-        result = score_prediction({"value": 0.5}, {"return": 0.01})
+        result = score_prediction({"value": 0.5}, {"profit": 0.01})
         assert "failed_reason" in result
         assert result["failed_reason"] is None or isinstance(
             result["failed_reason"], str
@@ -55,7 +55,7 @@ class TestScoringBehavior:
         """A prediction in the right direction should score > 0."""
         # Bullish prediction, price went up
         result = score_prediction(
-            {"value": 0.5}, {"return": 0.02, "direction_up": True}
+            {"value": 0.5}, {"profit": 0.02, "direction_up": True}
         )
         assert result["value"] > 0, (
             "Correct directional prediction should score positive"
@@ -69,7 +69,7 @@ class TestScoringBehavior:
         """A prediction in the wrong direction should score < 0."""
         # Bullish prediction, price went down
         result = score_prediction(
-            {"value": 0.5}, {"return": -0.02, "direction_up": False}
+            {"value": 0.5}, {"profit": -0.02, "direction_up": False}
         )
         assert result["value"] < 0, "Wrong directional prediction should score negative"
 
@@ -79,8 +79,8 @@ class TestScoringBehavior:
     )
     def test_different_inputs_produce_different_scores(self):
         """Scoring must differentiate between predictions."""
-        good = score_prediction({"value": 0.8}, {"return": 0.05, "direction_up": True})
-        bad = score_prediction({"value": 0.8}, {"return": -0.05, "direction_up": False})
+        good = score_prediction({"value": 0.8}, {"profit": 0.05, "direction_up": True})
+        bad = score_prediction({"value": 0.8}, {"profit": -0.05, "direction_up": False})
         assert good["value"] != bad["value"], (
             "Different ground truths should produce different scores"
         )

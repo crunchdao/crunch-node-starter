@@ -32,7 +32,7 @@ class TestScoringStubDetection:
 
         def real_scorer(prediction, ground_truth):
             pred_val = float(prediction.get("value", 0.0))
-            actual_return = float(ground_truth.get("return", 0.0))
+            actual_return = float(ground_truth.get("profit", 0.0))
             # Returns different scores based on alignment of prediction vs actual
             score = pred_val * actual_return
             return {"value": score, "success": True}

@@ -62,6 +62,10 @@ tournament/
 │   ├── config/crunch_config.py       ← prediction output, IC ranking, 1h horizon
 │   ├── config/callables.env
 │   ├── .local.env.example            ← pyth feed, BTC, 1m granularity
+│   ├── scripts/
+│   │   ├── validate_config.py        ← tournament-aware (skips feed/timing checks)
+│   │   ├── check_models.py           ← shorter timeout, succeeds if orchestrator up
+│   │   └── verify_e2e.py             ← drives rounds via tournament API
 │   └── deployment/report-ui/config/
 │       └── leaderboard-columns.json  ← IC, IC Sharpe, hit rate columns
 └── challenge/

@@ -16,7 +16,7 @@ def score_prediction(prediction: dict, ground_truth: dict) -> dict:
 
     Args:
         prediction: Model output, expects ``{"signal": float}``.
-        ground_truth: Resolved outcome, expects ``{"return": float}``.
+        ground_truth: Resolved outcome, expects ``{"profit": float}``.
 
     Returns:
         Dict matching ScoreResult shape.
@@ -35,7 +35,7 @@ def score_prediction(prediction: dict, ground_truth: dict) -> dict:
             "failed_reason": f"Invalid signal: {prediction.get('signal')!r}",
         }
 
-    actual_return = float(ground_truth.get("return", 0.0))
+    actual_return = float(ground_truth.get("profit", 0.0))
 
     # Clamp signal to [-1, 1]
     signal = max(-1.0, min(1.0, raw_signal))

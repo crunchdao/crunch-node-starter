@@ -214,7 +214,7 @@ services:
         "model-orchestrator",
         "dev",
         "--configuration-file",
-        "/app/config/orchestrator.dev.yml",
+        "/app/data/orchestrator.dev.yml",
         "--rebuild",
         "if-code-modified",
       ]

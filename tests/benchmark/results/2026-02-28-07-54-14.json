@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-02-28T08:11:33Z",
+  "agent_cmd": "pi --provider openai-codex --model gpt-5.2-codex",
+  "spec_version": "btc-direction-v2",
+  "duration_seconds": 900.0,
+  "agent_exit_code": -1,
+  "timed_out": true,
+  "milestones": {
+    "types_correct": {
+      "passed": true,
+      "details": "Found fields: ['direction', 'confidence']"
+    },
+    "scoring_implemented": {
+      "passed": true,
+      "details": "OK: positive=0.016000; OK: negative=-0.016000; OK: positive=0.018000; OK: negative=-0.018000"
+    },
+    "examples_exist": {
+      "passed": true,
+      "details": "3/3 found, all have correct shape"
+    },
+    "tests_pass": {
+      "passed": true,
+      "details": "exit_code=0"
+    },
+    "deploy_succeeded": {
+      "passed": true,
+      "details": "7/7 containers running"
+    },
+    "e2e_verified": {
+      "passed": true,
+      "details": "  VERIFICATION SUMMARY\n======================================================================\n\n  LEADERBOARD:\n  Rank   Model                               Score       \n  -------------------------------------------------------\n  #1     2                                   0.000000\n  #2     3                                   -0.000000\n  #3     1                                   -0.000028\n\n  SCORES PER MODEL:\n  Model                               Count   Mean         Min          Max         \n  ------------------------------------------------------------------------------\n  2                                   4       0.000000     -0.000000    0.000000    \n\n  LATEST FEED DATA:\n    pyth/BTC  received_at=?\n    pyth/BTC  received_at=?\n    pyth/BTC  received_at=?\n\n======================================================================\n\nwarning: `VIRTUAL_ENV=/Users/philippwassibauer/workspace/nodes/coordinator-node-starter/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.9\nCreating virtual environment at: .venv\nInstalled 11 packages in 94ms\nwarning: `VIRTUAL_ENV=/Users/philippwassibauer/workspace/nodes/coordinator-node-starter/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead"
+    }
+  },
+  "milestone_count": "6/6",
+  "agent_log_file": "2026-02-28-07-54-14.log",
+  "workspace": "/tmp/bench-v2-codex"
+}

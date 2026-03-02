@@ -412,7 +412,7 @@ class TestBacktestResult(unittest.TestCase):
                 {
                     "ts": datetime(2026, 1, 15, tzinfo=UTC),
                     "output": {"value": 1.0},
-                    "actual": {"return": 0.01},
+                    "actual": {"profit": 0.01},
                     "score": 1.0,
                     "score_success": True,
                 },

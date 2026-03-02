@@ -151,38 +151,56 @@ class FeedReader:
         kind: str | None = None,
         granularity: str | None = None,
     ) -> list[FeedRecord]:
-        """Fetch feed records in a time window. Falls back to instance defaults for any missing dimension."""
+        """Fetch feed records in a time window.
+
+        Falls back to instance defaults for source/kind/granularity.
+        When ``subject`` is None, fetches records for **all** configured
+        subjects — this is the normal path for scoring, where
+        ``resolve_ground_truth`` decides which records are relevant.
+        """
         source = source or self.source
-        subject = subject or self.subject
         kind = kind or self.kind
         granularity = granularity or self.granularity
+        subjects = [subject] if subject else self.subjects
 
-        with create_session() as session:
-            repo = DBFeedRecordRepository(session)
-            records = repo.fetch_records(
-                source=source,
-                subject=subject,
-                kind=kind,
-                granularity=granularity,
-                start_ts=self._ensure_utc(start),
-                end_ts=self._ensure_utc(end),
-            )
+        records = self._fetch_subjects(source, subjects, kind, granularity, start, end)
 
         if not records:
             self._recover_window(
                 start=start - timedelta(minutes=2), end=end + timedelta(minutes=2)
             )
+            records = self._fetch_subjects(
+                source, subjects, kind, granularity, start, end
+            )
+
+        # Sort by timestamp for consistent ordering across subjects
+        records.sort(key=lambda r: self._ensure_utc(r.ts_event))
+        return records
+
+    def _fetch_subjects(
+        self,
+        source: str,
+        subjects: list[str],
+        kind: str,
+        granularity: str,
+        start: datetime,
+        end: datetime,
+    ) -> list[FeedRecord]:
+        """Query feed records from DB for one or more subjects in a time window."""
+        records: list[FeedRecord] = []
+        for subj in subjects:
             with create_session() as session:
                 repo = DBFeedRecordRepository(session)
-                records = repo.fetch_records(
-                    source=source,
-                    subject=subject,
-                    kind=kind,
-                    granularity=granularity,
-                    start_ts=self._ensure_utc(start),
-                    end_ts=self._ensure_utc(end),
+                records.extend(
+                    repo.fetch_records(
+                        source=source,
+                        subject=subj,
+                        kind=kind,
+                        granularity=granularity,
+                        start_ts=self._ensure_utc(start),
+                        end_ts=self._ensure_utc(end),
+                    )
                 )
-
         return records
 
     # ── internals ──

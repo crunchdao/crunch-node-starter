@@ -186,6 +186,7 @@ class DBPredictionRepository:
         *,
         status: str | list[str] | None = None,
         scope_key: str | None = None,
+        scope_key_prefix: str | None = None,
         model_id: str | None = None,
         since: datetime | None = None,
         until: datetime | None = None,
@@ -200,6 +201,8 @@ class DBPredictionRepository:
                 stmt = stmt.where(PredictionRow.status == status)
         if scope_key is not None:
             stmt = stmt.where(PredictionRow.scope_key == scope_key)
+        if scope_key_prefix is not None:
+            stmt = stmt.where(PredictionRow.scope_key.like(f"{scope_key_prefix}%"))
         if model_id is not None:
             stmt = stmt.where(PredictionRow.model_id == model_id)
         if since is not None:

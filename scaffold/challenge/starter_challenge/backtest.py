@@ -538,7 +538,7 @@ class BacktestRunner:
         return {
             "entry_price": entry_price,
             "resolved_price": resolved_price,
-            "return": (resolved_price - entry_price) / max(abs(entry_price), 1e-9),
+            "profit": (resolved_price - entry_price) / max(abs(entry_price), 1e-9),
             "direction_up": resolved_price > entry_price,
         }
 
@@ -632,7 +632,7 @@ def _compute_metrics(predictions: list[dict[str, Any]]) -> dict[str, float]:
             {
                 "result": {
                     "value": p["score"],
-                    "actual_return": (p.get("actual") or {}).get("return", 0.0),
+                    "actual_return": (p.get("actual") or {}).get("profit", 0.0),
                 }
             }
             for p in scored
@@ -665,7 +665,7 @@ def _default_scoring_fn() -> Callable[[dict, dict], dict]:
 
     def _basic_score(prediction: dict, ground_truth: dict) -> dict:
         pred_val = float(prediction.get("value", 0.0))
-        actual_return = float(ground_truth.get("return", 0.0))
+        actual_return = float(ground_truth.get("profit", 0.0))
         # Simple directional score: +1 if prediction direction matches, -1 otherwise
         correct = (
             (pred_val > 0 and actual_return > 0)

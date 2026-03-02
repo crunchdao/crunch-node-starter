@@ -11,7 +11,7 @@ The scaffold ships with working-but-meaningless values. **Confirm every one with
 | `subject: "BTCUSDT"` | CrunchConfig, tracker, examples, `.local.env` |
 | `horizon_seconds: 60` | `scheduled_predictions` |
 | `prediction_interval_seconds: 15` | `scheduled_predictions` |
-| `FEED_SOURCE: pyth` | `.local.env` |
+| `FEED_SOURCE: binance` | `.local.env` |
 | `FEED_GRANULARITY: 1s` | `.local.env` |
 | `InferenceOutput.value: float` | `crunch_config.py`, tracker, scoring |
 | `scoring: return 0.0` | `scoring.py` (stub) |
@@ -35,16 +35,62 @@ Three test files track your progress:
 Define the contract first — what models receive and what they return.
 
 **Types** — edit `node/config/crunch_config.py`:
-- `RawInput` — what the feed produces
-- `InferenceInput` — what models receive (can transform from RawInput)
-- `InferenceOutput` — what models return (this is the core design decision)
-- `ScoreResult` — what scoring produces (define after scoring, step 3)
+
+All types are Pydantic models imported from `coordinator_node.crunch_config`.
+The scaffold's `CrunchConfig` subclass overrides them. The base defaults all
+have a single `value: float` field. Override by defining your own Pydantic
+model and assigning it in your CrunchConfig class:
+
+```python
+from coordinator_node.crunch_config import CrunchConfig as _Base, InferenceOutput
+
+class MyOutput(InferenceOutput):
+    # define whatever fields models should return for this competition
+    ...
+
+class CrunchConfig(_Base):
+    output_type = MyOutput
+```
+
+**IMPORTANT — all type fields MUST have defaults.** The score worker
+dry-runs the scoring function at startup using `GroundTruth()` and
+`InferenceOutput()` (no args). If any field lacks a default, this raises
+a `ValidationError` and the worker crashes on boot.
+
+**GroundTruth should match what `resolve_ground_truth` returns.** The
+default resolver compares first/last feed record prices and returns:
+`{entry_price, resolved_price, profit, direction_up}`. If you override
+`resolve_ground_truth`, update `ground_truth_type` to match its output.
+
+The five types to override:
+- `raw_input_type` — what the feed produces
+- `input_type` — what models receive (can transform from raw)
+- `output_type` — what models return (this is the core design decision)
+- `ground_truth_type` — actual outcome shape (needs defaults!)
+- `score_type` — what scoring produces (define after scoring, step 3)
 
 **Tracker** — edit `challenge/starter_challenge/tracker.py`:
 - `tick(data)` — receives market data, maintains state per-subject via `data["symbol"]`
 - `predict(subject, resolve_horizon_seconds, step_seconds)` — returns dict matching `InferenceOutput`
 
 The tracker defines the participant interface. What `predict()` returns IS the competition.
+
+### TrackerBase API
+
+Models extend `TrackerBase`. Key methods:
+
+| Method | Purpose |
+|---|---|
+| `tick(data)` | Called with each feed update. Stores data by `data["symbol"]`. |
+| `_get_data(subject)` | Returns the latest tick data dict for a subject. |
+| `predict(subject, resolve_horizon_seconds, step_seconds)` | Must return a dict matching `InferenceOutput`. |
+
+The `data` dict passed to `tick()` has shape:
+```python
+{"symbol": "...", "asof_ts": int, "candles_1m": [{"ts": int, "open": float, "high": float, "low": float, "close": float, "volume": float}, ...]}
+```
+
+In `predict()`, call `self._get_data(subject)` to access the latest data, then extract what you need from `candles_1m`.
 
 ## 2. Examples
 
@@ -68,8 +114,9 @@ Edit `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`, `FEED_KIND`, `FEED_GRANU
 
 How "what actually happened" is derived from feed data. If this returns None or zero, all scores are zero regardless of model quality.
 
-- Default: compares first/last record's close price → `entry_price`, `resolved_price`, `return`, `direction_up`
+- Default: compares first/last record's close price → `entry_price`, `resolved_price`, `profit`, `direction_up`
 - Override: set `CrunchConfig.resolve_ground_truth` for custom logic
+- Signature: `resolve_ground_truth(feed_records, prediction)` — receives all feed records in the window plus the prediction being scored. Use `prediction.scope` to filter records in multi-asset competitions.
 
 **Verify** non-zero returns with your feed granularity. A 60s horizon with 1m candles may produce 0.0 returns if only one candle falls in the window.
 
