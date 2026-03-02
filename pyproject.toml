@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coordinator-node"
-version = "0.1.83"
+version = "0.1.84"
 description = "Runtime engine for Crunch coordinator nodes"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -14,7 +14,7 @@ dependencies = [
     "fastapi>=0.100.0,<1",
     "model-runner-client>=0.10.0",
     "psycopg2-binary>=2.9,<3",
-    "pyarrow>=15.0,<19",
+
     "python-binance>=1.0,<2",
     "requests>=2.28,<3",
     "sqlmodel>=0.0.14,<1",
@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mongodb = ["pymongo>=4.0,<5"]
+parquet = ["pyarrow>=15.0,<19"]
 
 [project.scripts]
 coordinator-node = "coordinator_node.cli:main"

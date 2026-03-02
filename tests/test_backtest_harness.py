@@ -35,7 +35,9 @@ def _write_test_parquet(
     base_price: float = 100.0,
 ) -> None:
     """Write a test parquet file with synthetic candle data."""
-    from coordinator_node.services.parquet_sink import SCHEMA
+    from coordinator_node.services.parquet_sink import get_schema
+
+    SCHEMA = get_schema()
 
     ts_events = []
     opens = []

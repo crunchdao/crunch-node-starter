@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-03-01T09:03:01Z",
+  "agent_cmd": "pi",
+  "spec_version": "property-price-prediction-v1",
+  "duration_seconds": 600.0,
+  "agent_exit_code": -1,
+  "timed_out": true,
+  "milestones": {
+    "types_correct": {
+      "passed": true,
+      "details": "predicted_price: float (regex match)"
+    },
+    "ground_truth_type": {
+      "passed": true,
+      "details": "GT fields with defaults: ['price']"
+    },
+    "tournament_service_configured": {
+      "passed": true,
+      "details": "TournamentPredictService configured"
+    },
+    "scoring_implemented": {
+      "passed": true,
+      "details": "OK: score=1.0000; OK: score=0.9000; OK: score=0.5000; OK: score=0.1000"
+    },
+    "examples_exist": {
+      "passed": true,
+      "details": "2/2 found"
+    },
+    "test_data_exists": {
+      "passed": true,
+      "details": "in_sample: 20, out_of_sample: 10"
+    },
+    "tests_pass": {
+      "passed": true,
+      "details": "exit_code=0"
+    },
+    "tournament_api_present": {
+      "passed": true,
+      "details": "All 3 tournament endpoints present"
+    },
+    "scoring_pipeline_e2e": {
+      "passed": true,
+      "details": "Scored 10 properties, avg_score=0.7853, min=0.6667, max=0.9706"
+    }
+  },
+  "milestone_count": "9/9",
+  "agent_log_file": "2026-03-01-08-53-00.log",
+  "workspace": "/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-tournament-l7d764wz"
+}

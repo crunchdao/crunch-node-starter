@@ -9,8 +9,12 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+except ImportError:
+    pa = None  # type: ignore[assignment]
+    pq = None  # type: ignore[assignment]
 
 from coordinator_node.entities.feed_record import FeedRecord
 
@@ -19,21 +23,34 @@ logger = logging.getLogger(__name__)
 # Standard value columns that get flattened from the values dict
 STANDARD_VALUE_COLUMNS = ("open", "high", "low", "close", "volume")
 
-SCHEMA = pa.schema(
-    [
-        ("ts_event", pa.timestamp("us", tz="UTC")),
-        ("source", pa.string()),
-        ("subject", pa.string()),
-        ("kind", pa.string()),
-        ("granularity", pa.string()),
-        ("open", pa.float64()),
-        ("high", pa.float64()),
-        ("low", pa.float64()),
-        ("close", pa.float64()),
-        ("volume", pa.float64()),
-        ("meta", pa.string()),  # JSON string for non-standard fields
-    ]
-)
+_SCHEMA = None
+
+
+def _get_schema():
+    global _SCHEMA
+    if _SCHEMA is None:
+        _SCHEMA = pa.schema(
+            [
+                ("ts_event", pa.timestamp("us", tz="UTC")),
+                ("source", pa.string()),
+                ("subject", pa.string()),
+                ("kind", pa.string()),
+                ("granularity", pa.string()),
+                ("open", pa.float64()),
+                ("high", pa.float64()),
+                ("low", pa.float64()),
+                ("close", pa.float64()),
+                ("volume", pa.float64()),
+                ("meta", pa.string()),  # JSON string for non-standard fields
+            ]
+        )
+    return _SCHEMA
+
+
+# Public alias for external consumers (e.g. tests, backtest harness)
+def get_schema():
+    """Return the parquet schema, lazily initialized."""
+    return _get_schema()
 
 
 class ParquetBackfillSink:
@@ -43,6 +60,11 @@ class ParquetBackfillSink:
     """
 
     def __init__(self, base_dir: str = "data/backfill") -> None:
+        if pa is None:
+            raise ImportError(
+                "pyarrow is required for parquet backfill. "
+                "Install it with: pip install coordinator-node[parquet]"
+            )
         self.base_dir = Path(base_dir)
 
     def append_records(self, records: Iterable[FeedRecord]) -> int:
@@ -127,7 +149,7 @@ class ParquetBackfillSink:
 
         if path.exists():
             try:
-                existing = pq.read_table(path, schema=SCHEMA)
+                existing = pq.read_table(path, schema=_get_schema())
                 merged = pa.concat_tables([existing, new_table])
                 # Deduplicate by ts_event
                 merged = _deduplicate_by_ts(merged)
@@ -195,7 +217,7 @@ def _records_to_table(records: list[FeedRecord]) -> pa.Table:
             "volume": pa.array(volumes, type=pa.float64()),
             "meta": pa.array(metas, type=pa.string()),
         },
-        schema=SCHEMA,
+        schema=_get_schema(),
     )
 
 

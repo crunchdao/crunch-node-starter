@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-03-01T10:56:51Z",
+  "agent_cmd": "pi",
+  "spec_version": "property-price-prediction-v1",
+  "duration_seconds": 969.6,
+  "agent_exit_code": 0,
+  "timed_out": false,
+  "milestones": {
+    "types_correct": {
+      "passed": false,
+      "details": "No output type class found with predicted_price field"
+    },
+    "ground_truth_type": {
+      "passed": false,
+      "details": "No GroundTruth class found with price field"
+    },
+    "tournament_service_configured": {
+      "passed": false,
+      "details": "TournamentPredictService not referenced in crunch_config.py"
+    },
+    "scoring_implemented": {
+      "passed": false,
+      "details": "Result missing 'mape' key"
+    },
+    "examples_exist": {
+      "passed": false,
+      "details": "Missing/invalid: ['median_price_tracker.py', 'sqft_price_tracker.py']. Found: []"
+    },
+    "test_data_exists": {
+      "passed": false,
+      "details": "data dir not found at /var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-tournament-sv2alvir/challenge/starter_challenge/data"
+    },
+    "tests_pass": {
+      "passed": true,
+      "details": "exit_code=0"
+    },
+    "tournament_api_present": {
+      "passed": true,
+      "details": "All 3 tournament endpoints present"
+    },
+    "scoring_pipeline_e2e": {
+      "passed": false,
+      "details": "out_of_sample.json not found"
+    }
+  },
+  "milestone_count": "2/9",
+  "agent_log_file": "2026-03-01-10-40-40.log",
+  "workspace": "/var/folders/tn/b2zgn2ss4t13l8v6b5zntl4r0000gn/T/benchmark-tournament-sv2alvir"
+}

@@ -1637,10 +1637,17 @@ from fastapi import BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from coordinator_node.services.parquet_sink import ParquetBackfillSink
-
 BACKFILL_DATA_DIR = os.getenv("BACKFILL_DATA_DIR", "data/backfill")
-_parquet_sink = ParquetBackfillSink(base_dir=BACKFILL_DATA_DIR)
+_parquet_sink = None
+
+
+def _get_parquet_sink():
+    global _parquet_sink
+    if _parquet_sink is None:
+        from coordinator_node.services.parquet_sink import ParquetBackfillSink
+
+        _parquet_sink = ParquetBackfillSink(base_dir=BACKFILL_DATA_DIR)
+    return _parquet_sink
 
 
 class BackfillRequestBody(BaseModel):
@@ -1753,7 +1760,7 @@ def get_backfill_job(
 @app.get("/data/backfill/index")
 def get_backfill_index() -> list[dict[str, object]]:
     """Return manifest of available parquet files."""
-    return _parquet_sink.list_files()
+    return _get_parquet_sink().list_files()
 
 
 @app.get("/data/backfill/{source}/{subject}/{kind}/{granularity}/{filename}")
@@ -1766,7 +1773,7 @@ def get_backfill_file(
 ) -> FileResponse:
     """Serve a parquet file for download."""
     rel_path = f"{source}/{subject}/{kind}/{granularity}/{filename}"
-    file_path = _parquet_sink.read_file(rel_path)
+    file_path = _get_parquet_sink().read_file(rel_path)
     if file_path is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="File not found"
@@ -1837,6 +1844,8 @@ async def _run_backfill_async(job_id: str, body: BackfillRequestBody) -> None:
                 cursor_ts=cursor_ts,
                 job_id=job_id,
             )
+
+            from coordinator_node.services.parquet_sink import ParquetBackfillSink
 
             sink = ParquetBackfillSink(base_dir=BACKFILL_DATA_DIR)
             service = BackfillService(

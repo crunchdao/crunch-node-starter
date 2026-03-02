@@ -318,14 +318,13 @@ wheels = [
 
 [[package]]
 name = "coordinator-node"
-version = "0.1.82"
+version = "0.1.84"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
     { name = "fastapi" },
     { name = "model-runner-client" },
     { name = "psycopg2-binary" },
-    { name = "pyarrow" },
     { name = "python-binance" },
     { name = "requests" },
     { name = "sqlmodel" },
@@ -335,6 +334,9 @@ dependencies = [
 [package.optional-dependencies]
 mongodb = [
     { name = "pymongo" },
+]
+parquet = [
+    { name = "pyarrow" },
 ]
 
 [package.dev-dependencies]
@@ -350,14 +352,14 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.100.0,<1" },
     { name = "model-runner-client", specifier = ">=0.10.0" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
-    { name = "pyarrow", specifier = ">=15.0,<19" },
+    { name = "pyarrow", marker = "extra == 'parquet'", specifier = ">=15.0,<19" },
     { name = "pymongo", marker = "extra == 'mongodb'", specifier = ">=4.0,<5" },
     { name = "python-binance", specifier = ">=1.0,<2" },
     { name = "requests", specifier = ">=2.28,<3" },
     { name = "sqlmodel", specifier = ">=0.0.14,<1" },
     { name = "uvicorn", specifier = ">=0.20,<1" },
 ]
-provides-extras = ["mongodb"]
+provides-extras = ["mongodb", "parquet"]
 
 [package.metadata.requires-dev]
 dev = [
