@@ -30,7 +30,7 @@ The LowFreq Alpha Engine PDF describes a broader alpha discovery platform target
 
 ### Competition 1: CEX-DEX Correction Predictor
 
-The alpha window is 200–800ms. This is incompatible with the standard coordinator node pipeline (DB round-trips alone add 500ms+). Live signal delivery requires a sidecar architecture — a separate low-latency inference service alongside the coordinator, which handles scoring and competition management asynchronously.
+The alpha window is 200–800ms. The current coordinator node pipeline isn't optimized for this latency, but the architecture can be extended to support it. Live signal delivery will likely need a fast-path that bypasses the standard DB write → pg NOTIFY flow, while the coordinator continues to handle scoring and competition management asynchronously.
 
 **LYS Flash pipeline budget** (from LowFreq PDF benchmarks):
 - TX Build (Rust SDK): <100µs

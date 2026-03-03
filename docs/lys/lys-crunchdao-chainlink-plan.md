@@ -227,7 +227,7 @@ For both crunches:
 | Alpha decay faster than model rotation | Edge disappears | Medium | Weekly refresh, PnL-weighted ensemble, regime detection |
 | Too few participants | Weak signal diversity | Low | Seed with internal models, attractive prize pool |
 | LYS API changes break feed workers | Pipeline stops | Low | Version the API contract, integration tests |
-| Coordinator node can't handle sub-second feed | Crunch A blocked | Medium | Start offline, build event-driven mode incrementally |
+| Sub-second feed not yet implemented | Crunch A blocked | Medium | Extend coordinator node with fast-path for sub-second events |
 
 ---
 
