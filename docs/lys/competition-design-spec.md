@@ -55,15 +55,15 @@ This means: of a 200–500ms alpha window, LYS needs ~236ms for execution. Crunc
 
 The alpha window is 30–180 seconds, but front-loaded — the first 5–10s after an LP shift is where the bulk of the edge lives (before other participants react).
 
-| SLA | Target | Rationale |
-|---|---|---|
-| **End-to-end signal latency** (LP shift occurs → signal delivered to LYS) | <5s | 30–180s alpha window, but front-loaded. 5s captures the bulk of the edge. Achievable with MongoDB change streams (sub-second detection) + fast inference. |
-| **Feed polling / change stream latency** | <2s | The bottleneck. MongoDB change streams on replica set give sub-second. Polling mode must be ≤2s intervals. |
-| **Model inference timeout** | <1s | Hard timeout. Models that exceed this are killed. Keeps end-to-end within 5s budget. |
-| **Signal delivery method** | REST or WebSocket | 5s budget is generous enough for REST polling by LYS. WebSocket preferred for lower latency. |
-| **Signal uptime** | >99% | Less critical than T1 (lower revenue per signal, longer alpha windows). |
-| **Minimum signal accuracy** | >60% directional on LP shifts >$100k | The brief's own threshold. Below this, signal doesn't cover transaction costs and slippage. |
-| **Ground truth resolution** | 30–180s after prediction | Raydium price change measured from prediction timestamp. Score worker fetches Raydium events from MongoDB. |
+| SLA | Target | Source | Rationale |
+|---|---|---|---|
+| **End-to-end signal latency** (LP shift occurs → signal delivered to LYS) | <5s | *Our proposal — not in brief* | 30–180s alpha window, but front-loaded. 5s captures the bulk of the edge. Needs confirmation from LYS. |
+| **Feed polling / change stream latency** | <2s | *Our proposal* | Derived from the 5s end-to-end budget. MongoDB change streams on replica set give sub-second. |
+| **Model inference timeout** | <1s | *Our proposal* | Derived from the 5s end-to-end budget. Hard timeout — models that exceed this are killed. |
+| **Signal delivery method** | REST or WebSocket | *Our proposal* | 5s budget is generous enough for REST polling. WebSocket preferred for lower latency. |
+| **Signal uptime** | >99% | *Our proposal* | Less critical than Competition 1 (lower revenue per signal, longer alpha windows). |
+| **Minimum signal accuracy** | >60% directional on LP shifts >$100k | **Three-track plan** | The brief's own threshold. Below this, signal doesn't cover transaction costs and slippage. |
+| **Ground truth resolution** | 30–180s after prediction | **Three-track plan** | Raydium price change measured from prediction timestamp. |
 
 ---
 
@@ -449,40 +449,42 @@ The `tier_pct` parameter controls the ratio and can be adjusted over time as liv
 
 ### Signal Delivery
 
-6. **Signal consumption API**: What format does LYS Flash consume signals in? REST/WebSocket/gRPC? What's the payload schema? Do they poll us, or do we push to them?
+6. **Latency SLA for Competition 2**: The three-track plan specifies <100ms for Competition 1 (CEX-DEX) but doesn't define a latency requirement for Competition 2 (Meteora LP). The alpha window is 30–180s. We propose <5s end-to-end. What does LYS need?
 
-7. **PnL attribution feedback loop**: For PnL-weighted model compensation, we need LYS to report back which signals were executed and what PnL resulted. What does this feedback loop look like? Real-time? Daily batch? On-chain?
+7. **Signal consumption API**: What format does LYS Flash consume signals in? REST/WebSocket/gRPC? What's the payload schema? Do they poll us, or do we push to them?
 
-8. **Confidence threshold**: Who sets the minimum confidence threshold for trading — CrunchDAO (in the ensemble) or LYS (in execution)? If LYS, what's the initial threshold?
+8. **PnL attribution feedback loop**: For PnL-weighted model compensation, we need LYS to report back which signals were executed and what PnL resulted. What does this feedback loop look like? Real-time? Daily batch? On-chain?
+
+9. **Confidence threshold**: Who sets the minimum confidence threshold for trading — CrunchDAO (in the ensemble) or LYS (in execution)? If LYS, what's the initial threshold?
 
 ### Competition Design
 
-9. **Stage 1 Rally timing**: The brief says Weeks 1–4. Is that 1–4 from contract signing, or from when the dataset is ready? CrunchDAO needs ~2 weeks to scaffold the competition infrastructure once the dataset exists.
+10. **Stage 1 Rally timing**: The brief says Weeks 1–4. Is that 1–4 from contract signing, or from when the dataset is ready? CrunchDAO needs ~2 weeks to scaffold the competition infrastructure once the dataset exists.
 
-10. **Pair universe for Competition 2**: The brief says "liquid CEX-correlated pairs" for Track 1, but Track 3 is Meteora→Raydium. Which specific Meteora DLMM pools should Competition 2 cover? All pools with >$500k TVL? Only pools where there's a corresponding Raydium pair?
+11. **Pair universe for Competition 2**: The brief says "liquid CEX-correlated pairs" for Track 1, but Track 3 is Meteora→Raydium. Which specific Meteora DLMM pools should Competition 2 cover? All pools with >$500k TVL? Only pools where there's a corresponding Raydium pair?
 
-11. **Minimum LP shift size**: The brief says "$100k+ LP moves." Is that $100k in the LP position change itself, or $100k in the pool that the change happened in? A $100k shift in a $500k pool is very different from a $100k shift in a $50M pool.
+12. **Minimum LP shift size**: The brief says "$100k+ LP moves." Is that $100k in the LP position change itself, or $100k in the pool that the change happened in? A $100k shift in a $500k pool is very different from a $100k shift in a $50M pool.
 
 ### Commercial
 
-12. **Revenue to CrunchDAO**: What is the total revenue structure flowing to CrunchDAO? We need to know the pool size to design distribution ratios that attract and retain top talent.
+13. **Revenue to CrunchDAO**: What is the total revenue structure flowing to CrunchDAO? We need to know the pool size to design distribution ratios that attract and retain top talent.
 
-13. **PnL attribution feedback**: For PnL-weighted distribution (Strategy 3 bonus pool), we need per-model PnL attribution from LYS. What does this feedback loop look like? Real-time? Daily batch? On-chain? This determines when we can graduate from pure tier ranking to hybrid distribution.
+14. **PnL attribution feedback**: For PnL-weighted distribution (Strategy 3 bonus pool), we need per-model PnL attribution from LYS. What does this feedback loop look like? Real-time? Daily batch? On-chain? This determines when we can graduate from pure tier ranking to hybrid distribution.
 
-14. **Exclusivity**: Is CrunchDAO the exclusive signal provider, or could LYS add other signal sources? If not exclusive, how is PnL attributed between signal sources?
+15. **Exclusivity**: Is CrunchDAO the exclusive signal provider, or could LYS add other signal sources? If not exclusive, how is PnL attributed between signal sources?
 
 ### Reconciling the Two Proposals
 
-15. **LowFreq Alpha Engine vs Three-Track Plan**: The LowFreq PDF describes a broader alpha discovery platform on graduated Raydium tokens using Enigma's 50+ behavioral features. The three-track plan describes specific CEX-DEX and Meteora LP signals. Are these:
+16. **LowFreq Alpha Engine vs Three-Track Plan**: The LowFreq PDF describes a broader alpha discovery platform on graduated Raydium tokens using Enigma's 50+ behavioral features. The three-track plan describes specific CEX-DEX and Meteora LP signals. Are these:
     - (a) The same initiative at different stages of scoping?
     - (b) Separate competitions that will run in parallel?
     - (c) The LowFreq PDF is superseded by the three-track plan?
     This affects how many competitions we build, the asset universe, and the feature space.
 
-16. **Revenue model**: The three-track plan implies PnL share on trading revenue. The LowFreq PDF describes a three-layer model (competition fees + execution fees + capital ramp). Which is the actual commercial structure? Are these complementary (three layers + PnL share) or alternative models?
+17. **Revenue model**: The three-track plan implies PnL share on trading revenue. The LowFreq PDF describes a three-layer model (competition fees + execution fees + capital ramp). Which is the actual commercial structure? Are these complementary (three layers + PnL share) or alternative models?
 
-17. **Capital ramp vs pooled capital**: The LowFreq PDF proposes $5k→$10k→$30k+ capital allocation per top model with isolated TEE wallets. The three-track plan describes Auros providing $5–15M pooled capital. How do these interact? Does the capital ramp come from the pooled capital?
+18. **Capital ramp vs pooled capital**: The LowFreq PDF proposes $5k→$10k→$30k+ capital allocation per top model with isolated TEE wallets. The three-track plan describes Auros providing $5–15M pooled capital. How do these interact? Does the capital ramp come from the pooled capital?
 
-18. **Asset universe**: The three-track plan targets "15–25 liquid CEX-correlated pairs with ≥$500k TVL." The LowFreq PDF recommends "graduated tokens on Raydium." These are very different universes. Which applies to which competition? Could Competition 1 run on liquid pairs while a separate Competition 3 runs on graduated tokens?
+19. **Asset universe**: The three-track plan targets "15–25 liquid CEX-correlated pairs with ≥$500k TVL." The LowFreq PDF recommends "graduated tokens on Raydium." These are very different universes. Which applies to which competition? Could Competition 1 run on liquid pairs while a separate Competition 3 runs on graduated tokens?
 
-19. **Community Market Maker**: The LowFreq PDF mentions a stretch goal — an ensemble meta-model providing non-adversarial liquidity. Is this still on the roadmap? If so, it's a third/fourth competition type with very different model interface and scoring.
+20. **Community Market Maker**: The LowFreq PDF mentions a stretch goal — an ensemble meta-model providing non-adversarial liquidity. Is this still on the roadmap? If so, it's a third/fourth competition type with very different model interface and scoring.
