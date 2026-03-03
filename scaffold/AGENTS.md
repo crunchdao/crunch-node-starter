@@ -2,6 +2,32 @@
 
 Crunch coordinator node. `node/` runs the infrastructure, `challenge/` is the participant-facing package.
 
+## Git Discipline
+
+**Every new scaffold must be a git repo from the start.** Before doing anything else:
+
+```bash
+git init
+git add -A
+git commit -m "Initial scaffold (unmodified starter template)"
+```
+
+After each implementation step, make a clear commit that describes:
+1. **What was done** — the change itself
+2. **What was achieved** — the goal or milestone reached
+3. **What was tested** — which checks passed (e.g. `make test`, `make verify-e2e`)
+
+Example commits through a typical workflow:
+```
+Initial scaffold (unmodified starter template)
+Define types and tracker interface — make test passes
+Implement scoring function — unit tests green, xfail removed
+Wire CrunchConfig and feed — make deploy + make verify-e2e pass
+Fix scoring edge case — all tests green, logs clean
+```
+
+Never batch unrelated changes into one commit. If a step involves both code and config, that's fine in one commit — but separate steps get separate commits.
+
 ## Workflow
 
 ### 1. Verify baseline
