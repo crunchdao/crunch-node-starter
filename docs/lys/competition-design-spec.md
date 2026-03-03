@@ -5,6 +5,7 @@
 **Source documents**:
 - `lys_three_track_plan.docx` — Three-Track Revenue Strategy (Track 1/2/3 definitions, SLAs, Chainlink gate)
 - `Crunch × LysLab LowFreq Alpha Engine.pdf` — LYS Flash pipeline specs, submission pathways, Enigma feature space, data obfuscation, revenue architecture
+- [LYS Flash SDK](https://github.com/lyslabs-ai/lys-flash) — TypeScript execution engine client. Supports Meteora DLMM, Raydium CLMM/CPMM/AMMv4, Pump.fun. HTTP+API key for remote, ZeroMQ for local. FLASH transport = multi-broadcast with MEV protection (~566ms P50 confirm). Has SIMULATE mode for paper trading.
 
 ---
 
@@ -451,7 +452,7 @@ The `tier_pct` parameter controls the ratio and can be adjusted over time as liv
 
 6. **Latency SLA for Competition 2**: The three-track plan specifies <100ms for Competition 1 (CEX-DEX) but doesn't define a latency requirement for Competition 2 (Meteora LP). The alpha window is 30–180s. We propose <5s end-to-end. What does LYS need?
 
-7. **Signal consumption API**: What format does LYS Flash consume signals in? REST/WebSocket/gRPC? What's the payload schema? Do they poll us, or do we push to them?
+7. **Signal consumption API**: LYS Flash is a TypeScript SDK that executes trades via HTTP (API key auth) or ZeroMQ. The signal-to-execution flow needs to be defined: does CrunchDAO's production node call LYS Flash directly (we trigger execution), or do we deliver signal to an intermediary service on LYS's side that decides when to call Flash? What's the payload schema for the signal handoff?
 
 8. **PnL attribution feedback loop**: For PnL-weighted model compensation, we need LYS to report back which signals were executed and what PnL resulted. What does this feedback loop look like? Real-time? Daily batch? On-chain?
 
