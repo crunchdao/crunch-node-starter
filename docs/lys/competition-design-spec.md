@@ -53,7 +53,7 @@ This means: of a 200–500ms alpha window, LYS needs ~236ms for execution. Crunc
 
 ### Competition 2: Meteora LP Behavior Classifier
 
-The alpha window is 30–180 seconds, but front-loaded — the first 5–10s after an LP shift is where the bulk of the edge lives (before other participants react). The standard coordinator node pipeline works here.
+The alpha window is 30–180 seconds, but front-loaded — the first 5–10s after an LP shift is where the bulk of the edge lives (before other participants react).
 
 | SLA | Target | Rationale |
 |---|---|---|
