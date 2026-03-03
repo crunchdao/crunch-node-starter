@@ -49,7 +49,7 @@ This means: of a 200–500ms alpha window, LYS needs ~236ms for execution. Crunc
 | **Model coverage** | 10+ liquid pairs | The Chainlink gate requires positive p99 latency differential across 10+ pairs. Models must cover the same universe. |
 | **Minimum signal accuracy** | >55% on corrections >10bps | Below this, signal doesn't beat the on-chain-only baseline. Hard floor from the brief. |
 
-**Architecture implication**: For the Stage 1 Rally (offline, historical data), none of the latency SLAs apply — models are scored on a static dataset. The SLAs kick in at Stage 2 when models go live.
+**Architecture implication**: The competition node runs continuously, scoring models on live data. A separate production node runs alongside it with the top-performing models, serving live signals to LYS Flash. The latency SLAs apply to the production node. The competition node can be slightly more relaxed on latency since its job is ranking, not execution. Some initial backtesting validates the pipeline, but the competition is primarily live.
 
 ### Competition 2: Meteora LP Behavior Classifier
 
