@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from typing import Any
 
-from coordinator_node.metrics.builtins import (
+from crunch_node.metrics.builtins import (
     compute_hit_rate,
     compute_ic,
     compute_ic_sharpe,
@@ -15,7 +15,7 @@ from coordinator_node.metrics.builtins import (
     compute_sortino_ratio,
     compute_turnover,
 )
-from coordinator_node.metrics.context import MetricsContext
+from crunch_node.metrics.context import MetricsContext
 
 
 def _pred(value: float) -> dict[str, Any]:

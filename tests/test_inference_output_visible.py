@@ -1,7 +1,7 @@
 """Tests that InferenceOutput is visible and documented in the scaffold.
 
 Issue #2: InferenceOutput not shown in scaffold config — users have to
-read coordinator-node source to know it exists.
+read crunch-node source to know it exists.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class TestInferenceOutputVisible:
 
     def test_inference_output_has_docstring_explaining_purpose(self):
         """InferenceOutput class should have a meaningful docstring."""
-        from coordinator_node.crunch_config import InferenceOutput
+        from crunch_node.crunch_config import InferenceOutput
 
         assert InferenceOutput.__doc__ is not None
         assert len(InferenceOutput.__doc__) > 20, (
@@ -51,7 +51,7 @@ class TestInferenceOutputVisible:
 
     def test_inference_output_fields_documented(self):
         """InferenceOutput fields should have descriptions."""
-        from coordinator_node.crunch_config import InferenceOutput
+        from crunch_node.crunch_config import InferenceOutput
 
         for name, field in InferenceOutput.model_fields.items():
             assert field.description is not None, (

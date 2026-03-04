@@ -34,4 +34,4 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:8000/healthz || exit 1
 
-CMD ["python", "-m", "coordinator_node"]
+CMD ["python", "-m", "crunch_node"]

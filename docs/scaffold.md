@@ -46,7 +46,7 @@ scaffold/
 │   │   └── report-ui/                ← UI config (global settings, columns, widgets)
 │   ├── scripts/               ← Operational scripts (verify, backfill, validate)
 │   ├── docker-compose.yml     ← Service orchestration
-│   ├── Dockerfile             ← Installs coordinator-node from PyPI + challenge package
+│   ├── Dockerfile             ← Installs crunch-node from PyPI + challenge package
 │   ├── Makefile               ← Node-level commands
 │   └── .local.env             ← Environment configuration
 └── challenge/
@@ -103,11 +103,11 @@ make verify-e2e
 
 ## How It Connects to the Engine
 
-The scaffolded `Dockerfile` installs `coordinator-node` from PyPI:
+The scaffolded `Dockerfile` installs `crunch-node` from PyPI:
 
 ```dockerfile
 ARG COORDINATOR_NODE_VERSION=0.1.79
-RUN pip install --no-cache-dir "coordinator-node>=${COORDINATOR_NODE_VERSION}"
+RUN pip install --no-cache-dir "crunch-node>=${COORDINATOR_NODE_VERSION}"
 
 # Challenge package
 COPY challenge ./challenge

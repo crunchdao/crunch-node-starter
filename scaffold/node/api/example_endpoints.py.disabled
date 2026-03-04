@@ -27,7 +27,7 @@ def hello() -> dict[str, str]:
 
 
 def _get_db_session():
-    from coordinator_node.db import create_session
+    from crunch_node.db import create_session
     with create_session() as session:
         yield session
 
@@ -36,7 +36,7 @@ def _get_db_session():
 def models_summary(
     session: Annotated[Session, Depends(_get_db_session)],
 ) -> dict[str, Any]:
-    from coordinator_node.db import DBModelRepository
+    from crunch_node.db import DBModelRepository
     models = DBModelRepository(session).fetch_all()
     return {
         "total_models": len(models),
@@ -49,5 +49,5 @@ def models_summary(
 
 @router.get("/metrics/available")
 def available_metrics() -> dict[str, list[str]]:
-    from coordinator_node.metrics import get_default_registry
+    from crunch_node.metrics import get_default_registry
     return {"metrics": get_default_registry().available()}

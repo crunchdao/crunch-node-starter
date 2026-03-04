@@ -1,6 +1,6 @@
 # Coordinator Node — Agent Instructions
 
-Base template for Crunch coordinator nodes. Provides the engine (`coordinator-node` on PyPI) plus a customizable workspace with challenge package and node config.
+Base template for Crunch coordinator nodes. Provides the engine (`crunch-node` on PyPI) plus a customizable workspace with challenge package and node config.
 
 ## Code Formatting (MANDATORY)
 
@@ -27,7 +27,7 @@ scaffold/
     api/              # Custom FastAPI endpoints (auto-discovered)
     extensions/       # Node-side extensions (position manager, etc.)
     deployment/       # Docker config (model-orchestrator, report-ui)
-coordinator_node/     # Engine (published to PyPI as coordinator-node)
+crunch_node/     # Engine (published to PyPI as crunch-node)
 tests/                # All tests
 ```
 
@@ -41,7 +41,7 @@ tests/                # All tests
 - `scoring_function` — if set, takes precedence over `SCORING_FUNCTION` env var
 - `aggregation` — windows, `value_field`, `ranking_key`
 - `resolve_ground_truth`, `aggregate_snapshot`, `build_emission`
-- Config loading: `coordinator_node.config_loader.load_config()` — no contracts.py, no contract_loader
+- Config loading: `crunch_node.config_loader.load_config()` — no contracts.py, no contract_loader
 - Type-safe JSONB: Pydantic types ARE the parse/dump interface. No wrappers.
 - Input is a dumb log: `InputRecord` = `id`, `raw_data`, `received_at` — saved once, never updated
 - Predictions own resolution: `PredictionRecord` carries `scope`, `resolvable_at`

@@ -22,10 +22,10 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-from coordinator_node.db import create_session
-from coordinator_node.db.feed_records import DBFeedRecordRepository
-from coordinator_node.feeds import create_default_registry
-from coordinator_node.services.backfill import BackfillRequest, BackfillService
+from crunch_node.db import create_session
+from crunch_node.db.feed_records import DBFeedRecordRepository
+from crunch_node.feeds import create_default_registry
+from crunch_node.services.backfill import BackfillRequest, BackfillService
 
 
 def parse_datetime(value):

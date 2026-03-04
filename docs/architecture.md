@@ -97,8 +97,8 @@ No message queues, no Redis. Workers read/write the same PostgreSQL database. `p
 ## Repository Layout
 
 ```
-coordinator-node-starter/
-├── coordinator_node/       ← Engine (published to PyPI)
+crunch-node-starter/
+├── crunch_node/       ← Engine (published to PyPI)
 │   ├── workers/            ← Worker entry points
 │   ├── services/           ← Business logic
 │   ├── db/                 ← Tables, repositories, session

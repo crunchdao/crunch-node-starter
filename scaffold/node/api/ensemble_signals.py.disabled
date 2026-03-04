@@ -24,18 +24,18 @@ router = APIRouter(prefix="/signals", tags=["signals"])
 
 
 def _get_db_session():
-    from coordinator_node.db import create_session
+    from crunch_node.db import create_session
     with create_session() as session:
         yield session
 
 
 def _get_prediction_repo(session: Annotated[Session, Depends(_get_db_session)]):
-    from coordinator_node.db import DBPredictionRepository
+    from crunch_node.db import DBPredictionRepository
     return DBPredictionRepository(session)
 
 
 def _get_snapshot_repo(session: Annotated[Session, Depends(_get_db_session)]):
-    from coordinator_node.db import DBSnapshotRepository
+    from crunch_node.db import DBSnapshotRepository
     return DBSnapshotRepository(session)
 
 
@@ -77,7 +77,7 @@ def get_ensemble_signal(
     This is the primary consumption endpoint for downstream systems.
     Returns the most recent weighted-average prediction.
     """
-    from coordinator_node.entities.prediction import PredictionStatus
+    from crunch_node.entities.prediction import PredictionStatus
 
     model_id = f"{ENSEMBLE_PREFIX}{name}__"
     predictions = prediction_repo.find(status=PredictionStatus.SCORED)
@@ -117,7 +117,7 @@ def get_ensemble_history(
     Use this for charting ensemble signal over time or feeding
     into a downstream system that needs historical context.
     """
-    from coordinator_node.entities.prediction import PredictionStatus
+    from crunch_node.entities.prediction import PredictionStatus
 
     model_id = f"{ENSEMBLE_PREFIX}{name}__"
     predictions = prediction_repo.find(status=PredictionStatus.SCORED)

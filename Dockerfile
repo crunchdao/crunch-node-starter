@@ -26,11 +26,11 @@ COPY --from=builder /app/.venv ./.venv
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY --chown=appuser:appgroup coordinator_node ./coordinator_node
+COPY --chown=appuser:appgroup crunch_node ./crunch_node
 
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:8000/healthz || exit 1
 
-CMD ["python", "-m", "coordinator_node"]
+CMD ["python", "-m", "crunch_node"]

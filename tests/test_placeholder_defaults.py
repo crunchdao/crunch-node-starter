@@ -49,7 +49,7 @@ class TestPlaceholderDefaults:
 
     def test_prediction_scope_subject_has_warning(self):
         """PredictionScope.subject default should document it's an example."""
-        from coordinator_node.crunch_config import PredictionScope
+        from crunch_node.crunch_config import PredictionScope
 
         field = PredictionScope.model_fields["subject"]
         desc = field.description or ""

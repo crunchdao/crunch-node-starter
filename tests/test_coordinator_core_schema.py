@@ -1,6 +1,6 @@
 import unittest
 
-from coordinator_node.db.tables import (
+from crunch_node.db.tables import (
     CheckpointRow,
     FeedIngestionStateRow,
     FeedRecordRow,

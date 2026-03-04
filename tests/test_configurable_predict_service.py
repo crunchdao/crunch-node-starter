@@ -7,10 +7,10 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.services.predict import PredictService
-from coordinator_node.services.realtime_predict import RealtimePredictService
-from coordinator_node.workers.predict_worker import _resolve_service_class
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.services.predict import PredictService
+from crunch_node.services.realtime_predict import RealtimePredictService
+from crunch_node.workers.predict_worker import _resolve_service_class
 
 # ── test fixtures ──
 

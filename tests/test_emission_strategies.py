@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from coordinator_node.crunch_config import FRAC_64_MULTIPLIER
-from coordinator_node.extensions.emission_strategies import (
+from crunch_node.crunch_config import FRAC_64_MULTIPLIER
+from crunch_node.extensions.emission_strategies import (
     contribution_weighted_emission,
 )
 

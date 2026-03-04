@@ -5,7 +5,7 @@
 
 ## Overview
 
-A generic `TournamentPredictService` for batch-oriented, round-based competitions. Participants submit models that receive a batch of features, return predictions, and are scored against ground truth that arrives separately. Ships in the base `coordinator-node` package — not tied to any specific competition.
+A generic `TournamentPredictService` for batch-oriented, round-based competitions. Participants submit models that receive a batch of features, return predictions, and are scored against ground truth that arrives separately. Ships in the base `crunch-node` package — not tied to any specific competition.
 
 ## Context
 
@@ -73,7 +73,7 @@ A round is just a `scope_key` string (e.g. `"round-001"`). No new table, no roun
 
 | Component | Location | Description |
 |-----------|----------|-------------|
-| `TournamentPredictService` | `coordinator_node/services/tournament_predict.py` | PredictService subclass, round-based |
+| `TournamentPredictService` | `crunch_node/services/tournament_predict.py` | PredictService subclass, round-based |
 
 ## What's in the Pack (scaffold)
 
@@ -113,7 +113,7 @@ A round is just a `scope_key` string (e.g. `"round-001"`). No new table, no roun
 
 ### Step 1: TournamentPredictService (base package)
 
-1. Create `coordinator_node/services/tournament_predict.py`
+1. Create `crunch_node/services/tournament_predict.py`
 2. Extend `PredictService`
 3. Implement `run_inference()` and `score_round()`
 4. Override `run()` as a no-op / wait-for-shutdown

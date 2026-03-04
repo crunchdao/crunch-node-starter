@@ -1,6 +1,6 @@
 """Competition-specific CrunchConfig override.
 
-Imports all base types and defaults from the coordinator-node library.
+Imports all base types and defaults from the crunch-node library.
 Only defines what's different for this competition.
 """
 
@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     GroundTruth,
     InferenceOutput,
     ScheduledPrediction,

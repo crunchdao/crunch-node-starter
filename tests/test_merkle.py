@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from coordinator_node.db.tables.merkle import MerkleCycleRow, MerkleNodeRow
-from coordinator_node.entities.prediction import SnapshotRecord
-from coordinator_node.merkle.hasher import canonical_snapshot_hash, sha256_concat
-from coordinator_node.merkle.service import MerkleService
-from coordinator_node.merkle.tree import (
+from crunch_node.db.tables.merkle import MerkleCycleRow, MerkleNodeRow
+from crunch_node.entities.prediction import SnapshotRecord
+from crunch_node.merkle.hasher import canonical_snapshot_hash, sha256_concat
+from crunch_node.merkle.service import MerkleService
+from crunch_node.merkle.tree import (
     MerkleNode,
     build_merkle_tree,
     generate_proof,

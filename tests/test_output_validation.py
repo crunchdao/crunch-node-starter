@@ -15,8 +15,8 @@ class TestOutputValidationRejectsInvalidOutput:
 
     def test_rejects_missing_required_field(self):
         """If InferenceOutput has a required field (no default), empty dict fails."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         class StrictOutput(BaseModel):
             direction: str  # required, no default
@@ -36,8 +36,8 @@ class TestOutputValidationRejectsInvalidOutput:
 
     def test_rejects_wrong_type(self):
         """If output has a field with wrong type that can't be coerced, it fails."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         class TypedOutput(BaseModel):
             value: float
@@ -56,8 +56,8 @@ class TestOutputValidationRejectsInvalidOutput:
 
     def test_accepts_valid_output(self):
         """Valid output should pass."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         config = CrunchConfig()  # default InferenceOutput: value: float = 0.0
         service = PredictService.__new__(PredictService)
@@ -71,8 +71,8 @@ class TestOutputValidationRejectsInvalidOutput:
 
     def test_accepts_output_with_extra_fields(self):
         """Extra fields from model should not cause validation failure."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         config = CrunchConfig()
         service = PredictService.__new__(PredictService)
@@ -87,8 +87,8 @@ class TestOutputValidationRejectsInvalidOutput:
     def test_warns_when_no_output_keys_match_schema(self):
         """If model returns keys that don't match any InferenceOutput field,
         the output is effectively all defaults — likely a bug."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         config = CrunchConfig()  # default InferenceOutput: value: float = 0.0
         service = PredictService.__new__(PredictService)
@@ -108,8 +108,8 @@ class TestOutputValidationRejectsInvalidOutput:
 
     def test_validate_output_does_not_mutate_on_failure(self):
         """Failed validation should not leave the output dict in a bad state."""
-        from coordinator_node.crunch_config import CrunchConfig
-        from coordinator_node.services.predict import PredictService
+        from crunch_node.crunch_config import CrunchConfig
+        from crunch_node.services.predict import PredictService
 
         class StrictOutput(BaseModel):
             direction: str

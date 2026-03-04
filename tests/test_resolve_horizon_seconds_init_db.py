@@ -15,7 +15,7 @@ class TestInitDbConfigValidation:
 
     def test_validate_scheduled_configs_accepts_zero_resolve(self):
         """resolve_horizon_seconds=0 is valid (immediate resolution, live trading)."""
-        from coordinator_node.db import init_db
+        from crunch_node.db import init_db
 
         configs = [
             {
@@ -34,7 +34,7 @@ class TestInitDbConfigValidation:
 
     def test_validate_scheduled_configs_rejects_negative_resolve(self):
         """A config with resolve_horizon_seconds < 0 must be rejected."""
-        from coordinator_node.db import init_db
+        from crunch_node.db import init_db
 
         bad_configs = [
             {
@@ -53,7 +53,7 @@ class TestInitDbConfigValidation:
 
     def test_validate_scheduled_configs_accepts_positive(self):
         """A config with positive resolve_horizon_seconds should pass."""
-        from coordinator_node.db import init_db
+        from crunch_node.db import init_db
 
         good_configs = [
             {

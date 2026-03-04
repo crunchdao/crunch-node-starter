@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "coordinator-node"
+name = "crunch-node"
 version = "0.1.85"
 description = "Runtime engine for Crunch coordinator nodes"
 readme = "README.md"
@@ -26,7 +26,7 @@ mongodb = ["pymongo>=4.0,<5"]
 parquet = ["pyarrow>=15.0,<19"]
 
 [project.scripts]
-coordinator-node = "coordinator_node.cli:main"
+crunch-node = "crunch_node.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/crunchdao/coordinator-node-starter"
@@ -52,11 +52,11 @@ exclude = ["scaffold/**", "packs/**"]
 force-include = { "scaffold" = "scaffold", "packs" = "packs" }
 
 [tool.hatch.build.targets.wheel]
-packages = ["coordinator_node"]
+packages = ["crunch_node"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"scaffold" = "coordinator_node/_templates/scaffold"
-"packs" = "coordinator_node/_templates/packs"
+"scaffold" = "crunch_node/_templates/scaffold"
+"packs" = "crunch_node/_templates/packs"
 
 [tool.uv]
 package = true
@@ -77,7 +77,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["coordinator_node"]
+known-first-party = ["crunch_node"]
 
 [dependency-groups]
 dev = [
