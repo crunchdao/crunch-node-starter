@@ -145,6 +145,17 @@ class TimingCollector:
             ("persistence", "callback_completed_us", "persistence_completed_us"),
         ]
 
+        e2e_latencies = []
+        for record in records:
+            start_time = record.get("feed_received_us")
+            end_time = record.get("persistence_completed_us")
+            if start_time is not None and end_time is not None:
+                latency = end_time - start_time
+                if latency >= 0:
+                    e2e_latencies.append(latency)
+
+        e2e_mean = statistics.mean(e2e_latencies) if e2e_latencies else None
+
         result = []
 
         for step, (stage_name, start_field, end_field) in enumerate(stage_definitions, start=1):
@@ -160,11 +171,14 @@ class TimingCollector:
                         latencies.append(latency)
 
             if latencies:
+                mean = statistics.mean(latencies)
+                pct = round((mean / e2e_mean) * 100, 1) if e2e_mean else None
                 result.append({
                     "name": stage_name,
                     "step": step,
+                    "pct_of_total": pct,
                     "count": len(latencies),
-                    "mean_us": statistics.mean(latencies),
+                    "mean_us": mean,
                     "median_us": statistics.median(latencies),
                     "min_us": min(latencies),
                     "max_us": max(latencies),
@@ -175,6 +189,7 @@ class TimingCollector:
                 result.append({
                     "name": stage_name,
                     "step": step,
+                    "pct_of_total": None,
                     "count": 0,
                     "mean_us": None,
                     "median_us": None,
@@ -184,21 +199,13 @@ class TimingCollector:
                     "p99_us": None,
                 })
 
-        e2e_latencies = []
-        for record in records:
-            start_time = record.get("feed_received_us")
-            end_time = record.get("persistence_completed_us")
-            if start_time is not None and end_time is not None:
-                latency = end_time - start_time
-                if latency >= 0:
-                    e2e_latencies.append(latency)
-
         if e2e_latencies:
             result.append({
                 "name": "end_to_end",
                 "step": "total",
+                "pct_of_total": 100.0,
                 "count": len(e2e_latencies),
-                "mean_us": statistics.mean(e2e_latencies),
+                "mean_us": e2e_mean,
                 "median_us": statistics.median(e2e_latencies),
                 "min_us": min(e2e_latencies),
                 "max_us": max(e2e_latencies),
@@ -209,6 +216,7 @@ class TimingCollector:
             result.append({
                 "name": "end_to_end",
                 "step": "total",
+                "pct_of_total": None,
                 "count": 0,
                 "mean_us": None,
                 "median_us": None,
@@ -279,6 +287,17 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
         ("persistence", "callback_completed_us", "persistence_completed_us"),
     ]
 
+    e2e_latencies = []
+    for record in records:
+        start_time = record.get("feed_received_us")
+        end_time = record.get("persistence_completed_us")
+        if start_time is not None and end_time is not None:
+            latency = end_time - start_time
+            if latency >= 0:
+                e2e_latencies.append(latency)
+
+    e2e_mean = statistics.mean(e2e_latencies) if e2e_latencies else None
+
     stage_latencies = []
     for step, (stage_name, start_field, end_field) in enumerate(stage_definitions, start=1):
         latencies = []
@@ -291,11 +310,14 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
                     latencies.append(latency)
 
         if latencies:
+            mean = statistics.mean(latencies)
+            pct = round((mean / e2e_mean) * 100, 1) if e2e_mean else None
             stage_latencies.append({
                 "name": stage_name,
                 "step": step,
+                "pct_of_total": pct,
                 "count": len(latencies),
-                "mean_us": statistics.mean(latencies),
+                "mean_us": mean,
                 "median_us": statistics.median(latencies),
                 "min_us": min(latencies),
                 "max_us": max(latencies),
@@ -306,6 +328,7 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
             stage_latencies.append({
                 "name": stage_name,
                 "step": step,
+                "pct_of_total": None,
                 "count": 0,
                 "mean_us": None,
                 "median_us": None,
@@ -315,21 +338,13 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
                 "p99_us": None,
             })
 
-    e2e_latencies = []
-    for record in records:
-        start_time = record.get("feed_received_us")
-        end_time = record.get("persistence_completed_us")
-        if start_time is not None and end_time is not None:
-            latency = end_time - start_time
-            if latency >= 0:
-                e2e_latencies.append(latency)
-
     if e2e_latencies:
         stage_latencies.append({
             "name": "end_to_end",
             "step": "total",
+            "pct_of_total": 100.0,
             "count": len(e2e_latencies),
-            "mean_us": statistics.mean(e2e_latencies),
+            "mean_us": e2e_mean,
             "median_us": statistics.median(e2e_latencies),
             "min_us": min(e2e_latencies),
             "max_us": max(e2e_latencies),
@@ -340,6 +355,7 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
         stage_latencies.append({
             "name": "end_to_end",
             "step": "total",
+            "pct_of_total": None,
             "count": 0,
             "mean_us": None,
             "median_us": None,

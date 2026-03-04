@@ -104,6 +104,9 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
     # Copy local coordinator-node source so Docker builds use it
     _copy_local_coordinator(repo_root, workspace)
 
+    # Copy docker-compose override for local development
+    _copy_compose_override(repo_root, workspace)
+
     # Patch CRUNCH_ID to a unique value so Docker containers don't clash
     # with other benchmark runs or the real scaffold
     _patch_crunch_id(workspace)
@@ -136,6 +139,19 @@ def _copy_local_coordinator(repo_root: str, workspace: str) -> None:
 
     _patch_dockerfile_local_coordinator(workspace)
     print("[benchmark] Copied local coordinator-node source into workspace")
+
+
+def _copy_compose_override(repo_root: str, workspace: str) -> None:
+    """Copy docker-compose override for local development into workspace."""
+    src = os.path.join(repo_root, "tests", "benchmark", "docker-compose.local-dev.yml")
+    dest = os.path.join(workspace, "node", "docker-compose.override.yml")
+
+    if not os.path.isfile(src):
+        print("[benchmark] Warning: docker-compose.local-dev.yml not found, skipping")
+        return
+
+    shutil.copy2(src, dest)
+    print("[benchmark] Copied docker-compose override into workspace")
 
 
 _LOCAL_COORDINATOR_DOCKERFILE_LINES = (
