@@ -1,13 +1,22 @@
 """
 Tests for the timing metrics HTTP endpoint.
+
+These tests require a running database with tables initialized.
+Skip in CI where only unit tests should run.
 """
 
+import os
 from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from crunch_node.metrics.timing import timing_collector
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="Integration test requires initialized database",
+)
 
 
 def test_timing_endpoint_enabled():
