@@ -186,14 +186,9 @@ class FeedDataService:
 
         # Add normalized timestamp to all converted records
         for domain_record in converted:
-            domain_record._timing["feed_normalized_us"] = feed_normalized_us
+            domain_record.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
         result = self.feed_record_repository.append_records(converted)
-
-        feed_persisted_us = time.perf_counter_ns() // 1000
-        # Update persisted timestamp for all records
-        for domain_record in converted:
-            domain_record._timing["feed_persisted_us"] = feed_persisted_us
 
         return result
 
@@ -212,12 +207,10 @@ class _RepositorySink:
         # Stage 2: Normalization
         domain = _feed_to_domain(record.source, record, feed_received_us)
         feed_normalized_us = time.perf_counter_ns() // 1000
-        domain._timing["feed_normalized_us"] = feed_normalized_us
+        domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
-        # Stage 3: Persistence + notification
+        # Stage 3: Persistence
         self._repository.append_records([domain])
-        feed_persisted_us = time.perf_counter_ns() // 1000
-        domain._timing["feed_persisted_us"] = feed_persisted_us
 
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:
@@ -250,9 +243,9 @@ def _feed_to_domain(
     default_source: str, record: FeedDataRecord, feed_received_us: int | None = None
 ) -> FeedRecord:
     source = record.source or default_source
-    timing_data = {}
+    meta = dict(record.metadata)
     if feed_received_us is not None:
-        timing_data["feed_received_us"] = feed_received_us
+        meta.setdefault("timing", {})["feed_received_us"] = feed_received_us
 
     return FeedRecord(
         source=source,
@@ -261,6 +254,5 @@ def _feed_to_domain(
         granularity=record.granularity,
         ts_event=datetime.fromtimestamp(int(record.ts_event), tz=UTC),
         values=dict(record.values),
-        _timing=timing_data,
-        meta=dict(record.metadata),
+        meta=meta,
     )

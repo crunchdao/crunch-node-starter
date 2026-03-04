@@ -106,11 +106,10 @@ class RealtimePredictService(PredictService):
         else:
             inp = self.get_data(now)
 
-        # Add timing data to input record
+        data_loaded_us = time.perf_counter_ns() // 1000
+
         if notify_received_us is not None:
             inp._timing["notify_received_us"] = notify_received_us
-
-        data_loaded_us = time.perf_counter_ns() // 1000
         inp._timing["data_loaded_us"] = data_loaded_us
 
         await self._tick_models(inp.raw_data)
@@ -118,46 +117,43 @@ class RealtimePredictService(PredictService):
         # 2. run configs → build records → save
         predictions = await self._predict_all_configs(inp, now)
 
-        # Add callback timing
+        # Add callback timing (store in meta["timing"] for persistence)
         if self.post_predict_hook is not None:
             callback_started_us = time.perf_counter_ns() // 1000
             # Copy timing to all predictions
             for prediction in predictions:
-                prediction._timing = inp._timing.copy()
-                prediction._timing["callback_started_us"] = callback_started_us
+                pred_timing = prediction.meta.setdefault("timing", {})
+                pred_timing.update(inp._timing)
+                pred_timing["callback_started_us"] = callback_started_us
 
             predictions = self.post_predict_hook(predictions, inp, now)
 
             callback_completed_us = time.perf_counter_ns() // 1000
             # Update callback completion timing
             for prediction in predictions:
-                prediction._timing["callback_completed_us"] = callback_completed_us
+                prediction.meta.setdefault("timing", {})["callback_completed_us"] = callback_completed_us
         else:
             # No callback - copy timing to predictions and mark callback as skipped
             callback_completed_us = time.perf_counter_ns() // 1000
             for prediction in predictions:
-                prediction._timing = inp._timing.copy()
-                prediction._timing["callback_started_us"] = callback_completed_us
-                prediction._timing["callback_completed_us"] = callback_completed_us
+                pred_timing = prediction.meta.setdefault("timing", {})
+                pred_timing.update(inp._timing)
+                pred_timing["callback_started_us"] = callback_completed_us
+                pred_timing["callback_completed_us"] = callback_completed_us
 
         self._save(predictions)
         return len(predictions) > 0
 
     def _save(self, predictions: list[PredictionRecord]) -> None:
-        """Override parent _save to add timing collection point."""
+        """Override parent _save to add timing data before persistence."""
         if not predictions:
             return
 
-        # Add persistence timing and collect metrics
+        # Add persistence timing to meta (will be persisted to DB)
         persistence_completed_us = time.perf_counter_ns() // 1000
 
         for prediction in predictions:
-            prediction._timing["persistence_completed_us"] = persistence_completed_us
-
-            # Collection point - record timing data
-            from coordinator_node.metrics.timing import timing_collector
-
-            timing_collector.record_timing(prediction.id, prediction._timing)
+            prediction.meta.setdefault("timing", {})["persistence_completed_us"] = persistence_completed_us
 
         # Call parent save method
         super()._save(predictions)

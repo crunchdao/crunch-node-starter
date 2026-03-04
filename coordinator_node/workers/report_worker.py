@@ -42,14 +42,6 @@ app.add_middleware(
 CONTRACT = load_config()
 SETTINGS = RuntimeSettings.from_env()
 
-# Configure timing collector
-from coordinator_node.metrics.timing import timing_collector
-
-timing_collector.configure(
-    enabled=CONTRACT.performance.timing_enabled,
-    buffer_size=CONTRACT.performance.timing_buffer_size,
-)
-
 # API key auth — active when API_KEY env var is set
 from coordinator_node.middleware.auth import configure_auth
 
@@ -1872,18 +1864,21 @@ async def _run_backfill_async(job_id: str, body: BackfillRequestBody) -> None:
 
 
 @app.get("/timing-metrics")
-async def get_timing_metrics():
-    """Get pipeline timing metrics for performance analysis."""
-    # Only expose endpoint if enabled in config
+async def get_timing_metrics(limit: int = Query(default=1000, le=10000)):
+    """Get pipeline timing metrics from recent predictions."""
     if not CONTRACT.performance.timing_endpoint_enabled:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Timing metrics endpoint is disabled",
         )
 
-    from coordinator_node.metrics.timing import timing_collector
+    from coordinator_node.metrics.timing import aggregate_timing_from_predictions
 
-    return timing_collector.get_metrics()
+    with create_session() as session:
+        repo = DBPredictionRepository(session)
+        predictions = repo.fetch_recent_with_timing(limit=limit)
+
+    return aggregate_timing_from_predictions(predictions)
 
 
 if __name__ == "__main__":

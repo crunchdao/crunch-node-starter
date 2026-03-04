@@ -58,25 +58,31 @@ class FeedReader:
         Returns the latest 1m candles for the configured subject.
         Higher-timeframe aggregation and microstructure data are NOT included —
         those belong in the predict service transform layer if needed.
+
+        Also includes `_feed_timing` with timing data from the latest feed record
+        for end-to-end latency measurement.
         """
-        candles = self._load_recent_candles(limit=self.window_size)
+        candles, feed_timing = self._load_recent_candles(limit=self.window_size)
 
         if len(candles) < min(3, self.window_size):
             self._recover_window(
                 start=now - timedelta(minutes=max(5, self.window_size)),
                 end=now,
             )
-            candles = self._load_recent_candles(limit=self.window_size)
+            candles, feed_timing = self._load_recent_candles(limit=self.window_size)
 
         asof_ts = int(now.timestamp())
         if candles:
             asof_ts = int(candles[-1].get("ts", asof_ts))
 
-        return {
+        result = {
             "symbol": self.subject,
             "asof_ts": asof_ts,
             "candles_1m": candles[-self.window_size :],
         }
+        if feed_timing:
+            result["_feed_timing"] = feed_timing
+        return result
 
     def get_latest_candles(
         self,
@@ -205,7 +211,9 @@ class FeedReader:
 
     # ── internals ──
 
-    def _load_recent_candles(self, limit: int) -> list[dict[str, Any]]:
+    def _load_recent_candles(
+        self, limit: int
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         with create_session() as session:
             repo = DBFeedRecordRepository(session)
             records = repo.fetch_records(
@@ -217,6 +225,8 @@ class FeedReader:
             )
 
         candles: list[dict[str, Any]] = []
+        latest_timing: dict[str, Any] = {}
+
         for record in records[-max(1, limit) :]:
             price = self._record_price(record)
             if price is None:
@@ -246,7 +256,13 @@ class FeedReader:
                         "volume": 0.0,
                     }
                 )
-        return candles
+
+        if records:
+            latest_record = records[-1]
+            if latest_record.meta and latest_record.meta.get("timing"):
+                latest_timing = latest_record.meta["timing"]
+
+        return candles, latest_timing
 
     def _latest_record(self, at_or_before: datetime) -> Any:
         with create_session() as session:
