@@ -189,6 +189,7 @@ class FeedDataService:
             domain_record.meta.setdefault("timing", {})["feed_normalized_us"] = (
                 feed_normalized_us
             )
+            domain_record._timing["feed_normalized_us"] = feed_normalized_us
 
         result = self.feed_record_repository.append_records(converted)
 
@@ -210,6 +211,7 @@ class _RepositorySink:
         domain = _feed_to_domain(record.source, record, feed_received_us)
         feed_normalized_us = time.perf_counter_ns() // 1000
         domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
+        domain._timing["feed_normalized_us"] = feed_normalized_us
 
         # Stage 3: Persistence (with timing recorded after commit)
         self._repository.append_records([domain], record_persist_timing=True)
@@ -246,8 +248,17 @@ def _feed_to_domain(
 ) -> FeedRecord:
     source = record.source or default_source
     meta = dict(record.metadata)
+
+    existing_timing = meta.get("timing")
+    timing: dict[str, int] = (
+        dict(existing_timing) if isinstance(existing_timing, dict) else {}
+    )
+
     if feed_received_us is not None:
-        meta.setdefault("timing", {})["feed_received_us"] = feed_received_us
+        timing["feed_received_us"] = feed_received_us
+
+    if timing:
+        meta["timing"] = timing
 
     return FeedRecord(
         source=source,
@@ -257,4 +268,5 @@ def _feed_to_domain(
         ts_event=datetime.fromtimestamp(int(record.ts_event), tz=UTC),
         values=dict(record.values),
         meta=meta,
+        _timing=timing,
     )

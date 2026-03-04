@@ -1867,19 +1867,45 @@ async def _run_backfill_async(job_id: str, body: BackfillRequestBody) -> None:
 @app.get("/timing-metrics")
 async def get_timing_metrics(limit: int = Query(default=1000, le=10000)):
     """Get pipeline timing metrics from recent predictions."""
-    if not CONTRACT.performance.timing_endpoint_enabled:
+
+    def _flag(name: str, default: bool = False) -> bool:
+        direct = getattr(CONTRACT, name, None)
+        if isinstance(direct, bool):
+            return direct
+
+        perf = getattr(CONTRACT, "performance", None)
+        nested = getattr(perf, name, None) if perf is not None else None
+        if isinstance(nested, bool):
+            return nested
+
+        return default
+
+    if not _flag("timing_endpoint_enabled", default=False):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Timing metrics endpoint is disabled",
         )
 
-    from crunch_node.metrics.timing import aggregate_timing_from_predictions
+    from crunch_node.metrics.timing import (
+        aggregate_timing_from_predictions,
+        timing_collector,
+    )
 
-    with create_session() as session:
-        repo = DBPredictionRepository(session)
-        predictions = repo.fetch_recent_with_timing(limit=limit)
+    try:
+        with create_session() as session:
+            repo = DBPredictionRepository(session)
+            predictions = repo.fetch_recent_with_timing(limit=limit)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "failed to load timing metrics from database"
+        )
+        return timing_collector.get_metrics()
 
-    return aggregate_timing_from_predictions(predictions)
+    if predictions:
+        return aggregate_timing_from_predictions(predictions)
+
+    # Useful for local tests and non-persisted runs where timing data only exists in memory.
+    return timing_collector.get_metrics()
 
 
 if __name__ == "__main__":
