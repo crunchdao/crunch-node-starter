@@ -46,7 +46,8 @@ SETTINGS = RuntimeSettings.from_env()
 from coordinator_node.metrics.timing import timing_collector
 
 timing_collector.configure(
-    enabled=CONTRACT.performance.timing_enabled, buffer_size=CONTRACT.performance.timing_buffer_size
+    enabled=CONTRACT.performance.timing_enabled,
+    buffer_size=CONTRACT.performance.timing_buffer_size,
 )
 
 # API key auth — active when API_KEY env var is set

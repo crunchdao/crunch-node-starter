@@ -230,7 +230,7 @@ class PerformanceConfig(BaseModel):
 
     # Pipeline timing instrumentation
     timing_enabled: bool = Field(
-        default=False,
+        default=True,
         description="Enable pipeline timing instrumentation for performance analysis",
     )
     timing_buffer_size: int = Field(
@@ -242,23 +242,6 @@ class PerformanceConfig(BaseModel):
         default=True,
         description="Expose /timing-metrics HTTP endpoint for analysis",
     )
-
-    @classmethod
-    def from_env(cls) -> PerformanceConfig:
-        """Create PerformanceConfig from environment variables."""
-        import os
-
-        def get_env_bool(key: str, default: bool = False) -> bool:
-            return os.getenv(key, str(default)).lower() == "true"
-
-        def get_env_int(key: str, default: int) -> int:
-            return int(os.getenv(key, str(default)))
-
-        return cls(
-            timing_enabled=get_env_bool("TIMING_METRICS_ENABLED"),
-            timing_buffer_size=get_env_int("TIMING_BUFFER_SIZE", 10000),
-            timing_endpoint_enabled=get_env_bool("TIMING_ENDPOINT_ENABLED", True),
-        )
 
 
 def default_resolve_ground_truth(

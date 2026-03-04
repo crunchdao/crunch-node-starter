@@ -121,7 +121,17 @@ docker logs for errors, and checks UI reachability.
 
 ## Benchmarking
 
-The benchmark (`tests/benchmark/`) gives an agent the scaffold workspace and a spec (build a BTC direction competition), then verifies 7 milestones: types, ground truth, scoring, examples, tests, deploy, and e2e.
+The benchmark (`tests/benchmark/`) gives an agent the scaffold workspace and a spec (build a BTC direction competition), then verifies 8 milestones: types, ground truth, scoring, examples, tests, deploy, e2e, and metrics collection.
+
+**Benchmark Milestones:**
+1. **types_correct** — InferenceOutput has direction:str and confidence:float
+2. **ground_truth_type** — GroundTruth type has profit:float and direction_up:bool with defaults
+3. **scoring_implemented** — Scoring function works correctly with test cases
+4. **examples_exist** — Required example tracker files exist with predict() methods
+5. **tests_pass** — `make test` passes
+6. **deploy_succeeded** — Docker containers are running
+7. **e2e_verified** — `make verify-e2e` passes (full pipeline working)
+8. **metrics_collection_verified** — `/timing-metrics` endpoint shows pipeline metrics are collected
 
 **Run a benchmark:**
 ```bash

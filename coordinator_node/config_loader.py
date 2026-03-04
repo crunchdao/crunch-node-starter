@@ -57,7 +57,7 @@ def _resolve_config() -> Any:
         return config
 
     # 3. Engine default
-    from coordinator_node.crunch_config import CrunchConfig, PerformanceConfig
+    from coordinator_node.crunch_config import CrunchConfig
 
     if found:
         logger.warning(
@@ -67,11 +67,8 @@ def _resolve_config() -> Any:
         )
     else:
         logger.info("Using default CrunchConfig (no operator override found)")
-    
-    config = CrunchConfig()
-    # Override performance config from environment if available
-    config.performance = PerformanceConfig.from_env()
-    return config
+
+    return CrunchConfig()
 
 
 def _try_load(path: str) -> tuple[Any, bool]:
@@ -97,13 +94,7 @@ def _try_load(path: str) -> tuple[Any, bool]:
 
         # If it's a class, instantiate it
         if isinstance(target, type):
-            config = target()
-            
-            # Override performance config from environment if available
-            if hasattr(config, 'performance') and hasattr(config.performance.__class__, 'from_env'):
-                config.performance = config.performance.__class__.from_env()
-            
-            return config, True
+            return target(), True
 
         # If it's already an instance, use it directly
         return target, True

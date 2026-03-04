@@ -57,7 +57,8 @@ def build_service() -> PredictService:
     from coordinator_node.metrics.timing import timing_collector
 
     timing_collector.configure(
-        enabled=config.timing_metrics_enabled, buffer_size=config.timing_buffer_size
+        enabled=config.performance.timing_enabled,
+        buffer_size=config.performance.timing_buffer_size,
     )
 
     service_class = _resolve_service_class(config)
