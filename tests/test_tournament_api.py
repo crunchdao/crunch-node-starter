@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from coordinator_node.entities.prediction import (
+from crunch_node.entities.prediction import (
     PredictionRecord,
     PredictionStatus,
     ScoreRecord,

@@ -34,7 +34,7 @@ Single source of truth for competition behavior:
 | `aggregation.value_field` | Score field to average in windows (default `"value"`) |
 | `aggregation.ranking_key` | Metric that ranks the leaderboard |
 
-Loaded via `coordinator_node.config_loader.load_config()`.
+Loaded via `crunch_node.config_loader.load_config()`.
 
 ## Scoring → Leaderboard Flow
 

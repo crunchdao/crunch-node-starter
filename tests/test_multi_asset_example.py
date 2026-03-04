@@ -6,7 +6,7 @@ multiple ScheduledPrediction entries using different subjects.
 
 from __future__ import annotations
 
-from coordinator_node.crunch_config import CrunchConfig, ScheduledPrediction
+from crunch_node.crunch_config import CrunchConfig, ScheduledPrediction
 
 
 class TestMultiAssetSupport:

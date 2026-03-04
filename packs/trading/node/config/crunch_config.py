@@ -14,12 +14,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     Aggregation,
     AggregationWindow,
     ScheduledPrediction,
 )
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
 

@@ -1,10 +1,10 @@
 import unittest
 from datetime import UTC, datetime
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.model import Model
-from coordinator_node.entities.prediction import InputRecord, PredictionRecord
-from coordinator_node.services.realtime_predict import RealtimePredictService
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.model import Model
+from crunch_node.entities.prediction import InputRecord, PredictionRecord
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 
 class FakeModelRun:
@@ -275,7 +275,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
 
     async def test_custom_call_method_uses_configured_method_name(self):
         """Finding F: CallMethodConfig controls which gRPC method is called."""
-        from coordinator_node.crunch_config import CallMethodArg, CallMethodConfig
+        from crunch_node.crunch_config import CallMethodArg, CallMethodConfig
 
         class CapturingRunner(FakeRunner):
             def __init__(self):

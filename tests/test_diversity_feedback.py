@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from coordinator_node.entities.prediction import SnapshotRecord
-from coordinator_node.workers.report_worker import get_model_diversity
+from crunch_node.entities.prediction import SnapshotRecord
+from crunch_node.workers.report_worker import get_model_diversity
 
 
 class InMemorySnapshotRepository:

@@ -28,7 +28,7 @@ Import the same dependencies used by built-in endpoints:
 from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
-from coordinator_node.db import create_session, DBModelRepository
+from crunch_node.db import create_session, DBModelRepository
 
 router = APIRouter(prefix="/custom", tags=["custom"])
 
@@ -46,7 +46,7 @@ def model_count(session: Annotated[Session, Depends(get_db_session)]):
 
 ```python
 from fastapi import APIRouter
-from coordinator_node.metrics import get_default_registry
+from crunch_node.metrics import get_default_registry
 
 router = APIRouter(prefix="/custom", tags=["custom"])
 

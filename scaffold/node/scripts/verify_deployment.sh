@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# verify_deployment.sh — Post-deploy verification for coordinator-node
+# verify_deployment.sh — Post-deploy verification for crunch-node
 #
 # Checks:
 #   1. Docker containers healthy

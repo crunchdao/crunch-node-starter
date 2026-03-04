@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from coordinator_node.entities.prediction import SnapshotRecord
-from coordinator_node.workers.report_worker import (
+from crunch_node.entities.prediction import SnapshotRecord
+from crunch_node.workers.report_worker import (
     get_checkpoint_rewards,
     get_diversity_overview,
     get_ensemble_history,
@@ -199,7 +199,7 @@ class TestEnsembleHistory(unittest.TestCase):
 
 class TestCheckpointRewards(unittest.TestCase):
     def _make_checkpoint(self, *, ranking, emission_rewards=None):
-        from coordinator_node.crunch_config import FRAC_64_MULTIPLIER
+        from crunch_node.crunch_config import FRAC_64_MULTIPLIER
 
         cruncher_rewards = []
         if emission_rewards:

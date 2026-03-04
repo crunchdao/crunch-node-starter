@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
 
-from coordinator_node.entities.feed_record import FeedRecord
-from coordinator_node.services.parquet_sink import ParquetBackfillSink
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.services.parquet_sink import ParquetBackfillSink
 
 
 def _make_record(ts_event: datetime) -> FeedRecord:
@@ -36,7 +36,7 @@ class TestBackfillEndpoints(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
         # Patch the parquet sink and backfill data dir before importing app
-        import coordinator_node.workers.report_worker as rw
+        import crunch_node.workers.report_worker as rw
 
         self._original_sink = rw._parquet_sink
         self._original_dir = rw.BACKFILL_DATA_DIR
@@ -45,14 +45,14 @@ class TestBackfillEndpoints(unittest.TestCase):
         self.client = TestClient(rw.app)
 
     def tearDown(self):
-        import coordinator_node.workers.report_worker as rw
+        import crunch_node.workers.report_worker as rw
 
         rw._parquet_sink = self._original_sink
         rw.BACKFILL_DATA_DIR = self._original_dir
 
     def test_get_backfill_feeds(self):
         """GET /reports/backfill/feeds returns feed list."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_feed_record_repository,
         )
@@ -80,7 +80,7 @@ class TestBackfillEndpoints(unittest.TestCase):
 
     def test_post_backfill_creates_job(self):
         """POST /reports/backfill creates a job and returns 201."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_backfill_job_repository,
             get_feed_record_repository,
@@ -132,7 +132,7 @@ class TestBackfillEndpoints(unittest.TestCase):
 
     def test_post_backfill_returns_409_when_running(self):
         """POST /reports/backfill returns 409 if a job is already running."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_backfill_job_repository,
             get_feed_record_repository,
@@ -168,7 +168,7 @@ class TestBackfillEndpoints(unittest.TestCase):
 
     def test_list_backfill_jobs(self):
         """GET /reports/backfill/jobs returns list of jobs."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_backfill_job_repository,
         )
@@ -205,7 +205,7 @@ class TestBackfillEndpoints(unittest.TestCase):
 
     def test_get_backfill_job_with_progress(self):
         """GET /reports/backfill/jobs/{id} returns job with progress_pct."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_backfill_job_repository,
         )
@@ -242,7 +242,7 @@ class TestBackfillEndpoints(unittest.TestCase):
 
     def test_get_backfill_job_not_found(self):
         """GET /reports/backfill/jobs/{id} returns 404 for unknown job."""
-        from coordinator_node.workers.report_worker import (
+        from crunch_node.workers.report_worker import (
             app,
             get_backfill_job_repository,
         )
@@ -263,7 +263,7 @@ class TestDataServingEndpoints(unittest.TestCase):
 
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
-        import coordinator_node.workers.report_worker as rw
+        import crunch_node.workers.report_worker as rw
 
         self._original_sink = rw._parquet_sink
         rw._parquet_sink = ParquetBackfillSink(base_dir=self.tmp_dir)
@@ -271,7 +271,7 @@ class TestDataServingEndpoints(unittest.TestCase):
         self.client = TestClient(rw.app)
 
     def tearDown(self):
-        import coordinator_node.workers.report_worker as rw
+        import crunch_node.workers.report_worker as rw
 
         rw._parquet_sink = self._original_sink
 

@@ -7,7 +7,7 @@ import unittest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 
-from coordinator_node.middleware.auth import APIKeyMiddleware
+from crunch_node.middleware.auth import APIKeyMiddleware
 
 
 def _make_app(api_key: str | None = None, read_auth: bool = False) -> FastAPI:

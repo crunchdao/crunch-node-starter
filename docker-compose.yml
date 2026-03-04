@@ -52,7 +52,7 @@ services:
       PYTHONUNBUFFERED: "1"
     stdin_open: false
     tty: false
-    command: ["python", "-m", "coordinator_node.db.init_db"]
+    command: ["python", "-m", "crunch_node.db.init_db"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,7 +66,7 @@ services:
       PYTHONUNBUFFERED: "1"
     stdin_open: false
     tty: false
-    command: ["python", "-m", "coordinator_node.db.init_db", "--reset"]
+    command: ["python", "-m", "crunch_node.db.init_db", "--reset"]
     profiles: [reset]
     depends_on:
       postgres:
@@ -90,7 +90,7 @@ services:
       FEED_RETENTION_CHECK_SECONDS: ${FEED_RETENTION_CHECK_SECONDS:-3600}
     restart: always
     stop_grace_period: 5s
-    command: ["python", "-m", "coordinator_node.workers.feed_data_worker"]
+    command: ["python", "-m", "crunch_node.workers.feed_data_worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,10 +113,10 @@ services:
       FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
       FEED_KIND: ${FEED_KIND:-tick}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
-      SCORING_FUNCTION: ${SCORING_FUNCTION:-coordinator_node.extensions.default_callables:default_score_prediction}
+      SCORING_FUNCTION: ${SCORING_FUNCTION:-crunch_node.extensions.default_callables:default_score_prediction}
     restart: always
     stop_grace_period: 5s
-    command: ["python", "-m", "coordinator_node.workers.predict_worker"]
+    command: ["python", "-m", "crunch_node.workers.predict_worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,10 +139,10 @@ services:
       FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
       FEED_KIND: ${FEED_KIND:-tick}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
-      SCORING_FUNCTION: ${SCORING_FUNCTION:-coordinator_node.extensions.default_callables:default_score_prediction}
+      SCORING_FUNCTION: ${SCORING_FUNCTION:-crunch_node.extensions.default_callables:default_score_prediction}
     restart: always
     stop_grace_period: 5s
-    command: ["python", "-m", "coordinator_node.workers.score_worker"]
+    command: ["python", "-m", "crunch_node.workers.score_worker"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,7 +158,7 @@ services:
       BACKFILL_DATA_DIR: ${BACKFILL_DATA_DIR:-/app/data/backfill}
     restart: always
     stop_grace_period: 5s
-    command: ["python", "-m", "coordinator_node.workers.report_worker"]
+    command: ["python", "-m", "crunch_node.workers.report_worker"]
     ports:
       - "8000:8000"
     volumes:

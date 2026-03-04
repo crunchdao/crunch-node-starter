@@ -139,7 +139,7 @@ check_text_absent  "No error toast" "oops"
 check_text_absent  "No disconnected status" "disconnected"
 
 # Check for actual log content (timestamps or log levels)
-if echo "$PAGE_TEXT" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}|INFO|WARNING|ERROR|coordinator_node"; then
+if echo "$PAGE_TEXT" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}|INFO|WARNING|ERROR|crunch_node"; then
     pass "Log content is streaming"
 else
     fail "No log content visible — backend may not be connected"

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from coordinator_node.metrics.context import MetricsContext
-from coordinator_node.metrics.registry import MetricsRegistry, get_default_registry
+from crunch_node.metrics.context import MetricsContext
+from crunch_node.metrics.registry import MetricsRegistry, get_default_registry
 
 
 class TestMetricsRegistry(unittest.TestCase):

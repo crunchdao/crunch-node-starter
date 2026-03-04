@@ -36,13 +36,13 @@ Define the contract first — what models receive and what they return.
 
 **Types** — edit `node/config/crunch_config.py`:
 
-All types are Pydantic models imported from `coordinator_node.crunch_config`.
+All types are Pydantic models imported from `crunch_node.crunch_config`.
 The scaffold's `CrunchConfig` subclass overrides them. The base defaults all
 have a single `value: float` field. Override by defining your own Pydantic
 model and assigning it in your CrunchConfig class:
 
 ```python
-from coordinator_node.crunch_config import CrunchConfig as _Base, InferenceOutput
+from crunch_node.crunch_config import CrunchConfig as _Base, InferenceOutput
 
 class MyOutput(InferenceOutput):
     # define whatever fields models should return for this competition

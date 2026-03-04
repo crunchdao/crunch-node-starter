@@ -16,7 +16,7 @@ guide. Run make test, make deploy, and make verify-e2e yourself. Read logs
 and fix any issues until everything passes.
 
 IMPORTANT: All base types (InferenceOutput, GroundTruth, ScoreResult, etc.)
-are imported from `coordinator_node.crunch_config` in node/config/crunch_config.py.
+are imported from `crunch_node.crunch_config` in node/config/crunch_config.py.
 You don't need to find the library source — just override the types in your
 CrunchConfig subclass. The defaults have a single `value: float` field.
 

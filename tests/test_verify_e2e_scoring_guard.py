@@ -13,7 +13,7 @@ class TestScoringStubDetection:
 
     def test_detects_constant_zero_scoring_stub(self):
         """A scoring function that returns 0.0 for varied inputs is a stub."""
-        from coordinator_node.services.score import ScoreService
+        from crunch_node.services.score import ScoreService
 
         def stub_scorer(prediction, ground_truth):
             return {"value": 0.0, "success": True, "failed_reason": None}
@@ -28,7 +28,7 @@ class TestScoringStubDetection:
 
     def test_accepts_real_scoring_function(self):
         """A scoring function that produces varied outputs is not a stub."""
-        from coordinator_node.services.score import ScoreService
+        from crunch_node.services.score import ScoreService
 
         def real_scorer(prediction, ground_truth):
             pred_val = float(prediction.get("value", 0.0))
@@ -42,7 +42,7 @@ class TestScoringStubDetection:
 
     def test_detects_constant_nonzero_stub(self):
         """A function that always returns the same nonzero value is also a stub."""
-        from coordinator_node.services.score import ScoreService
+        from crunch_node.services.score import ScoreService
 
         def constant_scorer(prediction, ground_truth):
             return {"value": 1.0, "success": True}

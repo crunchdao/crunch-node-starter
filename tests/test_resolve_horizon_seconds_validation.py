@@ -17,7 +17,7 @@ class TestResolveHorizonSecondsValidation:
 
     def test_rejects_resolve_horizon_seconds_below_feed_interval(self):
         """If 0 < resolve_horizon_seconds < feed_poll_seconds, startup must raise."""
-        from coordinator_node.services.realtime_predict import RealtimePredictService
+        from crunch_node.services.realtime_predict import RealtimePredictService
 
         configs = [
             {
@@ -37,7 +37,7 @@ class TestResolveHorizonSecondsValidation:
 
     def test_accepts_zero_for_immediate_resolution(self):
         """resolve_horizon_seconds=0 is valid (live trading, immediate scoring)."""
-        from coordinator_node.services.realtime_predict import RealtimePredictService
+        from crunch_node.services.realtime_predict import RealtimePredictService
 
         configs = [
             {
@@ -57,7 +57,7 @@ class TestResolveHorizonSecondsValidation:
 
     def test_accepts_resolve_horizon_seconds_equal_to_feed_interval(self):
         """Exact match is OK."""
-        from coordinator_node.services.realtime_predict import RealtimePredictService
+        from crunch_node.services.realtime_predict import RealtimePredictService
 
         configs = [
             {
@@ -75,7 +75,7 @@ class TestResolveHorizonSecondsValidation:
         )
 
     def test_accepts_resolve_horizon_seconds_above_feed_interval(self):
-        from coordinator_node.services.realtime_predict import RealtimePredictService
+        from crunch_node.services.realtime_predict import RealtimePredictService
 
         configs = [
             {
@@ -94,7 +94,7 @@ class TestResolveHorizonSecondsValidation:
 
     def test_skips_inactive_configs(self):
         """Inactive configs should not be validated."""
-        from coordinator_node.services.realtime_predict import RealtimePredictService
+        from crunch_node.services.realtime_predict import RealtimePredictService
 
         configs = [
             {

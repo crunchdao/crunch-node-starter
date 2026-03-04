@@ -5,14 +5,14 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     PredictionStatus,
     ScoreRecord,
 )
-from coordinator_node.services.score import ScoreService
+from crunch_node.services.score import ScoreService
 
 
 class InMemoryRepo:
@@ -197,8 +197,8 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
     """Test that ensemble virtual models are created and scored in the pipeline."""
 
     def test_ensemble_creates_virtual_model_snapshot(self):
-        from coordinator_node.crunch_config import EnsembleConfig
-        from coordinator_node.services.ensemble import equal_weight
+        from crunch_node.crunch_config import EnsembleConfig
+        from crunch_node.services.ensemble import equal_weight
 
         contract = CrunchConfig(
             metrics=["ic", "hit_rate"],

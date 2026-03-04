@@ -6,8 +6,8 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.prediction import (
     CheckpointRecord,
     CheckpointStatus,
     InputRecord,
@@ -16,7 +16,7 @@ from coordinator_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
-from coordinator_node.services.score import ScoreService
+from crunch_node.services.score import ScoreService
 
 now = datetime.now(UTC)
 

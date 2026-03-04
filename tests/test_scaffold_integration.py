@@ -72,7 +72,7 @@ class TestConfigFileValid:
         )
 
     def test_each_entry_validates_as_envelope(self, prediction_configs):
-        from coordinator_node.schemas import ScheduledPredictionConfigEnvelope
+        from crunch_node.schemas import ScheduledPredictionConfigEnvelope
 
         for i, entry in enumerate(prediction_configs):
             try:
@@ -82,7 +82,7 @@ class TestConfigFileValid:
 
     def test_schedule_envelope_validates(self, prediction_configs):
         """Catches typos like 'every_seconds' (extra="forbid" on ScheduleEnvelope)."""
-        from coordinator_node.schemas import ScheduleEnvelope
+        from crunch_node.schemas import ScheduleEnvelope
 
         for i, entry in enumerate(prediction_configs):
             schedule = entry.get("schedule", {})
@@ -158,7 +158,7 @@ class TestGroundTruthResolution:
     matching the RawInput shape the feed actually produces."""
 
     def _make_feed_record(self, subject: str, price: float, ts: datetime):
-        from coordinator_node.entities.feed_record import FeedRecord
+        from crunch_node.entities.feed_record import FeedRecord
 
         return FeedRecord(
             source="pyth",

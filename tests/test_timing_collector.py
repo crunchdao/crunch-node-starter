@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from coordinator_node.metrics.timing import TimingCollector, timing_collector
+from crunch_node.metrics.timing import TimingCollector, timing_collector
 
 
 class TestTimingCollector:

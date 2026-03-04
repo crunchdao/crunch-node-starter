@@ -21,7 +21,7 @@ competition, not a realtime one. The key difference:
 - Two API endpoints drive rounds: one for inference, one for scoring.
 
 The base package already provides:
-- `coordinator_node.services.tournament_predict.TournamentPredictService`
+- `crunch_node.services.tournament_predict.TournamentPredictService`
 - A scaffold tournament API in `scaffold/node/api/tournament.py`
 
 Here is the exact specification:
@@ -56,7 +56,7 @@ ScoreResult — what scoring produces:
 
 IMPORTANT: Set predict_service_class in CrunchConfig:
 
-    from coordinator_node.services.tournament_predict import TournamentPredictService
+    from crunch_node.services.tournament_predict import TournamentPredictService
     predict_service_class: type | None = TournamentPredictService
 
 IMPORTANT: Remove scheduled_predictions entirely or set to empty list [].
@@ -64,7 +64,7 @@ Tournament competitions don't use scheduled predictions.
 
 IMPORTANT: Set call_method to use JSON for the features batch:
 
-    from coordinator_node.crunch_config import CallMethodConfig, CallMethodArg
+    from crunch_node.crunch_config import CallMethodConfig, CallMethodArg
     call_method: CallMethodConfig = CallMethodConfig(
         method="predict",
         args=[CallMethodArg(name="features", type="JSON")],

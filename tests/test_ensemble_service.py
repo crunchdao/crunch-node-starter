@@ -6,7 +6,7 @@ import unittest
 from datetime import UTC, datetime
 from typing import Any
 
-from coordinator_node.services.ensemble import (
+from crunch_node.services.ensemble import (
     apply_model_filter,
     build_ensemble_predictions,
     ensemble_model_id,
@@ -176,8 +176,8 @@ class TestBuildEnsemblePredictions(unittest.TestCase):
 
 class TestEnsembleMetrics(unittest.TestCase):
     def test_ensemble_correlation(self):
-        from coordinator_node.metrics.context import MetricsContext
-        from coordinator_node.metrics.ensemble_metrics import (
+        from crunch_node.metrics.context import MetricsContext
+        from crunch_node.metrics.ensemble_metrics import (
             compute_ensemble_correlation,
         )
 
@@ -190,9 +190,9 @@ class TestEnsembleMetrics(unittest.TestCase):
         self.assertAlmostEqual(corr, 1.0, places=5)
 
     def test_fnc_single_model_equals_ic(self):
-        from coordinator_node.metrics.builtins import compute_ic
-        from coordinator_node.metrics.context import MetricsContext
-        from coordinator_node.metrics.ensemble_metrics import compute_fnc
+        from crunch_node.metrics.builtins import compute_ic
+        from crunch_node.metrics.context import MetricsContext
+        from crunch_node.metrics.ensemble_metrics import compute_fnc
 
         preds = [_pred(1.0), _pred(2.0), _pred(3.0)]
         scores = [{"result": {"actual_return": 0.01 * (i + 1)}} for i in range(3)]
@@ -207,8 +207,8 @@ class TestEnsembleMetrics(unittest.TestCase):
         self.assertAlmostEqual(fnc, ic, places=5)
 
     def test_contribution_positive_for_good_model(self):
-        from coordinator_node.metrics.context import MetricsContext
-        from coordinator_node.metrics.ensemble_metrics import compute_contribution
+        from crunch_node.metrics.context import MetricsContext
+        from crunch_node.metrics.ensemble_metrics import compute_contribution
 
         # Model m1 has high IC, m2 has low — m1 should have positive contribution
         preds_m1 = [_pred(float(i)) for i in range(1, 6)]
