@@ -13,8 +13,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
+import pytest
+
+# pyarrow is an optional dependency (parquet extra).
+# If unavailable in a given environment, skip this module gracefully.
+pa = pytest.importorskip("pyarrow")
+pq = pytest.importorskip("pyarrow.parquet")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "base", "challenge"))
 
