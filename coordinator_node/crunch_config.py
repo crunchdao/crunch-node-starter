@@ -223,6 +223,44 @@ class EnsembleConfig(BaseModel):
     enabled: bool = True
 
 
+class PerformanceConfig(BaseModel):
+    """Configuration for pipeline timing instrumentation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Pipeline timing instrumentation
+    timing_enabled: bool = Field(
+        default=False,
+        description="Enable pipeline timing instrumentation for performance analysis",
+    )
+    timing_buffer_size: int = Field(
+        default=10000,
+        ge=100,
+        description="Maximum number of timing records to keep in memory buffer",
+    )
+    timing_endpoint_enabled: bool = Field(
+        default=True,
+        description="Expose /timing-metrics HTTP endpoint for analysis",
+    )
+
+    @classmethod
+    def from_env(cls) -> PerformanceConfig:
+        """Create PerformanceConfig from environment variables."""
+        import os
+
+        def get_env_bool(key: str, default: bool = False) -> bool:
+            return os.getenv(key, str(default)).lower() == "true"
+
+        def get_env_int(key: str, default: int) -> int:
+            return int(os.getenv(key, str(default)))
+
+        return cls(
+            timing_enabled=get_env_bool("TIMING_METRICS_ENABLED"),
+            timing_buffer_size=get_env_int("TIMING_BUFFER_SIZE", 10000),
+            timing_endpoint_enabled=get_env_bool("TIMING_ENDPOINT_ENABLED", True),
+        )
+
+
 def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
@@ -505,18 +543,10 @@ class CrunchConfig(BaseModel):
         ),
     )
 
-    # Performance instrumentation
-    timing_metrics_enabled: bool = Field(
-        default=False,
-        description="Enable pipeline timing instrumentation for performance analysis",
-    )
-    timing_buffer_size: int = Field(
-        default=10000,
-        ge=100,
-        description="Maximum number of timing records to keep in memory buffer",
-    )
-    timing_endpoint_enabled: bool = Field(
-        default=True, description="Expose /timing-metrics HTTP endpoint for analysis"
+    # Performance monitoring configuration
+    performance: PerformanceConfig = Field(
+        default_factory=PerformanceConfig,
+        description="Performance monitoring and instrumentation configuration",
     )
 
     # Callables

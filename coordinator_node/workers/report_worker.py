@@ -46,7 +46,7 @@ SETTINGS = RuntimeSettings.from_env()
 from coordinator_node.metrics.timing import timing_collector
 
 timing_collector.configure(
-    enabled=CONTRACT.timing_metrics_enabled, buffer_size=CONTRACT.timing_buffer_size
+    enabled=CONTRACT.performance.timing_enabled, buffer_size=CONTRACT.performance.timing_buffer_size
 )
 
 # API key auth — active when API_KEY env var is set
@@ -1874,7 +1874,7 @@ async def _run_backfill_async(job_id: str, body: BackfillRequestBody) -> None:
 async def get_timing_metrics():
     """Get pipeline timing metrics for performance analysis."""
     # Only expose endpoint if enabled in config
-    if not CONTRACT.timing_endpoint_enabled:
+    if not CONTRACT.performance.timing_endpoint_enabled:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Timing metrics endpoint is disabled",
