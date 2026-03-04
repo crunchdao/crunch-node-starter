@@ -136,13 +136,14 @@ class TimingCollector:
         """Calculate latency statistics for each pipeline stage."""
         stage_definitions = [
             ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
-            ("notify_latency", "feed_normalized_us", "notify_received_us"),
+            ("feed_persistence", "feed_normalized_us", "feed_persisted_us"),
+            ("notify_latency", "feed_persisted_us", "notify_received_us"),
             ("data_loading", "notify_received_us", "data_loaded_us"),
             ("pre_model", "data_loaded_us", "models_dispatched_us"),
             ("model_execution", "models_dispatched_us", "models_completed_us"),
             ("post_model", "models_completed_us", "callback_started_us"),
             ("callback_execution", "callback_started_us", "callback_completed_us"),
-            ("persistence", "callback_completed_us", "persistence_completed_us"),
+            ("prediction_persistence", "callback_completed_us", "persistence_completed_us"),
         ]
 
         e2e_latencies = []
@@ -278,13 +279,14 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
 
     stage_definitions = [
         ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
-        ("notify_latency", "feed_normalized_us", "notify_received_us"),
+        ("feed_persistence", "feed_normalized_us", "feed_persisted_us"),
+        ("notify_latency", "feed_persisted_us", "notify_received_us"),
         ("data_loading", "notify_received_us", "data_loaded_us"),
         ("pre_model", "data_loaded_us", "models_dispatched_us"),
         ("model_execution", "models_dispatched_us", "models_completed_us"),
         ("post_model", "models_completed_us", "callback_started_us"),
         ("callback_execution", "callback_started_us", "callback_completed_us"),
-        ("persistence", "callback_completed_us", "persistence_completed_us"),
+        ("prediction_persistence", "callback_completed_us", "persistence_completed_us"),
     ]
 
     e2e_latencies = []
