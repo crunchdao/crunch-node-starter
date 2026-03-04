@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
+from coordinator_node import __version__
 from coordinator_node.config.runtime import RuntimeSettings
 from coordinator_node.config_loader import load_config
 from coordinator_node.crunch_config import CrunchConfig
@@ -515,7 +516,7 @@ def get_merkle_cycle_repository(
 
 @app.get("/healthz")
 def healthcheck() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": __version__}
 
 
 @app.get("/reports/schema")
