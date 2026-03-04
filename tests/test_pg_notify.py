@@ -1,4 +1,4 @@
-"""Tests for coordinator_node.db.pg_notify — PostgreSQL LISTEN/NOTIFY helpers.
+"""Tests for crunch_node.db.pg_notify — PostgreSQL LISTEN/NOTIFY helpers.
 
 All tests mock the psycopg2 connection so no real Postgres is needed.
 """
@@ -10,7 +10,7 @@ import unittest
 from collections import namedtuple
 from unittest.mock import MagicMock, patch
 
-from coordinator_node.db.pg_notify import (
+from crunch_node.db.pg_notify import (
     DEFAULT_CHANNEL,
     _poll_notify,
     listen,
@@ -60,7 +60,7 @@ class TestNotify(unittest.TestCase):
         notify(connection=conn)
         self.assertTrue(conn.autocommit)
 
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_notify_creates_and_closes_own_connection(self, mock_raw):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -68,7 +68,7 @@ class TestNotify(unittest.TestCase):
         mock_raw.assert_called_once()
         conn.close.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_notify_closes_connection_on_error(self, mock_raw):
         conn, cursor = _make_mock_connection()
         cursor.execute.side_effect = RuntimeError("db error")
@@ -93,7 +93,7 @@ class TestNotify(unittest.TestCase):
 
 
 class TestPollNotify(unittest.TestCase):
-    @patch("coordinator_node.db.pg_notify._select.select")
+    @patch("crunch_node.db.pg_notify._select.select")
     def test_returns_false_on_timeout(self, mock_select):
         mock_select.return_value = ([], [], [])
         conn = MagicMock()
@@ -101,7 +101,7 @@ class TestPollNotify(unittest.TestCase):
         self.assertFalse(result)
         conn.poll.assert_not_called()
 
-    @patch("coordinator_node.db.pg_notify._select.select")
+    @patch("crunch_node.db.pg_notify._select.select")
     def test_returns_true_when_notified(self, mock_select):
         conn = MagicMock()
         conn.notifies = [Notification("ch", "")]
@@ -110,7 +110,7 @@ class TestPollNotify(unittest.TestCase):
         self.assertTrue(result)
         conn.poll.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._select.select")
+    @patch("crunch_node.db.pg_notify._select.select")
     def test_returns_false_when_poll_but_no_notifies(self, mock_select):
         conn = MagicMock()
         conn.notifies = []
@@ -123,8 +123,8 @@ class TestPollNotify(unittest.TestCase):
 
 
 class TestWaitForNotify(unittest.TestCase):
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_returns_true_when_notified(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -135,8 +135,8 @@ class TestWaitForNotify(unittest.TestCase):
         cursor.execute.assert_called_once_with("LISTEN my_channel")
         conn.close.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_returns_false_on_timeout(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -146,8 +146,8 @@ class TestWaitForNotify(unittest.TestCase):
         self.assertFalse(result)
         conn.close.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_default_channel(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -156,8 +156,8 @@ class TestWaitForNotify(unittest.TestCase):
         asyncio.run(wait_for_notify(timeout=0.1))
         cursor.execute.assert_called_once_with(f"LISTEN {DEFAULT_CHANNEL}")
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_closes_connection_on_error(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -172,8 +172,8 @@ class TestWaitForNotify(unittest.TestCase):
 
 
 class TestListen(unittest.TestCase):
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_yields_channel_and_payload(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -207,8 +207,8 @@ class TestListen(unittest.TestCase):
         self.assertEqual(results, [("ch1", '{"x": 1}'), ("ch2", "hello")])
         conn.close.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_listens_on_all_channels(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -230,8 +230,8 @@ class TestListen(unittest.TestCase):
         self.assertIn("LISTEN b", str(channels_listened))
         self.assertIn("LISTEN c", str(channels_listened))
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_defaults_to_default_channel(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -248,8 +248,8 @@ class TestListen(unittest.TestCase):
 
         cursor.execute.assert_any_call(f"LISTEN {DEFAULT_CHANNEL}")
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_empty_payload_yields_empty_string(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -273,8 +273,8 @@ class TestListen(unittest.TestCase):
         result = asyncio.run(collect())
         self.assertEqual(result, ("ch1", ""))
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_closes_connection_on_break(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
@@ -298,8 +298,8 @@ class TestListen(unittest.TestCase):
         asyncio.run(run())
         conn.close.assert_called_once()
 
-    @patch("coordinator_node.db.pg_notify._poll_notify")
-    @patch("coordinator_node.db.pg_notify._raw_connection")
+    @patch("crunch_node.db.pg_notify._poll_notify")
+    @patch("crunch_node.db.pg_notify._raw_connection")
     def test_multiple_notifications_in_single_poll(self, mock_raw, mock_poll):
         """Multiple notifications queued in one poll cycle are all yielded."""
         conn, cursor = _make_mock_connection()
@@ -339,20 +339,20 @@ class TestListen(unittest.TestCase):
 
 
 class TestRawConnection(unittest.TestCase):
-    @patch("coordinator_node.db.pg_notify.database_url")
-    @patch("coordinator_node.db.pg_notify.psycopg2.connect")
+    @patch("crunch_node.db.pg_notify.database_url")
+    @patch("crunch_node.db.pg_notify.psycopg2.connect")
     def test_strips_psycopg2_dialect(self, mock_connect, mock_url):
         mock_url.return_value = "postgresql+psycopg2://user:pass@host:5432/db"
-        from coordinator_node.db.pg_notify import _raw_connection
+        from crunch_node.db.pg_notify import _raw_connection
 
         _raw_connection()
         mock_connect.assert_called_once_with("postgresql://user:pass@host:5432/db")
 
-    @patch("coordinator_node.db.pg_notify.database_url")
-    @patch("coordinator_node.db.pg_notify.psycopg2.connect")
+    @patch("crunch_node.db.pg_notify.database_url")
+    @patch("crunch_node.db.pg_notify.psycopg2.connect")
     def test_plain_url_unchanged(self, mock_connect, mock_url):
         mock_url.return_value = "postgresql://user:pass@host:5432/db"
-        from coordinator_node.db.pg_notify import _raw_connection
+        from crunch_node.db.pg_notify import _raw_connection
 
         _raw_connection()
         mock_connect.assert_called_once_with("postgresql://user:pass@host:5432/db")

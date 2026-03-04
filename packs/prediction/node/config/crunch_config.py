@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     ScheduledPrediction,
 )
 

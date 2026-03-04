@@ -7,19 +7,19 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from coordinator_node.metrics.timing import timing_collector
+from crunch_node.metrics.timing import timing_collector
 
 
 def test_timing_endpoint_enabled():
     """Test timing endpoint when enabled."""
     # Mock the CONTRACT to have timing enabled
-    with patch("coordinator_node.workers.report_worker.CONTRACT") as mock_contract:
+    with patch("crunch_node.workers.report_worker.CONTRACT") as mock_contract:
         mock_contract.timing_endpoint_enabled = True
         mock_contract.timing_metrics_enabled = True
         mock_contract.timing_buffer_size = 1000
 
         # Import and create test client after mocking
-        from coordinator_node.workers.report_worker import app
+        from crunch_node.workers.report_worker import app
 
         client = TestClient(app)
 
@@ -50,10 +50,10 @@ def test_timing_endpoint_enabled():
 
 def test_timing_endpoint_disabled():
     """Test timing endpoint when disabled."""
-    with patch("coordinator_node.workers.report_worker.CONTRACT") as mock_contract:
+    with patch("crunch_node.workers.report_worker.CONTRACT") as mock_contract:
         mock_contract.timing_endpoint_enabled = False
 
-        from coordinator_node.workers.report_worker import app
+        from crunch_node.workers.report_worker import app
 
         client = TestClient(app)
 
@@ -64,11 +64,11 @@ def test_timing_endpoint_disabled():
 
 def test_timing_endpoint_empty_buffer():
     """Test timing endpoint with empty buffer."""
-    with patch("coordinator_node.workers.report_worker.CONTRACT") as mock_contract:
+    with patch("crunch_node.workers.report_worker.CONTRACT") as mock_contract:
         mock_contract.timing_endpoint_enabled = True
         mock_contract.timing_metrics_enabled = True
 
-        from coordinator_node.workers.report_worker import app
+        from crunch_node.workers.report_worker import app
 
         client = TestClient(app)
 

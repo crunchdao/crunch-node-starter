@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pyarrow.parquet as pq
 
-from coordinator_node.entities.feed_record import FeedRecord
-from coordinator_node.services.parquet_sink import ParquetBackfillSink
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.services.parquet_sink import ParquetBackfillSink
 
 
 def _make_record(

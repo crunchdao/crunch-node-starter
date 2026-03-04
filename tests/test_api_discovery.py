@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from coordinator_node.api_discovery import (
+from crunch_node.api_discovery import (
     _mount_from_directory,
     _mount_from_path,
     mount_api_routers,

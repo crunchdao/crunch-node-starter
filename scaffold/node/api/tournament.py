@@ -34,17 +34,17 @@ def _get_service():
     if _service is not None:
         return _service
 
-    from coordinator_node.config.extensions import ExtensionSettings
-    from coordinator_node.config_loader import load_config
-    from coordinator_node.db import (
+    from crunch_node.config.extensions import ExtensionSettings
+    from crunch_node.config_loader import load_config
+    from crunch_node.db import (
         DBInputRepository,
         DBModelRepository,
         DBPredictionRepository,
         DBScoreRepository,
         create_session,
     )
-    from coordinator_node.extensions.callable_resolver import resolve_callable
-    from coordinator_node.services.tournament_predict import TournamentPredictService
+    from crunch_node.extensions.callable_resolver import resolve_callable
+    from crunch_node.services.tournament_predict import TournamentPredictService
 
     config = load_config()
     session = create_session()

@@ -51,7 +51,7 @@ services:
       PYTHONUNBUFFERED: "1"
     stdin_open: false
     tty: false
-    command: ["python", "-m", "coordinator_node.db.init_db"]
+    command: ["python", "-m", "crunch_node.db.init_db"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
       PYTHONUNBUFFERED: "1"
     stdin_open: false
     tty: false
-    command: ["python", "-m", "coordinator_node.db.init_db", "--reset"]
+    command: ["python", "-m", "crunch_node.db.init_db", "--reset"]
     profiles: [reset]
     depends_on:
       postgres:
@@ -90,7 +90,7 @@ services:
       PYTHONPATH: /app:/app/challenge
     restart: always
     stop_grace_period: 30s
-    command: ["python", "-m", "coordinator_node.workers.feed_data_worker"]
+    command: ["python", "-m", "crunch_node.workers.feed_data_worker"]
     volumes:
       - ../challenge:/app/challenge
     depends_on:
@@ -120,7 +120,7 @@ services:
       PYTHONPATH: /app:/app/challenge
     restart: always
     stop_grace_period: 30s
-    command: ["python", "-m", "coordinator_node.workers.predict_worker"]
+    command: ["python", "-m", "crunch_node.workers.predict_worker"]
     volumes:
       - ../challenge:/app/challenge
     depends_on:
@@ -151,7 +151,7 @@ services:
       PYTHONPATH: /app:/app/challenge
     restart: always
     stop_grace_period: 30s
-    command: ["python", "-m", "coordinator_node.workers.score_worker"]
+    command: ["python", "-m", "crunch_node.workers.score_worker"]
     volumes:
       - ../challenge:/app/challenge
     depends_on:
@@ -177,7 +177,7 @@ services:
       PYTHONPATH: /app:/app/challenge
     restart: always
     stop_grace_period: 15s
-    command: ["python", "-m", "coordinator_node.workers.report_worker"]
+    command: ["python", "-m", "crunch_node.workers.report_worker"]
     ports:
       - "${REPORT_API_PORT:-8000}:8000"
     volumes:

@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 
 from sqlmodel import Session, create_engine
 
-from coordinator_node.db.backfill_jobs import BackfillJobStatus, DBBackfillJobRepository
-from coordinator_node.db.tables.backfill import BackfillJobRow
+from crunch_node.db.backfill_jobs import BackfillJobStatus, DBBackfillJobRepository
+from crunch_node.db.tables.backfill import BackfillJobRow
 
 
 def _make_engine():

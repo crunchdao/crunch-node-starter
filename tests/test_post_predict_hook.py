@@ -6,9 +6,9 @@ import unittest
 from datetime import UTC, datetime
 from typing import Any
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.prediction import InputRecord, PredictionRecord
-from coordinator_node.services.realtime_predict import RealtimePredictService
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.prediction import InputRecord, PredictionRecord
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 # ── reuse test fixtures from test_node_template_predict_service ──
 
@@ -222,35 +222,35 @@ class TestPredictWorkerWiring(unittest.TestCase):
 
         with (
             patch(
-                "coordinator_node.workers.predict_worker.RuntimeSettings.from_env",
+                "crunch_node.workers.predict_worker.RuntimeSettings.from_env",
                 return_value=mock_settings,
             ),
             patch(
-                "coordinator_node.workers.predict_worker.load_config",
+                "crunch_node.workers.predict_worker.load_config",
                 return_value=config,
             ),
             patch(
-                "coordinator_node.workers.predict_worker.create_session",
+                "crunch_node.workers.predict_worker.create_session",
                 return_value=MagicMock(),
             ),
             patch(
-                "coordinator_node.workers.predict_worker.FeedReader.from_env",
+                "crunch_node.workers.predict_worker.FeedReader.from_env",
                 return_value=FakeFeedReader(),
             ),
             patch(
-                "coordinator_node.workers.predict_worker.DBInputRepository",
+                "crunch_node.workers.predict_worker.DBInputRepository",
                 return_value=MagicMock(),
             ),
             patch(
-                "coordinator_node.workers.predict_worker.DBModelRepository",
+                "crunch_node.workers.predict_worker.DBModelRepository",
                 return_value=MagicMock(),
             ),
             patch(
-                "coordinator_node.workers.predict_worker.DBPredictionRepository",
+                "crunch_node.workers.predict_worker.DBPredictionRepository",
                 return_value=MagicMock(),
             ),
         ):
-            from coordinator_node.workers.predict_worker import build_service
+            from crunch_node.workers.predict_worker import build_service
 
             service = build_service()
 

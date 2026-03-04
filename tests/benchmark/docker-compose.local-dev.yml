@@ -1,4 +1,4 @@
-# Local development override - mounts local coordinator_node source
+# Local development override - mounts local crunch_node source
 #
 # Usage for local development:
 #   cp tests/benchmark/docker-compose.local-dev.yml scaffold/node/docker-compose.override.yml
@@ -12,7 +12,7 @@ services:
       dockerfile: node/Dockerfile
     volumes:
       - ../challenge:/app/challenge
-      - ../../coordinator_node:/app/coordinator_node:ro
+      - ../../crunch_node:/app/crunch_node:ro
     environment:
       PYTHONPATH: /app:/app/challenge
 
@@ -22,7 +22,7 @@ services:
       dockerfile: node/Dockerfile
     volumes:
       - ../challenge:/app/challenge
-      - ../../coordinator_node:/app/coordinator_node:ro
+      - ../../crunch_node:/app/crunch_node:ro
     environment:
       PYTHONPATH: /app:/app/challenge
 
@@ -32,7 +32,7 @@ services:
       dockerfile: node/Dockerfile
     volumes:
       - ../challenge:/app/challenge
-      - ../../coordinator_node:/app/coordinator_node:ro
+      - ../../crunch_node:/app/crunch_node:ro
     environment:
       PYTHONPATH: /app:/app/challenge
 
@@ -43,6 +43,6 @@ services:
     volumes:
       - ../challenge:/app/challenge
       - ./api:/app/api
-      - ../../coordinator_node:/app/coordinator_node:ro
+      - ../../crunch_node:/app/crunch_node:ro
     environment:
       PYTHONPATH: /app:/app/challenge

@@ -15,13 +15,13 @@ Implement timing instrumentation across the coordinator pipeline to measure late
 **1.1.1: TimingCollector Implementation**
 ```bash
 # Create new module
-touch coordinator_node/metrics/__init__.py
-touch coordinator_node/metrics/timing.py
+touch crunch_node/metrics/__init__.py
+touch crunch_node/metrics/timing.py
 ```
 
 **Files to create/modify:**
-- `coordinator_node/metrics/timing.py` - TimingCollector class
-- `coordinator_node/metrics/__init__.py` - Exports
+- `crunch_node/metrics/timing.py` - TimingCollector class
+- `crunch_node/metrics/__init__.py` - Exports
 
 **Implementation tasks:**
 - [ ] Create TimingCollector singleton with ring buffer
@@ -32,7 +32,7 @@ touch coordinator_node/metrics/timing.py
 
 **1.1.2: Configuration Integration**
 **Files to modify:**
-- `coordinator_node/crunch_config.py` - Add timing config fields
+- `crunch_node/crunch_config.py` - Add timing config fields
 
 **Implementation tasks:**
 - [ ] Add `timing_metrics_enabled: bool = False`
@@ -42,8 +42,8 @@ touch coordinator_node/metrics/timing.py
 
 **1.1.3: HTTP Endpoint**
 **Files to modify:**
-- `coordinator_node/workers/report_worker.py` - Add timing endpoint
-- `coordinator_node/schemas/` - Add timing response schemas
+- `crunch_node/workers/report_worker.py` - Add timing endpoint
+- `crunch_node/schemas/` - Add timing response schemas
 
 **Implementation tasks:**
 - [ ] Create `/timing-metrics` FastAPI endpoint
@@ -59,9 +59,9 @@ touch coordinator_node/metrics/timing.py
 ### Phase 1.2: Feed Worker Instrumentation (Day 1 Afternoon)
 
 **Files to modify:**
-- `coordinator_node/workers/feed_data_worker.py`
-- `coordinator_node/entities/feed.py` (FeedDataRecord)
-- `coordinator_node/feeds/` - All feed implementations
+- `crunch_node/workers/feed_data_worker.py`
+- `crunch_node/entities/feed.py` (FeedDataRecord)
+- `crunch_node/feeds/` - All feed implementations
 
 **Implementation tasks:**
 - [ ] Add `_timing` field to FeedDataRecord dataclass
@@ -91,9 +91,9 @@ for record in records:
 ### Phase 1.3: Predict Worker Instrumentation (Day 2)
 
 **Files to modify:**
-- `coordinator_node/workers/predict_worker.py`
-- `coordinator_node/services/realtime_predict.py`
-- `coordinator_node/entities/prediction.py` (InputRecord, PredictionRecord)
+- `crunch_node/workers/predict_worker.py`
+- `crunch_node/services/realtime_predict.py`
+- `crunch_node/entities/prediction.py` (InputRecord, PredictionRecord)
 
 **Implementation tasks:**
 - [ ] Add `_timing` field to InputRecord dataclass
@@ -182,7 +182,7 @@ def analyze_latencies(timing_records):
 ## File Structure
 
 ```
-coordinator_node/
+crunch_node/
 ├── metrics/
 │   ├── __init__.py          # New
 │   └── timing.py            # New - TimingCollector

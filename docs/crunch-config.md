@@ -155,13 +155,13 @@ graph TD
 
 1. `CRUNCH_CONFIG_MODULE` env var (e.g. `config.crunch_config:CrunchConfig`)
 2. Default path: `config/crunch_config.py` with class named `CrunchConfig`
-3. Engine default: `coordinator_node.crunch_config:CrunchConfig`
+3. Engine default: `crunch_node.crunch_config:CrunchConfig`
 
 ## Customization Example
 
 ```python
 # node/config/crunch_config.py
-from coordinator_node.crunch_config import (
+from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
     InferenceOutput,
     ScoreResult,

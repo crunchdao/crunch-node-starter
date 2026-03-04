@@ -8,17 +8,17 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.feed_record import FeedRecord
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     PredictionStatus,
 )
-from coordinator_node.feeds import FeedDataRecord
-from coordinator_node.metrics.timing import timing_collector
-from coordinator_node.services.feed_data import _feed_to_domain
-from coordinator_node.services.realtime_predict import RealtimePredictService
+from crunch_node.feeds import FeedDataRecord
+from crunch_node.metrics.timing import timing_collector
+from crunch_node.services.feed_data import _feed_to_domain
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 
 class TestTimingInstrumentation:

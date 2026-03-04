@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime
 
-from coordinator_node.feeds.contracts import FeedFetchRequest, FeedSubscription
-from coordinator_node.feeds.providers.mongodb import (
+from crunch_node.feeds.contracts import FeedFetchRequest, FeedSubscription
+from crunch_node.feeds.providers.mongodb import (
     _AUTH_ERROR_CODES,
     _CHANGE_STREAM_UNSUPPORTED_CODES,
     MongoDBFeed,
@@ -14,7 +14,7 @@ from coordinator_node.feeds.providers.mongodb import (
     _is_transient_error,
     build_mongodb_feed,
 )
-from coordinator_node.feeds.registry import FeedSettings
+from crunch_node.feeds.registry import FeedSettings
 
 
 def _make_settings(**overrides: str) -> FeedSettings:
@@ -350,13 +350,13 @@ class TestFieldNameValidation(unittest.TestCase):
 
 class TestRedactUri(unittest.TestCase):
     def test_redacts_credentials(self):
-        from coordinator_node.feeds.providers.mongodb import _redact_uri
+        from crunch_node.feeds.providers.mongodb import _redact_uri
 
         assert "pass" not in _redact_uri("mongodb://user:pass@host:27017/db")
         assert "***" in _redact_uri("mongodb://user:pass@host:27017/db")
 
     def test_no_credentials_unchanged(self):
-        from coordinator_node.feeds.providers.mongodb import _redact_uri
+        from crunch_node.feeds.providers.mongodb import _redact_uri
 
         uri = "mongodb://host:27017/db"
         assert _redact_uri(uri) == uri
@@ -364,13 +364,13 @@ class TestRedactUri(unittest.TestCase):
 
 class TestWatermarkConversion(unittest.TestCase):
     def test_datetime_watermark(self):
-        from coordinator_node.feeds.providers.mongodb import _to_watermark
+        from crunch_node.feeds.providers.mongodb import _to_watermark
 
         dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
         assert _to_watermark(dt) == dt
 
     def test_int_timestamp_watermark(self):
-        from coordinator_node.feeds.providers.mongodb import _to_watermark
+        from crunch_node.feeds.providers.mongodb import _to_watermark
 
         wm = _to_watermark(1700000000)
         # Numeric timestamps are preserved as-is for correct BSON type comparison
@@ -378,14 +378,14 @@ class TestWatermarkConversion(unittest.TestCase):
         assert wm == 1700000000
 
     def test_float_timestamp_watermark(self):
-        from coordinator_node.feeds.providers.mongodb import _to_watermark
+        from crunch_node.feeds.providers.mongodb import _to_watermark
 
         wm = _to_watermark(1700000000.5)
         assert isinstance(wm, float)
         assert wm == 1700000000.5
 
     def test_none_for_unsupported_type(self):
-        from coordinator_node.feeds.providers.mongodb import _to_watermark
+        from crunch_node.feeds.providers.mongodb import _to_watermark
 
         assert _to_watermark("not-a-timestamp") is None
         assert _to_watermark(None) is None

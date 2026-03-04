@@ -350,7 +350,7 @@ def check_crunch_config():
     except ImportError as exc:
         warn(
             "CrunchConfig import",
-            f"skipped ({exc}). Install coordinator-node + pydantic to validate locally.",
+            f"skipped ({exc}). Install crunch-node + pydantic to validate locally.",
         )
         return
 

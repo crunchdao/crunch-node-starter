@@ -10,15 +10,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic import BaseModel
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.prediction import (
     PredictionRecord,
     PredictionStatus,
     ScoreRecord,
 )
-from coordinator_node.services.predict import PredictService
-from coordinator_node.services.tournament_predict import TournamentPredictService
-from coordinator_node.workers.predict_worker import _resolve_service_class
+from crunch_node.services.predict import PredictService
+from crunch_node.services.tournament_predict import TournamentPredictService
+from crunch_node.workers.predict_worker import _resolve_service_class
 
 # ── fixtures ──
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from coordinator_node.cli.scaffold import (
+from crunch_node.cli.scaffold import (
     _copy_tree,
     _find_templates_dir,
     _is_text_file,
@@ -294,7 +294,7 @@ class TestListPacks:
 class TestCLIEntryPoint:
     def test_help(self):
         result = subprocess.run(
-            [sys.executable, "-m", "coordinator_node.cli", "--help"],
+            [sys.executable, "-m", "crunch_node.cli", "--help"],
             capture_output=True,
             text=True,
         )
@@ -306,7 +306,7 @@ class TestCLIEntryPoint:
             [
                 sys.executable,
                 "-m",
-                "coordinator_node.cli",
+                "crunch_node.cli",
                 "init",
                 "cli-test-comp",
                 "-o",
@@ -324,7 +324,7 @@ class TestCLIEntryPoint:
             [
                 sys.executable,
                 "-m",
-                "coordinator_node.cli",
+                "crunch_node.cli",
                 "init",
                 "cli-pack-test",
                 "--pack",
@@ -340,9 +340,9 @@ class TestCLIEntryPoint:
 
     def test_list_packs_via_cli(self):
         result = subprocess.run(
-            [sys.executable, "-m", "coordinator_node.cli", "list-packs"],
+            [sys.executable, "-m", "crunch_node.cli", "list-packs"],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0
-        assert "coordinator-node init" in result.stdout
+        assert "crunch-node init" in result.stdout

@@ -308,7 +308,7 @@ class BacktestRunner:
     def _load_output_type() -> type[Any]:
         """Try to load InferenceOutput from the coordinator config."""
         try:
-            from coordinator_node.crunch_config import InferenceOutput
+            from crunch_node.crunch_config import InferenceOutput
 
             return InferenceOutput
         except ImportError:
@@ -608,10 +608,10 @@ def _compute_metrics(predictions: list[dict[str, Any]]) -> dict[str, float]:
             sum(window_scores) / len(window_scores) if window_scores else 0.0
         )
 
-    # Multi-metric enrichment (best-effort — coordinator_node may not be installed)
+    # Multi-metric enrichment (best-effort — crunch_node may not be installed)
     try:
-        from coordinator_node.metrics.context import MetricsContext
-        from coordinator_node.metrics.registry import get_default_registry
+        from crunch_node.metrics.context import MetricsContext
+        from crunch_node.metrics.registry import get_default_registry
 
         registry = get_default_registry()
         active_metrics = [
@@ -642,7 +642,7 @@ def _compute_metrics(predictions: list[dict[str, Any]]) -> dict[str, float]:
         multi = registry.compute(active_metrics, pred_dicts, score_dicts, ctx)
         metrics.update(multi)
     except ImportError:
-        pass  # coordinator_node not installed, skip multi-metrics
+        pass  # crunch_node not installed, skip multi-metrics
 
     return metrics
 

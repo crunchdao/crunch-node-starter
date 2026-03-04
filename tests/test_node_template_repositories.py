@@ -1,7 +1,7 @@
 import inspect
 import unittest
 
-from coordinator_node.db.repositories import (
+from crunch_node.db.repositories import (
     DBInputRepository,
     DBLeaderboardRepository,
     DBModelRepository,
@@ -58,7 +58,7 @@ class TestRepositoryAPIs(unittest.TestCase):
         scope_jsonb/resolvable_at issue."""
         import re
 
-        from coordinator_node.db.repositories import (
+        from crunch_node.db.repositories import (
             DBCheckpointRepository,
             DBSnapshotRepository,
         )

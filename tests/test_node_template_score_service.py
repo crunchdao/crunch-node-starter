@@ -4,15 +4,15 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from coordinator_node.crunch_config import Aggregation, AggregationWindow, CrunchConfig
-from coordinator_node.entities.feed_record import FeedRecord
-from coordinator_node.entities.model import Model
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import Aggregation, AggregationWindow, CrunchConfig
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.entities.model import Model
+from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     ScoreRecord,
 )
-from coordinator_node.services.score import ScoreService
+from crunch_node.services.score import ScoreService
 
 
 class MemInputRepository:
@@ -236,7 +236,7 @@ class TestScoreService(unittest.TestCase):
             feed_records=[],
         )
 
-        with self.assertLogs("coordinator_node.services.score", level="INFO"):
+        with self.assertLogs("crunch_node.services.score", level="INFO"):
             changed = service.run_once()
 
         self.assertFalse(changed)
@@ -245,7 +245,7 @@ class TestScoreService(unittest.TestCase):
     def test_no_predictions_means_no_scoring(self):
         service = _build_service()
 
-        with self.assertLogs("coordinator_node.services.score", level="INFO"):
+        with self.assertLogs("crunch_node.services.score", level="INFO"):
             changed = service.run_once()
 
         self.assertFalse(changed)
@@ -260,7 +260,7 @@ class TestScoreService(unittest.TestCase):
         service.run_once()
         self.assertEqual(len(service.score_repository.scores), 1)
 
-        with self.assertLogs("coordinator_node.services.score", level="INFO"):
+        with self.assertLogs("crunch_node.services.score", level="INFO"):
             changed = service.run_once()
         self.assertFalse(changed)
         self.assertEqual(len(service.score_repository.scores), 1)
@@ -301,7 +301,7 @@ class TestScoreServiceRunLoop(unittest.IsolatedAsyncioTestCase):
 
         service.run_once = boom
 
-        with self.assertLogs("coordinator_node.services.score", level="ERROR"):
+        with self.assertLogs("crunch_node.services.score", level="ERROR"):
             await service.run()
 
 
@@ -362,7 +362,7 @@ class TestCoerceOutput(unittest.TestCase):
         service = _build_service(contract=contract)
 
         # value=999 violates ge/le constraint — should fall back to raw dict
-        with self.assertLogs("coordinator_node.services.score", level="WARNING"):
+        with self.assertLogs("crunch_node.services.score", level="WARNING"):
             result = service._coerce_output({"value": 999})
         self.assertEqual(result["value"], 999)
 

@@ -129,7 +129,7 @@ class MyFeed:
 2. Register in the feed registry:
 
 ```python
-from coordinator_node.feeds.registry import get_default_registry
+from crunch_node.feeds.registry import get_default_registry
 registry = get_default_registry()
 registry.register("my-source", lambda: MyFeed())
 ```

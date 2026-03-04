@@ -1,11 +1,11 @@
-# coordinator-node
+# crunch-node
 
-[![PyPI](https://img.shields.io/pypi/v/coordinator-node)](https://pypi.org/project/coordinator-node/)
+[![PyPI](https://img.shields.io/pypi/v/crunch-node)](https://pypi.org/project/crunch-node/)
 
 Runtime engine for Crunch coordinator nodes. Powers the full competition pipeline — from data ingestion through scoring to on-chain emission checkpoints.
 
 ```bash
-pip install coordinator-node
+pip install crunch-node
 ```
 
 ---
@@ -14,7 +14,7 @@ pip install coordinator-node
 
 ### 1. Scaffold a new competition (recommended)
 
-Use the Crunch CLI to create a self-contained workspace that pulls `coordinator-node` from PyPI:
+Use the Crunch CLI to create a self-contained workspace that pulls `crunch-node` from PyPI:
 
 ```bash
 crunch-cli init-workspace my-challenge
@@ -26,23 +26,23 @@ This creates:
 
 ```
 my-challenge/
-├── node/          ← docker-compose, config, scripts (uses coordinator-node from PyPI)
+├── node/          ← docker-compose, config, scripts (uses crunch-node from PyPI)
 ├── challenge/     ← participant-facing package (tracker, scoring, examples)
 └── Makefile
 ```
 
 ### 2. Develop the engine itself
 
-Clone this repo to work on the `coordinator_node` package directly:
+Clone this repo to work on the `crunch_node` package directly:
 
 ```bash
 git clone https://github.com/crunchdao/coordinator-node-starter.git
-cd coordinator-node-starter
+cd crunch-node-starter
 uv sync
-make deploy    # uses local coordinator_node/ via COPY in Dockerfile
+make deploy    # uses local crunch_node/ via COPY in Dockerfile
 ```
 
-Changes to `coordinator_node/` are picked up immediately on rebuild.
+Changes to `crunch_node/` are picked up immediately on rebuild.
 
 ---
 
@@ -98,7 +98,7 @@ Key variables:
 | `CRUNCH_ID` | Competition identifier | `starter-challenge` |
 | `FEED_SOURCE` | Data source | `pyth` |
 | `FEED_SUBJECTS` | Assets to track | `BTC` |
-| `SCORING_FUNCTION` | Dotted path to scoring callable | `coordinator_node.extensions.default_callables:default_score_prediction` |
+| `SCORING_FUNCTION` | Dotted path to scoring callable | `crunch_node.extensions.default_callables:default_score_prediction` |
 | `CHECKPOINT_INTERVAL_SECONDS` | Seconds between checkpoints | `604800` |
 | `MODEL_BASE_CLASSNAME` | Participant model base class | `tracker.TrackerBase` |
 | `MODEL_RUNNER_NODE_HOST` | Model orchestrator host | `model-orchestrator` |
@@ -189,7 +189,7 @@ Full database access is available via the same dependency injection pattern:
 from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
-from coordinator_node.db import create_session, DBModelRepository
+from crunch_node.db import create_session, DBModelRepository
 
 router = APIRouter(prefix="/custom")
 
@@ -228,7 +228,7 @@ Customize competition behavior by setting callable paths in your env:
 All type shapes and behavior are defined in a single `CrunchConfig`. Workers auto-discover the operator's config at startup:
 
 ```python
-from coordinator_node.crunch_config import CrunchConfig, EnsembleConfig
+from crunch_node.crunch_config import CrunchConfig, EnsembleConfig
 
 contract = CrunchConfig(
     # Type shapes
@@ -257,7 +257,7 @@ All workers use `load_config()` which tries, in order:
 
 1. `CRUNCH_CONFIG_MODULE` env var (e.g. `my_package.crunch_config:MyCrunchConfig`)
 2. `config.crunch_config:CrunchConfig` — the standard operator override
-3. `coordinator_node.crunch_config:CrunchConfig` — engine default
+3. `crunch_node.crunch_config:CrunchConfig` — engine default
 
 The operator's config is imported automatically — no env var needed if `config/crunch_config.py` exists on `PYTHONPATH` (it does in the Docker setup).
 
@@ -305,7 +305,7 @@ T3 metrics require ensembling to be enabled.
 Register your own metric function:
 
 ```python
-from coordinator_node.metrics import get_default_registry
+from crunch_node.metrics import get_default_registry
 
 def my_custom_metric(predictions, scores, context):
     """Return a single float."""
@@ -337,8 +337,8 @@ Combine multiple model predictions into virtual meta-models. Off by default — 
 ### Quick start
 
 ```python
-from coordinator_node.crunch_config import CrunchConfig, EnsembleConfig
-from coordinator_node.services.ensemble import inverse_variance, equal_weight, top_n
+from crunch_node.crunch_config import CrunchConfig, EnsembleConfig
+from crunch_node.services.ensemble import inverse_variance, equal_weight, top_n
 
 contract = CrunchConfig(
     ensembles=[
@@ -367,7 +367,7 @@ contract = CrunchConfig(
 ### Model filters
 
 ```python
-from coordinator_node.services.ensemble import top_n, min_metric
+from crunch_node.services.ensemble import top_n, min_metric
 
 # Keep only top 5 by score
 EnsembleConfig(name="top5", model_filter=top_n(5))
@@ -391,7 +391,7 @@ GET /reports/models/params?include_ensembles=true
 The default `build_emission` uses tier-based ranking. For competitions that want to incentivize diversity, switch to `contribution_weighted_emission`:
 
 ```python
-from coordinator_node.extensions.emission_strategies import contribution_weighted_emission
+from crunch_node.extensions.emission_strategies import contribution_weighted_emission
 
 config = CrunchConfig(
     build_emission=contribution_weighted_emission,
@@ -612,8 +612,8 @@ make down
 ## Project Structure
 
 ```
-coordinator-node-starter/
-├── coordinator_node/       ← core engine (published to PyPI as coordinator-node)
+crunch-node-starter/
+├── crunch_node/       ← core engine (published to PyPI as crunch-node)
 │   ├── workers/            ← feed, predict, score, checkpoint, report workers
 │   ├── services/           ← business logic
 │   ├── entities/           ← domain models
@@ -627,8 +627,8 @@ coordinator-node-starter/
 │   ├── node/               ← node template (Dockerfile, docker-compose, config)
 │   └── challenge/          ← challenge template (tracker, scoring, backtest, examples)
 ├── tests/                  ← test suite
-├── docker-compose.yml      ← local dev compose (uses local coordinator_node/)
-├── Dockerfile              ← local dev Dockerfile (COPYs coordinator_node/)
+├── docker-compose.yml      ← local dev compose (uses local crunch_node/)
+├── Dockerfile              ← local dev Dockerfile (COPYs crunch_node/)
 ├── pyproject.toml          ← package definition
 └── Makefile                ← deploy / down / logs / test
 ```

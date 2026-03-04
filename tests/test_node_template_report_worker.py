@@ -3,10 +3,10 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from coordinator_node.crunch_config import CrunchConfig
-from coordinator_node.entities.feed_record import FeedRecord
-from coordinator_node.entities.model import Model
-from coordinator_node.entities.prediction import (
+from crunch_node.crunch_config import CrunchConfig
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.entities.model import Model
+from crunch_node.entities.prediction import (
     CheckpointRecord,
     CheckpointStatus,
     PredictionStatus,
@@ -14,7 +14,7 @@ from coordinator_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
-from coordinator_node.workers.report_worker import (
+from crunch_node.workers.report_worker import (
     auto_report_schema,
     confirm_checkpoint,
     get_checkpoint_emission,
@@ -302,7 +302,7 @@ class TestGetNodeInfo(unittest.TestCase):
     def test_returns_crunch_identity(self):
         from fastapi.testclient import TestClient
 
-        from coordinator_node.workers.report_worker import app
+        from crunch_node.workers.report_worker import app
 
         with TestClient(app) as client:
             response = client.get("/info")

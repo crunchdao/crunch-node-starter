@@ -19,7 +19,7 @@ class TestReportApiSmoke(unittest.TestCase):
     def setUpClass(cls):
         from fastapi.testclient import TestClient
 
-        from coordinator_node.workers.report_worker import app
+        from crunch_node.workers.report_worker import app
 
         cls.client = TestClient(app)
 

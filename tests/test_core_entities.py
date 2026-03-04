@@ -1,7 +1,7 @@
 import unittest
 
-from coordinator_node.entities.model import Model
-from coordinator_node.entities.prediction import (
+from crunch_node.entities.model import Model
+from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     PredictionStatus,

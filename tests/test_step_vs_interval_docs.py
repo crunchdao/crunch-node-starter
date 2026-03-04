@@ -13,7 +13,7 @@ class TestStepVsIntervalDocumented:
     must have distinct, non-empty descriptions."""
 
     def test_step_seconds_has_description(self):
-        from coordinator_node.crunch_config import PredictionScope
+        from crunch_node.crunch_config import PredictionScope
 
         field = PredictionScope.model_fields["step_seconds"]
         assert field.description is not None and len(field.description) > 10, (
@@ -22,7 +22,7 @@ class TestStepVsIntervalDocumented:
         )
 
     def test_prediction_interval_seconds_has_description(self):
-        from coordinator_node.schemas.payload_contracts import ScheduleEnvelope
+        from crunch_node.schemas.payload_contracts import ScheduleEnvelope
 
         field = ScheduleEnvelope.model_fields["prediction_interval_seconds"]
         assert field.description is not None and len(field.description) > 10, (
@@ -31,8 +31,8 @@ class TestStepVsIntervalDocumented:
         )
 
     def test_descriptions_are_different(self):
-        from coordinator_node.crunch_config import PredictionScope
-        from coordinator_node.schemas.payload_contracts import ScheduleEnvelope
+        from crunch_node.crunch_config import PredictionScope
+        from crunch_node.schemas.payload_contracts import ScheduleEnvelope
 
         step_desc = PredictionScope.model_fields["step_seconds"].description or ""
         interval_desc = (
@@ -46,7 +46,7 @@ class TestStepVsIntervalDocumented:
         )
 
     def test_resolve_horizon_seconds_has_description(self):
-        from coordinator_node.schemas.payload_contracts import ScheduleEnvelope
+        from crunch_node.schemas.payload_contracts import ScheduleEnvelope
 
         field = ScheduleEnvelope.model_fields["resolve_horizon_seconds"]
         assert field.description is not None and len(field.description) > 10, (

@@ -7,13 +7,13 @@ import sys
 import types
 import unittest
 
-from coordinator_node.config_loader import _try_load, load_config, reset_cache
+from crunch_node.config_loader import _try_load, load_config, reset_cache
 
 
 class TestTryLoad(unittest.TestCase):
     def test_loads_class_and_instantiates(self):
         mod = types.ModuleType("_test_config_mod")
-        from coordinator_node.crunch_config import CrunchConfig
+        from crunch_node.crunch_config import CrunchConfig
 
         class CustomConfig(CrunchConfig):
             pass
@@ -30,7 +30,7 @@ class TestTryLoad(unittest.TestCase):
 
     def test_loads_instance_directly(self):
         mod = types.ModuleType("_test_config_inst")
-        from coordinator_node.crunch_config import CrunchConfig
+        from crunch_node.crunch_config import CrunchConfig
 
         instance = CrunchConfig(metrics=["ic"])
         mod.CONTRACT = instance
@@ -50,7 +50,7 @@ class TestTryLoad(unittest.TestCase):
         self.assertFalse(found)
 
     def test_missing_attribute_returns_none_not_found(self):
-        config, found = _try_load("coordinator_node.crunch_config:NonExistentClass")
+        config, found = _try_load("crunch_node.crunch_config:NonExistentClass")
         self.assertIsNone(config)
         self.assertFalse(found)
 
@@ -65,13 +65,13 @@ class TestLoadConfig(unittest.TestCase):
 
     def test_falls_back_to_engine_default(self):
         config = load_config()
-        from coordinator_node.crunch_config import CrunchConfig
+        from crunch_node.crunch_config import CrunchConfig
 
         self.assertIsInstance(config, CrunchConfig)
 
     def test_explicit_env_var(self):
         mod = types.ModuleType("_test_explicit")
-        from coordinator_node.crunch_config import CrunchConfig
+        from crunch_node.crunch_config import CrunchConfig
 
         class ExplicitConfig(CrunchConfig):
             metrics: list[str] = ["custom_metric"]
@@ -103,7 +103,7 @@ class TestAggregationWindowSchema(unittest.TestCase):
     """AggregationWindow accepts only `hours` — rejects stale scaffold fields."""
 
     def test_hours_only(self):
-        from coordinator_node.crunch_config import AggregationWindow
+        from crunch_node.crunch_config import AggregationWindow
 
         w = AggregationWindow(hours=24)
         self.assertEqual(w.hours, 24)
@@ -111,7 +111,7 @@ class TestAggregationWindowSchema(unittest.TestCase):
     def test_rejects_name_and_seconds(self):
         from pydantic import ValidationError
 
-        from coordinator_node.crunch_config import AggregationWindow
+        from crunch_node.crunch_config import AggregationWindow
 
         with self.assertRaises(ValidationError):
             AggregationWindow(name="pnl_24h", seconds=86400)
@@ -119,7 +119,7 @@ class TestAggregationWindowSchema(unittest.TestCase):
     def test_rejects_extra_fields_even_with_hours(self):
         from pydantic import ValidationError
 
-        from coordinator_node.crunch_config import AggregationWindow
+        from crunch_node.crunch_config import AggregationWindow
 
         with self.assertRaises(ValidationError):
             AggregationWindow(hours=24, name="pnl_24h", seconds=86400)
@@ -129,7 +129,7 @@ class TestAggregationSchema(unittest.TestCase):
     """Aggregation.windows must be a dict, ranking field is ranking_direction."""
 
     def test_windows_dict_accepted(self):
-        from coordinator_node.crunch_config import Aggregation, AggregationWindow
+        from crunch_node.crunch_config import Aggregation, AggregationWindow
 
         agg = Aggregation(windows={"w1": AggregationWindow(hours=12)})
         self.assertIn("w1", agg.windows)
@@ -137,7 +137,7 @@ class TestAggregationSchema(unittest.TestCase):
     def test_rejects_ranking_order(self):
         from pydantic import ValidationError
 
-        from coordinator_node.crunch_config import Aggregation
+        from crunch_node.crunch_config import Aggregation
 
         with self.assertRaises(ValidationError):
             Aggregation(ranking_order="desc")
@@ -145,7 +145,7 @@ class TestAggregationSchema(unittest.TestCase):
     def test_rejects_extra_fields(self):
         from pydantic import ValidationError
 
-        from coordinator_node.crunch_config import Aggregation
+        from crunch_node.crunch_config import Aggregation
 
         with self.assertRaises(ValidationError):
             Aggregation(bogus="value")
@@ -166,7 +166,7 @@ class TestTryLoadValidationError(unittest.TestCase):
 
         try:
             with self.assertLogs(
-                "coordinator_node.config_loader", level="WARNING"
+                "crunch_node.config_loader", level="WARNING"
             ) as cm:
                 config, found = _try_load("_test_bad_config:BadConfig")
             self.assertIsNone(config)
@@ -210,10 +210,10 @@ class TestResolveConfigFallbackMessage(unittest.TestCase):
         mod.CrunchConfig = BrokenConfig
         sys.modules["config.crunch_config"] = mod
 
-        with self.assertLogs("coordinator_node.config_loader", level="WARNING") as cm:
+        with self.assertLogs("crunch_node.config_loader", level="WARNING") as cm:
             config = load_config()
 
-        from coordinator_node.crunch_config import CrunchConfig
+        from crunch_node.crunch_config import CrunchConfig
 
         self.assertIsInstance(config, CrunchConfig)
 

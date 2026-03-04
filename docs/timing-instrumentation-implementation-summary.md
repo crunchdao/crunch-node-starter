@@ -166,8 +166,8 @@ timing_endpoint_enabled = True  # Always available but data only collected when 
 
 ### New Files
 ```
-coordinator_node/metrics/timing.py          # TimingCollector implementation
-coordinator_node/schemas/timing.py          # HTTP response schemas  
+crunch_node/metrics/timing.py          # TimingCollector implementation
+crunch_node/schemas/timing.py          # HTTP response schemas  
 tests/test_timing_collector.py              # Core functionality tests
 tests/test_timing_instrumentation.py        # Integration tests
 tests/test_timing_endpoint.py               # HTTP endpoint tests
@@ -175,16 +175,16 @@ tests/test_timing_endpoint.py               # HTTP endpoint tests
 
 ### Modified Files
 ```
-coordinator_node/crunch_config.py           # Added timing config fields
-coordinator_node/metrics/__init__.py        # Export timing functionality
-coordinator_node/entities/feed_record.py    # Added _timing field to FeedRecord
-coordinator_node/entities/prediction.py     # Added _timing to InputRecord & PredictionRecord
-coordinator_node/services/feed_data.py      # Feed timing instrumentation
-coordinator_node/services/predict.py        # Updated _build_record for timing
-coordinator_node/services/realtime_predict.py  # Predict pipeline timing + collection point
-coordinator_node/workers/feed_data_worker.py   # Timing collector configuration (implicit)
-coordinator_node/workers/predict_worker.py     # Timing collector configuration
-coordinator_node/workers/report_worker.py      # HTTP endpoint + timing collector config
+crunch_node/crunch_config.py           # Added timing config fields
+crunch_node/metrics/__init__.py        # Export timing functionality
+crunch_node/entities/feed_record.py    # Added _timing field to FeedRecord
+crunch_node/entities/prediction.py     # Added _timing to InputRecord & PredictionRecord
+crunch_node/services/feed_data.py      # Feed timing instrumentation
+crunch_node/services/predict.py        # Updated _build_record for timing
+crunch_node/services/realtime_predict.py  # Predict pipeline timing + collection point
+crunch_node/workers/feed_data_worker.py   # Timing collector configuration (implicit)
+crunch_node/workers/predict_worker.py     # Timing collector configuration
+crunch_node/workers/report_worker.py      # HTTP endpoint + timing collector config
 ```
 
 ## 🧪 Test Coverage

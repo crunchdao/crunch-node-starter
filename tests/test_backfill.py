@@ -7,7 +7,7 @@ import unittest
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from coordinator_node.feeds.contracts import FeedDataRecord, FeedFetchRequest
+from crunch_node.feeds.contracts import FeedDataRecord, FeedFetchRequest
 
 
 class TestBackfillService(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestBackfillService(unittest.TestCase):
         ]
 
     def test_backfill_paginates_through_time_range(self):
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=5)
@@ -64,7 +64,7 @@ class TestBackfillService(unittest.TestCase):
         repo.append_records.assert_called()
 
     def test_backfill_returns_zero_when_no_data(self):
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=0)
@@ -87,7 +87,7 @@ class TestBackfillService(unittest.TestCase):
         self.assertEqual(result.records_written, 0)
 
     def test_backfill_advances_start_past_last_record(self):
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=3)
@@ -114,7 +114,7 @@ class TestBackfillService(unittest.TestCase):
 
     def test_backfill_with_job_tracking(self):
         """BackfillService updates job status and progress when job_repository is provided."""
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=5)
@@ -151,7 +151,7 @@ class TestBackfillService(unittest.TestCase):
 
     def test_backfill_job_marked_failed_on_error(self):
         """BackfillService marks job as failed when an exception occurs."""
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(side_effect=RuntimeError("DB exploded"))
@@ -182,7 +182,7 @@ class TestBackfillService(unittest.TestCase):
 
     def test_backfill_resumes_from_cursor(self):
         """BackfillService starts from cursor_ts when provided."""
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=0)
@@ -213,7 +213,7 @@ class TestBackfillService(unittest.TestCase):
 
     def test_backfill_without_job_tracking(self):
         """BackfillService works normally without job_repository (backward compat)."""
-        from coordinator_node.services.backfill import BackfillRequest, BackfillService
+        from crunch_node.services.backfill import BackfillRequest, BackfillService
 
         repo = MagicMock()
         repo.append_records = MagicMock(return_value=3)
