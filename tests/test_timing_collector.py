@@ -113,6 +113,7 @@ class TestTimingCollector:
             "test-1",
             {
                 "feed_received_us": 1000,
+                "feed_normalized_us": 1500,
                 "feed_persisted_us": 2000,
                 "models_dispatched_us": 3000,
                 "models_completed_us": 4000,
@@ -124,6 +125,7 @@ class TestTimingCollector:
             "test-2",
             {
                 "feed_received_us": 1100,
+                "feed_normalized_us": 1600,
                 "feed_persisted_us": 2200,
                 "models_dispatched_us": 3300,
                 "models_completed_us": 4400,
@@ -136,23 +138,24 @@ class TestTimingCollector:
         assert "stage_latencies" in metrics
         stage_latencies = metrics["stage_latencies"]
 
-        # Check feed ingestion stage (received to persisted)
-        assert "feed_ingestion" in stage_latencies
-        feed_ingestion = stage_latencies["feed_ingestion"]
-        assert feed_ingestion["count"] == 2
-        assert feed_ingestion["mean_us"] == 1050.0  # (1000 + 1100) / 2
+        def get_stage(name):
+            return next((s for s in stage_latencies if s["name"] == name), None)
 
-        # Check model dispatch stage (dispatched to completed)
-        assert "model_dispatch" in stage_latencies
-        model_dispatch = stage_latencies["model_dispatch"]
-        assert model_dispatch["count"] == 2
-        assert (
-            model_dispatch["mean_us"] == 1050.0
-        )  # (1000 + 1100) / 2 for dispatch latency
+        # Check feed ingestion stage (received to normalized)
+        feed_ingestion = get_stage("feed_ingestion")
+        assert feed_ingestion is not None
+        assert feed_ingestion["count"] == 2
+        assert feed_ingestion["mean_us"] == 500.0  # (500 + 500) / 2
+
+        # Check model execution stage (dispatched to completed)
+        model_execution = get_stage("model_execution")
+        assert model_execution is not None
+        assert model_execution["count"] == 2
+        assert model_execution["mean_us"] == 1050.0  # (1000 + 1100) / 2
 
         # Check end-to-end (feed_received to persistence_completed)
-        assert "end_to_end" in stage_latencies
-        end_to_end = stage_latencies["end_to_end"]
+        end_to_end = get_stage("end_to_end")
+        assert end_to_end is not None
         assert end_to_end["count"] == 2
         # Test 1: 5000 - 1000 = 4000
         # Test 2: 5500 - 1100 = 4400
@@ -168,7 +171,7 @@ class TestTimingCollector:
         assert metrics["enabled"] is True
         assert metrics["buffer_size"] == 0
         assert metrics["total_records"] == 0
-        assert metrics["stage_latencies"] == {}
+        assert metrics["stage_latencies"] == []
         assert metrics["recent_samples"] == []
 
     def test_metrics_with_partial_timing_data(self):
@@ -180,6 +183,7 @@ class TestTimingCollector:
             "test-1",
             {
                 "feed_received_us": 1000,
+                "feed_normalized_us": 1500,
                 "feed_persisted_us": 2000,
                 # Missing model timing
                 "persistence_completed_us": 5000,
@@ -189,12 +193,17 @@ class TestTimingCollector:
         metrics = timing_collector.get_metrics()
         stage_latencies = metrics["stage_latencies"]
 
-        # Feed ingestion should work
-        assert stage_latencies["feed_ingestion"]["count"] == 1
+        def get_stage(name):
+            return next((s for s in stage_latencies if s["name"] == name), None)
 
-        # Model dispatch should have no data
-        assert stage_latencies["model_dispatch"]["count"] == 0
-        assert stage_latencies["model_dispatch"]["mean_us"] is None
+        # Feed ingestion should work
+        feed_ingestion = get_stage("feed_ingestion")
+        assert feed_ingestion["count"] == 1
+
+        # Model execution should have no data
+        model_execution = get_stage("model_execution")
+        assert model_execution["count"] == 0
+        assert model_execution["mean_us"] is None
 
     def test_thread_safety(self):
         """Test thread safety of timing collection."""
@@ -233,12 +242,15 @@ class TestTimingCollector:
                 f"test-{i}",
                 {
                     "feed_received_us": 1000,
-                    "feed_persisted_us": 1000 + i,  # Latencies from 0 to 99
+                    "feed_normalized_us": 1000 + i,  # Latencies from 0 to 99
                 },
             )
 
         metrics = timing_collector.get_metrics()
-        feed_ingestion = metrics["stage_latencies"]["feed_ingestion"]
+        stage_latencies = metrics["stage_latencies"]
+        feed_ingestion = next(
+            (s for s in stage_latencies if s["name"] == "feed_ingestion"), None
+        )
 
         assert feed_ingestion["count"] == 100
         assert feed_ingestion["min_us"] == 0.0
