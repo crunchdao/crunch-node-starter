@@ -53,6 +53,13 @@ def build_service() -> PredictService:
     config = load_config()
     session = create_session()
 
+    # Configure timing collector
+    from coordinator_node.metrics.timing import timing_collector
+
+    timing_collector.configure(
+        enabled=config.timing_metrics_enabled, buffer_size=config.timing_buffer_size
+    )
+
     service_class = _resolve_service_class(config)
     logger.info("Using predict service: %s", service_class.__name__)
 

@@ -505,6 +505,20 @@ class CrunchConfig(BaseModel):
         ),
     )
 
+    # Performance instrumentation
+    timing_metrics_enabled: bool = Field(
+        default=False,
+        description="Enable pipeline timing instrumentation for performance analysis",
+    )
+    timing_buffer_size: int = Field(
+        default=10000,
+        ge=100,
+        description="Maximum number of timing records to keep in memory buffer",
+    )
+    timing_endpoint_enabled: bool = Field(
+        default=True, description="Expose /timing-metrics HTTP endpoint for analysis"
+    )
+
     # Callables
     scoring_function: (
         Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None

@@ -132,6 +132,7 @@ class PredictService:
         resolvable_at: datetime,
         exec_time_ms: float = 0.0,
         config_id: str | None = None,
+        timing_data: dict[str, Any] | None = None,
     ) -> PredictionRecord:
         """Construct a PredictionRecord from model runner output."""
         suffix = "ABS" if status == PredictionStatus.ABSENT else "PRE"
@@ -154,6 +155,7 @@ class PredictService:
             inference_output=output,
             performed_at=now,
             resolvable_at=resolvable_at,
+            _timing=timing_data or {},
         )
 
     def _save(self, predictions: list[PredictionRecord]) -> None:

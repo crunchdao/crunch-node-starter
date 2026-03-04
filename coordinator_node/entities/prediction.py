@@ -30,6 +30,7 @@ class InputRecord:
     id: str
     raw_data: dict[str, Any] = field(default_factory=dict)
     received_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    _timing: dict[str, Any] = field(default_factory=dict)  # Performance timing data
 
 
 @dataclass
@@ -48,6 +49,7 @@ class PredictionRecord:
         default_factory=dict
     )  # contract.output_type (InferenceOutput)
     meta: dict[str, Any] = field(default_factory=dict)  # contract.meta_type (Meta)
+    _timing: dict[str, Any] = field(default_factory=dict)  # Performance timing data
     performed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     resolvable_at: datetime | None = None
 

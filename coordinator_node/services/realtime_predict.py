@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -54,7 +55,7 @@ class RealtimePredictService(PredictService):
             resolve_horizon = schedule.get("resolve_horizon_seconds", 0)
             scope_key = config.get("scope_key", "<unknown>")
 
-            # 0 means immediate resolution (live trading) — skip feed timing check
+            # 0 means immediate resolution (live trading) - skip feed timing check
             if resolve_horizon == 0:
                 continue
 
@@ -74,15 +75,21 @@ class RealtimePredictService(PredictService):
         self.logger.info("realtime predict service started")
         while not self.stop_event.is_set():
             try:
-                await self.run_once()
+                # Wait for data and capture notification time
+                await self._wait_for_data()
+                notify_received_us = time.perf_counter_ns() // 1000
+
+                await self.run_once(notify_received_us=notify_received_us)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 self.logger.exception("predict loop error: %s", exc)
-            await self._wait_for_data()
 
     async def run_once(
-        self, raw_input: dict[str, Any] | None = None, now: datetime | None = None
+        self,
+        raw_input: dict[str, Any] | None = None,
+        now: datetime | None = None,
+        notify_received_us: int | None = None,
     ) -> bool:
         now = now or datetime.now(UTC)
         await self.init_runner()
@@ -98,16 +105,62 @@ class RealtimePredictService(PredictService):
             )
         else:
             inp = self.get_data(now)
+
+        # Add timing data to input record
+        if notify_received_us is not None:
+            inp._timing["notify_received_us"] = notify_received_us
+
+        data_loaded_us = time.perf_counter_ns() // 1000
+        inp._timing["data_loaded_us"] = data_loaded_us
+
         await self._tick_models(inp.raw_data)
 
         # 2. run configs → build records → save
         predictions = await self._predict_all_configs(inp, now)
 
+        # Add callback timing
         if self.post_predict_hook is not None:
+            callback_started_us = time.perf_counter_ns() // 1000
+            # Copy timing to all predictions
+            for prediction in predictions:
+                prediction._timing = inp._timing.copy()
+                prediction._timing["callback_started_us"] = callback_started_us
+
             predictions = self.post_predict_hook(predictions, inp, now)
+
+            callback_completed_us = time.perf_counter_ns() // 1000
+            # Update callback completion timing
+            for prediction in predictions:
+                prediction._timing["callback_completed_us"] = callback_completed_us
+        else:
+            # No callback - copy timing to predictions and mark callback as skipped
+            callback_completed_us = time.perf_counter_ns() // 1000
+            for prediction in predictions:
+                prediction._timing = inp._timing.copy()
+                prediction._timing["callback_started_us"] = callback_completed_us
+                prediction._timing["callback_completed_us"] = callback_completed_us
 
         self._save(predictions)
         return len(predictions) > 0
+
+    def _save(self, predictions: list[PredictionRecord]) -> None:
+        """Override parent _save to add timing collection point."""
+        if not predictions:
+            return
+
+        # Add persistence timing and collect metrics
+        persistence_completed_us = time.perf_counter_ns() // 1000
+
+        for prediction in predictions:
+            prediction._timing["persistence_completed_us"] = persistence_completed_us
+
+            # Collection point - record timing data
+            from coordinator_node.metrics.timing import timing_collector
+
+            timing_collector.record_timing(prediction.id, prediction._timing)
+
+        # Call parent save method
+        super()._save(predictions)
 
     # ── predict across configs ──
 
@@ -154,7 +207,9 @@ class RealtimePredictService(PredictService):
                 self.input_repository.save(inp)
 
             # call models
+            models_dispatched_us = time.perf_counter_ns() // 1000
             responses = await self._call_models(scope)
+            models_completed_us = time.perf_counter_ns() // 1000
             seen: set[str] = set()
 
             for model_run, result in responses.items():
@@ -188,6 +243,11 @@ class RealtimePredictService(PredictService):
                         else PredictionStatus.FAILED
                     )
 
+                # Create timing data for this prediction
+                prediction_timing = inp._timing.copy()
+                prediction_timing["models_dispatched_us"] = models_dispatched_us
+                prediction_timing["models_completed_us"] = models_completed_us
+
                 all_predictions.append(
                     self._build_record(
                         model_id=model.id,
@@ -200,12 +260,18 @@ class RealtimePredictService(PredictService):
                         resolvable_at=resolvable_at,
                         exec_time_ms=float(getattr(result, "exec_time_us", 0.0)),
                         config_id=config_id,
+                        timing_data=prediction_timing,
                     )
                 )
 
             # absent models
             for model_id in self._known_models:
                 if model_id not in seen:
+                    # Create timing data for absent model
+                    absent_timing = inp._timing.copy()
+                    absent_timing["models_dispatched_us"] = models_dispatched_us
+                    absent_timing["models_completed_us"] = models_completed_us
+
                     all_predictions.append(
                         self._build_record(
                             model_id=model_id,
@@ -217,6 +283,7 @@ class RealtimePredictService(PredictService):
                             now=now,
                             resolvable_at=resolvable_at,
                             config_id=config_id,
+                            timing_data=absent_timing,
                         )
                     )
 
