@@ -2,17 +2,30 @@
 
 Each check_* function returns (passed: bool, details: str).
 The workspace is the root scaffold directory (contains node/, challenge/, Makefile).
+
+Milestones:
+- M1: Types correct (InferenceOutput with direction:str, confidence:float)
+- M1b: GroundTruth type (profit:float, direction_up:bool with defaults)
+- M2: Scoring implemented (score_prediction function works)
+- M3: Examples exist (tracker files with predict methods)
+- M4: Tests pass (make test succeeds)
+- M5: Deploy succeeded (Docker containers running)
+- M6: E2E verified (make verify-e2e passes)
+- M7: Metrics collection verified (/timing-metrics endpoint shows pipeline activity)
 """
 
 from __future__ import annotations
 
 import ast
 import importlib.util
+import json
 import os
 import re
 import subprocess
 import sys
 import types
+import urllib.error
+import urllib.request
 
 from tests.benchmark.spec import (
     EXPECTED_EXAMPLES,
@@ -441,6 +454,116 @@ def check_e2e(workspace: str) -> tuple[bool, str]:
     return False, f"exit_code={result.returncode}\n{tail}"
 
 
+# --- M7: Metrics collection verified ---
+
+
+def check_metrics_collection(workspace: str) -> tuple[bool, str]:
+    """Verify timing metrics are collected during tournament operation.
+
+    Checks that:
+    1. /timing-metrics endpoint is accessible
+    2. Metrics collection is enabled
+    3. Pipeline activity has generated timing records
+    4. Key pipeline stages are instrumented
+    5. Recent timing samples are available
+    """
+    # Determine API URL (use default from docker-compose)
+    api_url = "http://localhost:8000"
+
+    # 1. Check if timing metrics endpoint is accessible
+    try:
+        req = urllib.request.Request(f"{api_url}/timing-metrics")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status == 404:
+                return (
+                    False,
+                    "Timing endpoint disabled (HTTP 404) — set timing_endpoint_enabled=True in PerformanceConfig",
+                )
+            elif response.status != 200:
+                return False, f"Timing endpoint error: HTTP {response.status}"
+
+            response_data = response.read().decode("utf-8")
+
+    except urllib.error.URLError as e:
+        return False, f"Cannot reach /timing-metrics: {e}"
+    except Exception as e:
+        return False, f"Request failed: {e}"
+
+    # 2. Parse response
+    try:
+        data = json.loads(response_data)
+    except json.JSONDecodeError as e:
+        return False, f"Invalid JSON response: {e}"
+
+    # 3. Check if metrics collection is enabled
+    if not data.get("enabled", False):
+        return (
+            False,
+            "Timing metrics collection disabled — set timing_enabled=True in PerformanceConfig",
+        )
+
+    # 4. Check if any records were collected
+    total_records = data.get("total_records", 0)
+    if total_records == 0:
+        return False, "No timing records collected — pipeline may not be active yet"
+
+    # 5. Check for key pipeline stages (stage_latencies is a list of dicts)
+    stage_latencies = data.get("stage_latencies", [])
+    expected_stages = ["feed_ingestion", "model_execution", "prediction_persistence"]
+
+    # Convert list to dict for easier lookup
+    stages_by_name = {s.get("name"): s for s in stage_latencies if isinstance(s, dict)}
+
+    missing_stages = [
+        stage for stage in expected_stages if stage not in stages_by_name
+    ]
+
+    # Allow partial coverage initially - some stages may not be hit yet
+    if len(stages_by_name) == 0:
+        return False, "No pipeline stages instrumented"
+
+    if missing_stages and len(stages_by_name) < 2:
+        return (
+            False,
+            f"Too few pipeline stages: {list(stages_by_name.keys())}. Expected some of: {expected_stages}",
+        )
+
+    # 6. Basic sanity checks on timing data
+    issues = []
+    valid_stages = 0
+    for stage, stats in stages_by_name.items():
+        count = stats.get("count", 0)
+        mean_us = stats.get("mean_us", 0)
+
+        if count == 0:
+            issues.append(f"{stage}=0_records")
+        elif mean_us is None or mean_us <= 0:
+            issues.append(f"{stage}=invalid_mean")
+        elif mean_us > 30_000_000:  # 30 seconds - very generous threshold
+            issues.append(f"{stage}=suspicious_latency({mean_us:.0f}μs)")
+        else:
+            valid_stages += 1
+
+    if valid_stages == 0:
+        return False, f"No valid timing data. Issues: {'; '.join(issues)}"
+
+    # 7. Check recent samples exist
+    recent_samples = data.get("recent_samples", [])
+    if len(recent_samples) == 0:
+        return False, "No recent timing samples available"
+
+    # Success - format summary
+    buffer_size = data.get("buffer_size", 0)
+    stage_summary = ", ".join(
+        [f"{s.get('name')}({s.get('count', 0)})" for s in stage_latencies if isinstance(s, dict)]
+    )
+
+    return (
+        True,
+        f"Metrics: {total_records}/{buffer_size} records, stages: {stage_summary}, {len(recent_samples)} recent samples",
+    )
+
+
 # --- Run all milestones ---
 
 MILESTONES = [
@@ -451,6 +574,7 @@ MILESTONES = [
     ("tests_pass", check_tests),
     ("deploy_succeeded", check_deploy),
     ("e2e_verified", check_e2e),
+    ("metrics_collection_verified", check_metrics_collection),
 ]
 
 

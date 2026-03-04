@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
+from coordinator_node import __version__
 from coordinator_node.config.runtime import RuntimeSettings
 from coordinator_node.config_loader import load_config
 from coordinator_node.crunch_config import CrunchConfig
@@ -515,7 +516,7 @@ def get_merkle_cycle_repository(
 
 @app.get("/healthz")
 def healthcheck() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status": "ok", "version": __version__}
 
 
 @app.get("/reports/schema")
@@ -1861,6 +1862,24 @@ async def _run_backfill_async(job_id: str, body: BackfillRequestBody) -> None:
             )
     except Exception as exc:
         logger.exception("backfill job=%s failed: %s", job_id, exc)
+
+
+@app.get("/timing-metrics")
+async def get_timing_metrics(limit: int = Query(default=1000, le=10000)):
+    """Get pipeline timing metrics from recent predictions."""
+    if not CONTRACT.performance.timing_endpoint_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Timing metrics endpoint is disabled",
+        )
+
+    from coordinator_node.metrics.timing import aggregate_timing_from_predictions
+
+    with create_session() as session:
+        repo = DBPredictionRepository(session)
+        predictions = repo.fetch_recent_with_timing(limit=limit)
+
+    return aggregate_timing_from_predictions(predictions)
 
 
 if __name__ == "__main__":

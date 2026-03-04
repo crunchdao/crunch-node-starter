@@ -101,12 +101,108 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
         scaffold_src, workspace, ignore=_ignore_patterns, dirs_exist_ok=True
     )
 
+    # Copy local coordinator-node source so Docker builds use it
+    _copy_local_coordinator(repo_root, workspace)
+
+    # Copy docker-compose override for local development
+    _copy_compose_override(repo_root, workspace)
+
     # Patch CRUNCH_ID to a unique value so Docker containers don't clash
     # with other benchmark runs or the real scaffold
     _patch_crunch_id(workspace)
 
     print(f"[benchmark] Workspace: {workspace}")
     return workspace
+
+
+def _copy_local_coordinator(repo_root: str, workspace: str) -> None:
+    """Copy local coordinator-node source into the workspace and patch the
+    Dockerfile to install it over the PyPI version."""
+    src_pkg = os.path.join(repo_root, "coordinator_node")
+    src_toml = os.path.join(repo_root, "pyproject.toml")
+
+    if not os.path.isdir(src_pkg) or not os.path.isfile(src_toml):
+        print("[benchmark] Warning: local coordinator-node source not found, skipping")
+        return
+
+    dest = os.path.join(workspace, "coordinator_node_local")
+    if os.path.exists(dest):
+        shutil.rmtree(dest)
+    os.makedirs(dest)
+
+    shutil.copytree(
+        src_pkg,
+        os.path.join(dest, "coordinator_node"),
+        ignore=_ignore_patterns,
+    )
+    shutil.copy2(src_toml, os.path.join(dest, "pyproject.toml"))
+
+    _patch_dockerfile_local_coordinator(workspace)
+    print("[benchmark] Copied local coordinator-node source into workspace")
+
+
+def _copy_compose_override(repo_root: str, workspace: str) -> None:
+    """Copy docker-compose override for local development into workspace.
+
+    Adjusts volume mount paths from the repo layout (../../coordinator_node)
+    to the benchmark workspace layout (../coordinator_node_local/coordinator_node).
+    """
+    src = os.path.join(repo_root, "tests", "benchmark", "docker-compose.local-dev.yml")
+    dest = os.path.join(workspace, "node", "docker-compose.override.yml")
+
+    if not os.path.isfile(src):
+        print("[benchmark] Warning: docker-compose.local-dev.yml not found, skipping")
+        return
+
+    with open(src) as f:
+        content = f.read()
+
+    # Adjust paths for benchmark workspace layout
+    content = content.replace(
+        "../../coordinator_node:/app/coordinator_node:ro",
+        "../coordinator_node_local/coordinator_node:/app/coordinator_node:ro",
+    )
+
+    with open(dest, "w") as f:
+        f.write(content)
+
+    print("[benchmark] Copied docker-compose override into workspace (paths adjusted)")
+
+
+_LOCAL_COORDINATOR_DOCKERFILE_LINES = (
+    "\n# Local coordinator-node overlay (injected by benchmark)\n"
+    "COPY coordinator_node_local/ ./coordinator_node_local/\n"
+    "RUN pip install --no-cache-dir --force-reinstall --no-deps "
+    "./coordinator_node_local/\n"
+)
+
+_PYPI_INSTALL_MARKER = 'RUN pip install --no-cache-dir "coordinator-node>='
+
+
+def _patch_dockerfile_local_coordinator(workspace: str) -> None:
+    """Inject local coordinator-node install lines into the Dockerfile,
+    right after the PyPI install."""
+    dockerfile = os.path.join(workspace, "node", "Dockerfile")
+    if not os.path.isfile(dockerfile):
+        return
+
+    with open(dockerfile) as f:
+        lines = f.readlines()
+
+    insert_idx = None
+    for i, line in enumerate(lines):
+        if line.startswith(_PYPI_INSTALL_MARKER):
+            insert_idx = i + 1
+            break
+
+    if insert_idx is None:
+        print("[benchmark] Warning: could not find PyPI install line in Dockerfile")
+        return
+
+    lines.insert(insert_idx, _LOCAL_COORDINATOR_DOCKERFILE_LINES)
+
+    with open(dockerfile, "w") as f:
+        f.writelines(lines)
 
 
 def _patch_crunch_id(workspace: str) -> None:

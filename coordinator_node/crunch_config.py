@@ -223,6 +223,27 @@ class EnsembleConfig(BaseModel):
     enabled: bool = True
 
 
+class PerformanceConfig(BaseModel):
+    """Configuration for pipeline timing instrumentation."""
+
+    model_config = ConfigDict(extra="allow")
+
+    # Pipeline timing instrumentation
+    timing_enabled: bool = Field(
+        default=True,
+        description="Enable pipeline timing instrumentation for performance analysis",
+    )
+    timing_buffer_size: int = Field(
+        default=10000,
+        ge=100,
+        description="Maximum number of timing records to keep in memory buffer",
+    )
+    timing_endpoint_enabled: bool = Field(
+        default=True,
+        description="Expose /timing-metrics HTTP endpoint for analysis",
+    )
+
+
 def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
@@ -503,6 +524,12 @@ class CrunchConfig(BaseModel):
             "for the base (no run loop), or provide your own subclass. "
             "The class must accept the same **kwargs as PredictService.__init__."
         ),
+    )
+
+    # Performance monitoring configuration
+    performance: PerformanceConfig = Field(
+        default_factory=PerformanceConfig,
+        description="Performance monitoring and instrumentation configuration",
     )
 
     # Callables

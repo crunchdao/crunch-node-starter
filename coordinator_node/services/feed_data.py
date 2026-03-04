@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -175,10 +176,21 @@ class FeedDataService:
         if not records:
             return 0
 
+        # For backfill, timing is less critical but still useful
+        feed_received_us = time.perf_counter_ns() // 1000
         converted = [
-            _feed_to_domain(self.settings.source, record) for record in records
+            _feed_to_domain(self.settings.source, record, feed_received_us)
+            for record in records
         ]
-        return self.feed_record_repository.append_records(converted)
+        feed_normalized_us = time.perf_counter_ns() // 1000
+
+        # Add normalized timestamp to all converted records
+        for domain_record in converted:
+            domain_record.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
+
+        result = self.feed_record_repository.append_records(converted)
+
+        return result
 
 
 class _RepositorySink:
@@ -189,8 +201,17 @@ class _RepositorySink:
         self._logger = logging.getLogger(__name__)
 
     async def on_record(self, record: FeedDataRecord) -> None:
-        domain = _feed_to_domain(record.source, record)
-        self._repository.append_records([domain])
+        # Stage 1: Feed received timestamp
+        feed_received_us = time.perf_counter_ns() // 1000
+
+        # Stage 2: Normalization
+        domain = _feed_to_domain(record.source, record, feed_received_us)
+        feed_normalized_us = time.perf_counter_ns() // 1000
+        domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
+
+        # Stage 3: Persistence (with timing recorded after commit)
+        self._repository.append_records([domain], record_persist_timing=True)
+
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:
             self._logger.info(
@@ -218,8 +239,14 @@ class _RepositorySink:
             pass
 
 
-def _feed_to_domain(default_source: str, record: FeedDataRecord) -> FeedRecord:
+def _feed_to_domain(
+    default_source: str, record: FeedDataRecord, feed_received_us: int | None = None
+) -> FeedRecord:
     source = record.source or default_source
+    meta = dict(record.metadata)
+    if feed_received_us is not None:
+        meta.setdefault("timing", {})["feed_received_us"] = feed_received_us
+
     return FeedRecord(
         source=source,
         subject=record.subject,
@@ -227,5 +254,5 @@ def _feed_to_domain(default_source: str, record: FeedDataRecord) -> FeedRecord:
         granularity=record.granularity,
         ts_event=datetime.fromtimestamp(int(record.ts_event), tz=UTC),
         values=dict(record.values),
-        meta=dict(record.metadata),
+        meta=meta,
     )

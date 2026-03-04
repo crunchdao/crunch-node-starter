@@ -93,6 +93,9 @@ class PredictService:
     def get_data(self, now: datetime) -> InputRecord:
         """Fetch input, validate through raw_input_type, save to DB."""
         raw = self.feed_reader.get_input(now)
+
+        feed_timing = raw.pop("_feed_timing", None)
+
         validated = self.contract.raw_input_type.model_validate(raw)
         data = validated.model_dump()
 
@@ -101,6 +104,10 @@ class PredictService:
             raw_data=data,
             received_at=now,
         )
+
+        if feed_timing:
+            record._timing.update(feed_timing)
+
         if self.input_repository is not None:
             self.input_repository.save(record)
 
@@ -132,6 +139,7 @@ class PredictService:
         resolvable_at: datetime,
         exec_time_ms: float = 0.0,
         config_id: str | None = None,
+        timing_data: dict[str, Any] | None = None,
     ) -> PredictionRecord:
         """Construct a PredictionRecord from model runner output."""
         suffix = "ABS" if status == PredictionStatus.ABSENT else "PRE"
@@ -141,6 +149,10 @@ class PredictService:
         pred_id = (
             f"{suffix}_{model_id}_{safe_key}_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}"
         )
+
+        meta = {}
+        if timing_data:
+            meta["timing"] = timing_data
 
         return PredictionRecord(
             id=pred_id,
@@ -152,6 +164,7 @@ class PredictService:
             status=status,
             exec_time_ms=exec_time_ms,
             inference_output=output,
+            meta=meta,
             performed_at=now,
             resolvable_at=resolvable_at,
         )

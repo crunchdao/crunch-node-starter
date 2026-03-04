@@ -181,6 +181,21 @@ class DBPredictionRepository:
         for prediction in predictions:
             self.save(prediction)
 
+    def fetch_recent_with_timing(self, limit: int = 1000) -> list[PredictionRecord]:
+        stmt = (
+            select(PredictionRow)
+            .order_by(PredictionRow.performed_at.desc())
+            .limit(max(1, limit * 2))
+        )
+        rows = self._session.exec(stmt).all()
+        result = []
+        for row in rows:
+            if row.meta_jsonb and row.meta_jsonb.get("timing"):
+                result.append(self._row_to_domain(row))
+                if len(result) >= limit:
+                    break
+        return result
+
     def find(
         self,
         *,

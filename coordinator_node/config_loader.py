@@ -67,6 +67,7 @@ def _resolve_config() -> Any:
         )
     else:
         logger.info("Using default CrunchConfig (no operator override found)")
+
     return CrunchConfig()
 
 

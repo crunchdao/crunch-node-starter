@@ -1,0 +1,48 @@
+# Local development override - mounts local coordinator_node source
+#
+# Usage for local development:
+#   cp tests/benchmark/docker-compose.local-dev.yml scaffold/node/docker-compose.override.yml
+#   cd scaffold/node && docker compose --env-file .local.env up -d
+#
+# The benchmark script copies this automatically to the workspace.
+services:
+  feed-data-worker:
+    build:
+      context: ..
+      dockerfile: node/Dockerfile
+    volumes:
+      - ../challenge:/app/challenge
+      - ../../coordinator_node:/app/coordinator_node:ro
+    environment:
+      PYTHONPATH: /app:/app/challenge
+
+  predict-worker:
+    build:
+      context: ..
+      dockerfile: node/Dockerfile
+    volumes:
+      - ../challenge:/app/challenge
+      - ../../coordinator_node:/app/coordinator_node:ro
+    environment:
+      PYTHONPATH: /app:/app/challenge
+
+  score-worker:
+    build:
+      context: ..
+      dockerfile: node/Dockerfile
+    volumes:
+      - ../challenge:/app/challenge
+      - ../../coordinator_node:/app/coordinator_node:ro
+    environment:
+      PYTHONPATH: /app:/app/challenge
+
+  report-worker:
+    build:
+      context: ..
+      dockerfile: node/Dockerfile
+    volumes:
+      - ../challenge:/app/challenge
+      - ./api:/app/api
+      - ../../coordinator_node:/app/coordinator_node:ro
+    environment:
+      PYTHONPATH: /app:/app/challenge
