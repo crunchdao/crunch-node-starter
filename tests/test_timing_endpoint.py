@@ -82,5 +82,5 @@ def test_timing_endpoint_empty_buffer():
         data = response.json()
         assert data["total_records"] == 0
         assert data["buffer_size"] == 0
-        assert data["stage_latencies"] == {}
+        assert data["stage_latencies"] == []
         assert data["recent_samples"] == []
