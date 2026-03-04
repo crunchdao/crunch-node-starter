@@ -142,7 +142,11 @@ def _copy_local_coordinator(repo_root: str, workspace: str) -> None:
 
 
 def _copy_compose_override(repo_root: str, workspace: str) -> None:
-    """Copy docker-compose override for local development into workspace."""
+    """Copy docker-compose override for local development into workspace.
+
+    Adjusts volume mount paths from the repo layout (../../coordinator_node)
+    to the benchmark workspace layout (../coordinator_node_local/coordinator_node).
+    """
     src = os.path.join(repo_root, "tests", "benchmark", "docker-compose.local-dev.yml")
     dest = os.path.join(workspace, "node", "docker-compose.override.yml")
 
@@ -150,8 +154,19 @@ def _copy_compose_override(repo_root: str, workspace: str) -> None:
         print("[benchmark] Warning: docker-compose.local-dev.yml not found, skipping")
         return
 
-    shutil.copy2(src, dest)
-    print("[benchmark] Copied docker-compose override into workspace")
+    with open(src) as f:
+        content = f.read()
+
+    # Adjust paths for benchmark workspace layout
+    content = content.replace(
+        "../../coordinator_node:/app/coordinator_node:ro",
+        "../coordinator_node_local/coordinator_node:/app/coordinator_node:ro",
+    )
+
+    with open(dest, "w") as f:
+        f.write(content)
+
+    print("[benchmark] Copied docker-compose override into workspace (paths adjusted)")
 
 
 _LOCAL_COORDINATOR_DOCKERFILE_LINES = (

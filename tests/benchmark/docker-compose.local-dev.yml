@@ -6,7 +6,7 @@
 #
 # The benchmark script copies this automatically to the workspace.
 services:
-  feed-worker:
+  feed-data-worker:
     build:
       context: ..
       dockerfile: node/Dockerfile

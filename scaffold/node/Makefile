@@ -1,4 +1,5 @@
-COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
+COMPOSE_FILES := -f docker-compose.yml $(if $(wildcard docker-compose.override.yml),-f docker-compose.override.yml)
+COMPOSE := docker compose $(COMPOSE_FILES) --env-file .local.env
 
 .PHONY: deploy down logs logs-capture verify-e2e check-models validate preflight starter platform backfill init-db reset-db
 

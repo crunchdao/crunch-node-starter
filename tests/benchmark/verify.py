@@ -507,33 +507,37 @@ def check_metrics_collection(workspace: str) -> tuple[bool, str]:
     if total_records == 0:
         return False, "No timing records collected — pipeline may not be active yet"
 
-    # 5. Check for key pipeline stages
-    stage_latencies = data.get("stage_latencies", {})
-    expected_stages = ["feed_received", "models_dispatched", "persistence_completed"]
+    # 5. Check for key pipeline stages (stage_latencies is a list of dicts)
+    stage_latencies = data.get("stage_latencies", [])
+    expected_stages = ["feed_ingestion", "model_execution", "prediction_persistence"]
+
+    # Convert list to dict for easier lookup
+    stages_by_name = {s.get("name"): s for s in stage_latencies if isinstance(s, dict)}
+
     missing_stages = [
-        stage for stage in expected_stages if stage not in stage_latencies
+        stage for stage in expected_stages if stage not in stages_by_name
     ]
 
     # Allow partial coverage initially - some stages may not be hit yet
-    if len(stage_latencies) == 0:
+    if len(stages_by_name) == 0:
         return False, "No pipeline stages instrumented"
 
-    if missing_stages and len(stage_latencies) < 2:
+    if missing_stages and len(stages_by_name) < 2:
         return (
             False,
-            f"Too few pipeline stages: {list(stage_latencies.keys())}. Expected some of: {expected_stages}",
+            f"Too few pipeline stages: {list(stages_by_name.keys())}. Expected some of: {expected_stages}",
         )
 
     # 6. Basic sanity checks on timing data
     issues = []
     valid_stages = 0
-    for stage, stats in stage_latencies.items():
+    for stage, stats in stages_by_name.items():
         count = stats.get("count", 0)
         mean_us = stats.get("mean_us", 0)
 
         if count == 0:
             issues.append(f"{stage}=0_records")
-        elif mean_us <= 0:
+        elif mean_us is None or mean_us <= 0:
             issues.append(f"{stage}=invalid_mean")
         elif mean_us > 30_000_000:  # 30 seconds - very generous threshold
             issues.append(f"{stage}=suspicious_latency({mean_us:.0f}μs)")
@@ -551,7 +555,7 @@ def check_metrics_collection(workspace: str) -> tuple[bool, str]:
     # Success - format summary
     buffer_size = data.get("buffer_size", 0)
     stage_summary = ", ".join(
-        [f"{k}({v.get('count', 0)})" for k, v in stage_latencies.items()]
+        [f"{s.get('name')}({s.get('count', 0)})" for s in stage_latencies if isinstance(s, dict)]
     )
 
     return (

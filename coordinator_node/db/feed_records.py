@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import func
+from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session, delete, select
 
 from coordinator_node.db.tables import FeedIngestionStateRow, FeedRecordRow
@@ -49,6 +50,7 @@ class DBFeedRecordRepository:
                 meta = dict(row.meta_jsonb or {})
                 meta.setdefault("timing", {})["feed_persisted_us"] = feed_persisted_us
                 row.meta_jsonb = meta
+                flag_modified(row, "meta_jsonb")
             self._session.commit()
 
         return count
