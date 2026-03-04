@@ -514,9 +514,7 @@ def check_metrics_collection(workspace: str) -> tuple[bool, str]:
     # Convert list to dict for easier lookup
     stages_by_name = {s.get("name"): s for s in stage_latencies if isinstance(s, dict)}
 
-    missing_stages = [
-        stage for stage in expected_stages if stage not in stages_by_name
-    ]
+    missing_stages = [stage for stage in expected_stages if stage not in stages_by_name]
 
     # Allow partial coverage initially - some stages may not be hit yet
     if len(stages_by_name) == 0:
@@ -555,7 +553,11 @@ def check_metrics_collection(workspace: str) -> tuple[bool, str]:
     # Success - format summary
     buffer_size = data.get("buffer_size", 0)
     stage_summary = ", ".join(
-        [f"{s.get('name')}({s.get('count', 0)})" for s in stage_latencies if isinstance(s, dict)]
+        [
+            f"{s.get('name')}({s.get('count', 0)})"
+            for s in stage_latencies
+            if isinstance(s, dict)
+        ]
     )
 
     return (

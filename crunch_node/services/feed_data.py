@@ -186,7 +186,9 @@ class FeedDataService:
 
         # Add normalized timestamp to all converted records
         for domain_record in converted:
-            domain_record.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
+            domain_record.meta.setdefault("timing", {})["feed_normalized_us"] = (
+                feed_normalized_us
+            )
 
         result = self.feed_record_repository.append_records(converted)
 

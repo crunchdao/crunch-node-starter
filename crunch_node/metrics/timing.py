@@ -143,7 +143,11 @@ class TimingCollector:
             ("model_execution", "models_dispatched_us", "models_completed_us"),
             ("post_model", "models_completed_us", "callback_started_us"),
             ("callback_execution", "callback_started_us", "callback_completed_us"),
-            ("prediction_persistence", "callback_completed_us", "persistence_completed_us"),
+            (
+                "prediction_persistence",
+                "callback_completed_us",
+                "persistence_completed_us",
+            ),
         ]
 
         e2e_latencies = []
@@ -159,7 +163,9 @@ class TimingCollector:
 
         result = []
 
-        for step, (stage_name, start_field, end_field) in enumerate(stage_definitions, start=1):
+        for step, (stage_name, start_field, end_field) in enumerate(
+            stage_definitions, start=1
+        ):
             latencies = []
 
             for record in records:
@@ -174,22 +180,56 @@ class TimingCollector:
             if latencies:
                 mean = statistics.mean(latencies)
                 pct = round((mean / e2e_mean) * 100, 1) if e2e_mean else None
-                result.append({
-                    "name": stage_name,
-                    "step": step,
-                    "pct_of_total": pct,
-                    "count": len(latencies),
-                    "mean_us": mean,
-                    "median_us": statistics.median(latencies),
-                    "min_us": min(latencies),
-                    "max_us": max(latencies),
-                    "p95_us": self._percentile(latencies, 95),
-                    "p99_us": self._percentile(latencies, 99),
-                })
+                result.append(
+                    {
+                        "name": stage_name,
+                        "step": step,
+                        "pct_of_total": pct,
+                        "count": len(latencies),
+                        "mean_us": mean,
+                        "median_us": statistics.median(latencies),
+                        "min_us": min(latencies),
+                        "max_us": max(latencies),
+                        "p95_us": self._percentile(latencies, 95),
+                        "p99_us": self._percentile(latencies, 99),
+                    }
+                )
             else:
-                result.append({
-                    "name": stage_name,
-                    "step": step,
+                result.append(
+                    {
+                        "name": stage_name,
+                        "step": step,
+                        "pct_of_total": None,
+                        "count": 0,
+                        "mean_us": None,
+                        "median_us": None,
+                        "min_us": None,
+                        "max_us": None,
+                        "p95_us": None,
+                        "p99_us": None,
+                    }
+                )
+
+        if e2e_latencies:
+            result.append(
+                {
+                    "name": "end_to_end",
+                    "step": "total",
+                    "pct_of_total": 100.0,
+                    "count": len(e2e_latencies),
+                    "mean_us": e2e_mean,
+                    "median_us": statistics.median(e2e_latencies),
+                    "min_us": min(e2e_latencies),
+                    "max_us": max(e2e_latencies),
+                    "p95_us": self._percentile(e2e_latencies, 95),
+                    "p99_us": self._percentile(e2e_latencies, 99),
+                }
+            )
+        else:
+            result.append(
+                {
+                    "name": "end_to_end",
+                    "step": "total",
                     "pct_of_total": None,
                     "count": 0,
                     "mean_us": None,
@@ -198,34 +238,8 @@ class TimingCollector:
                     "max_us": None,
                     "p95_us": None,
                     "p99_us": None,
-                })
-
-        if e2e_latencies:
-            result.append({
-                "name": "end_to_end",
-                "step": "total",
-                "pct_of_total": 100.0,
-                "count": len(e2e_latencies),
-                "mean_us": e2e_mean,
-                "median_us": statistics.median(e2e_latencies),
-                "min_us": min(e2e_latencies),
-                "max_us": max(e2e_latencies),
-                "p95_us": self._percentile(e2e_latencies, 95),
-                "p99_us": self._percentile(e2e_latencies, 99),
-            })
-        else:
-            result.append({
-                "name": "end_to_end",
-                "step": "total",
-                "pct_of_total": None,
-                "count": 0,
-                "mean_us": None,
-                "median_us": None,
-                "min_us": None,
-                "max_us": None,
-                "p95_us": None,
-                "p99_us": None,
-            })
+                }
+            )
 
         return result
 
@@ -301,7 +315,9 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
     e2e_mean = statistics.mean(e2e_latencies) if e2e_latencies else None
 
     stage_latencies = []
-    for step, (stage_name, start_field, end_field) in enumerate(stage_definitions, start=1):
+    for step, (stage_name, start_field, end_field) in enumerate(
+        stage_definitions, start=1
+    ):
         latencies = []
         for record in records:
             start_time = record.get(start_field)
@@ -314,22 +330,64 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
         if latencies:
             mean = statistics.mean(latencies)
             pct = round((mean / e2e_mean) * 100, 1) if e2e_mean else None
-            stage_latencies.append({
-                "name": stage_name,
-                "step": step,
-                "pct_of_total": pct,
-                "count": len(latencies),
-                "mean_us": mean,
-                "median_us": statistics.median(latencies),
-                "min_us": min(latencies),
-                "max_us": max(latencies),
-                "p95_us": statistics.quantiles(latencies, n=100)[94] if len(latencies) >= 2 else latencies[0],
-                "p99_us": statistics.quantiles(latencies, n=100)[98] if len(latencies) >= 2 else latencies[0],
-            })
+            stage_latencies.append(
+                {
+                    "name": stage_name,
+                    "step": step,
+                    "pct_of_total": pct,
+                    "count": len(latencies),
+                    "mean_us": mean,
+                    "median_us": statistics.median(latencies),
+                    "min_us": min(latencies),
+                    "max_us": max(latencies),
+                    "p95_us": statistics.quantiles(latencies, n=100)[94]
+                    if len(latencies) >= 2
+                    else latencies[0],
+                    "p99_us": statistics.quantiles(latencies, n=100)[98]
+                    if len(latencies) >= 2
+                    else latencies[0],
+                }
+            )
         else:
-            stage_latencies.append({
-                "name": stage_name,
-                "step": step,
+            stage_latencies.append(
+                {
+                    "name": stage_name,
+                    "step": step,
+                    "pct_of_total": None,
+                    "count": 0,
+                    "mean_us": None,
+                    "median_us": None,
+                    "min_us": None,
+                    "max_us": None,
+                    "p95_us": None,
+                    "p99_us": None,
+                }
+            )
+
+    if e2e_latencies:
+        stage_latencies.append(
+            {
+                "name": "end_to_end",
+                "step": "total",
+                "pct_of_total": 100.0,
+                "count": len(e2e_latencies),
+                "mean_us": e2e_mean,
+                "median_us": statistics.median(e2e_latencies),
+                "min_us": min(e2e_latencies),
+                "max_us": max(e2e_latencies),
+                "p95_us": statistics.quantiles(e2e_latencies, n=100)[94]
+                if len(e2e_latencies) >= 2
+                else e2e_latencies[0],
+                "p99_us": statistics.quantiles(e2e_latencies, n=100)[98]
+                if len(e2e_latencies) >= 2
+                else e2e_latencies[0],
+            }
+        )
+    else:
+        stage_latencies.append(
+            {
+                "name": "end_to_end",
+                "step": "total",
                 "pct_of_total": None,
                 "count": 0,
                 "mean_us": None,
@@ -338,34 +396,8 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
                 "max_us": None,
                 "p95_us": None,
                 "p99_us": None,
-            })
-
-    if e2e_latencies:
-        stage_latencies.append({
-            "name": "end_to_end",
-            "step": "total",
-            "pct_of_total": 100.0,
-            "count": len(e2e_latencies),
-            "mean_us": e2e_mean,
-            "median_us": statistics.median(e2e_latencies),
-            "min_us": min(e2e_latencies),
-            "max_us": max(e2e_latencies),
-            "p95_us": statistics.quantiles(e2e_latencies, n=100)[94] if len(e2e_latencies) >= 2 else e2e_latencies[0],
-            "p99_us": statistics.quantiles(e2e_latencies, n=100)[98] if len(e2e_latencies) >= 2 else e2e_latencies[0],
-        })
-    else:
-        stage_latencies.append({
-            "name": "end_to_end",
-            "step": "total",
-            "pct_of_total": None,
-            "count": 0,
-            "mean_us": None,
-            "median_us": None,
-            "min_us": None,
-            "max_us": None,
-            "p95_us": None,
-            "p99_us": None,
-        })
+            }
+        )
 
     return {
         "enabled": True,

@@ -165,9 +165,7 @@ class TestTryLoadValidationError(unittest.TestCase):
         sys.modules["_test_bad_config"] = mod
 
         try:
-            with self.assertLogs(
-                "crunch_node.config_loader", level="WARNING"
-            ) as cm:
+            with self.assertLogs("crunch_node.config_loader", level="WARNING") as cm:
                 config, found = _try_load("_test_bad_config:BadConfig")
             self.assertIsNone(config)
             self.assertTrue(found)

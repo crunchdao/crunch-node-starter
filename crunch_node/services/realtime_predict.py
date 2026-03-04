@@ -131,7 +131,9 @@ class RealtimePredictService(PredictService):
             callback_completed_us = time.perf_counter_ns() // 1000
             # Update callback completion timing
             for prediction in predictions:
-                prediction.meta.setdefault("timing", {})["callback_completed_us"] = callback_completed_us
+                prediction.meta.setdefault("timing", {})["callback_completed_us"] = (
+                    callback_completed_us
+                )
         else:
             # No callback - copy timing to predictions and mark callback as skipped
             callback_completed_us = time.perf_counter_ns() // 1000
@@ -153,7 +155,9 @@ class RealtimePredictService(PredictService):
         persistence_completed_us = time.perf_counter_ns() // 1000
 
         for prediction in predictions:
-            prediction.meta.setdefault("timing", {})["persistence_completed_us"] = persistence_completed_us
+            prediction.meta.setdefault("timing", {})["persistence_completed_us"] = (
+                persistence_completed_us
+            )
 
         # Call parent save method
         super()._save(predictions)
