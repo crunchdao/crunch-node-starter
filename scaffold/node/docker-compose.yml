@@ -222,7 +222,7 @@ services:
 
   report-ui:
     build:
-      context: ${REPORT_UI_BUILD_CONTEXT:-https://github.com/crunchdao/coordinator-webapp.git}
+      context: ${REPORT_UI_BUILD_CONTEXT:-../webapp}
       dockerfile: ${REPORT_UI_DOCKERFILE:-apps/starter/Dockerfile}
       args:
         NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://report-worker:8000}"
