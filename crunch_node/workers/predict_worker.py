@@ -145,6 +145,7 @@ async def main() -> None:
     try:
         await feed_service.run()
     finally:
+        await sink.drain()
         await predict_service.shutdown()
 
 

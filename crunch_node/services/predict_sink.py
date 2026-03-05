@@ -69,6 +69,15 @@ class PredictSink:
     def _build_input(self, subject: str) -> dict[str, Any]:
         return self.feed_window.get_input(subject)
 
+    async def drain(self) -> None:
+        """Wait for all pending persistence tasks to complete.
+
+        Call before shutdown to avoid losing recently ingested feed records.
+        """
+        if not self._persist_tasks:
+            return
+        await asyncio.gather(*self._persist_tasks, return_exceptions=True)
+
     async def _persist_async(
         self,
         record: FeedDataRecord,
@@ -76,22 +85,30 @@ class PredictSink:
         feed_normalized_us: int,
     ) -> None:
         try:
-            domain = self._to_domain_record(
-                record, feed_received_us, feed_normalized_us
-            )
-            self.feed_repository.append_records([domain])
-            self.feed_repository.set_watermark(
-                FeedIngestionState(
-                    source=record.source or self.source,
-                    subject=record.subject,
-                    kind=record.kind,
-                    granularity=record.granularity,
-                    last_event_ts=datetime.fromtimestamp(record.ts_event, tz=UTC),
-                    meta={"phase": "listen"},
-                )
+            await asyncio.to_thread(
+                self._persist_sync, record, feed_received_us, feed_normalized_us
             )
         except Exception as exc:
             self.logger.warning("Async persist failed: %s", exc)
+
+    def _persist_sync(
+        self,
+        record: FeedDataRecord,
+        feed_received_us: int,
+        feed_normalized_us: int,
+    ) -> None:
+        domain = self._to_domain_record(record, feed_received_us, feed_normalized_us)
+        self.feed_repository.append_records([domain])
+        self.feed_repository.set_watermark(
+            FeedIngestionState(
+                source=record.source or self.source,
+                subject=record.subject,
+                kind=record.kind,
+                granularity=record.granularity,
+                last_event_ts=datetime.fromtimestamp(record.ts_event, tz=UTC),
+                meta={"phase": "listen"},
+            )
+        )
 
     def _to_domain_record(
         self,

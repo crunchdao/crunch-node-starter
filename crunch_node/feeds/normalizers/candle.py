@@ -51,7 +51,7 @@ class CandleNormalizer:
             if candle is not None:
                 candles.append(candle)
 
-        asof_ts = self._to_timestamp(records[-1].ts_event) if records else 0
+        asof_ts = candles[-1].ts if candles else 0
 
         return CandleInput(
             symbol=subject,
