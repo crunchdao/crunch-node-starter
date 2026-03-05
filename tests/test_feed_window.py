@@ -8,7 +8,7 @@ from crunch_node.services.feed_window import FeedWindow
 
 
 class TestFeedWindow(unittest.TestCase):
-    def test_append_and_get_candles(self):
+    def test_append_and_get_input(self):
         window = FeedWindow(max_size=3)
 
         records = [
@@ -27,12 +27,15 @@ class TestFeedWindow(unittest.TestCase):
         for record in records:
             window.append(record)
 
-        candles = window.get_candles("BTC")
+        result = window.get_input("BTC")
+        candles = result["candles_1m"]
 
         self.assertEqual(len(candles), 3)
         self.assertEqual(candles[0]["ts"], 1002)
         self.assertEqual(candles[2]["ts"], 1004)
         self.assertEqual(candles[2]["close"], 50400)
+        self.assertEqual(result["symbol"], "BTC")
+        self.assertEqual(result["asof_ts"], 1004)
 
     def test_get_latest_ts(self):
         window = FeedWindow(max_size=10)
@@ -78,13 +81,13 @@ class TestFeedWindow(unittest.TestCase):
             )
         )
 
-        btc_candles = window.get_candles("BTC")
-        eth_candles = window.get_candles("ETH")
+        btc_result = window.get_input("BTC")
+        eth_result = window.get_input("ETH")
 
-        self.assertEqual(len(btc_candles), 1)
-        self.assertEqual(len(eth_candles), 1)
-        self.assertEqual(btc_candles[0]["close"], 50000)
-        self.assertEqual(eth_candles[0]["close"], 3000)
+        self.assertEqual(len(btc_result["candles_1m"]), 1)
+        self.assertEqual(len(eth_result["candles_1m"]), 1)
+        self.assertEqual(btc_result["candles_1m"][0]["close"], 50000)
+        self.assertEqual(eth_result["candles_1m"][0]["close"], 3000)
 
     def test_candle_format_for_tick_data(self):
         window = FeedWindow(max_size=10)
@@ -101,8 +104,8 @@ class TestFeedWindow(unittest.TestCase):
             )
         )
 
-        candles = window.get_candles("BTC")
-        candle = candles[0]
+        result = window.get_input("BTC")
+        candle = result["candles_1m"][0]
 
         self.assertEqual(candle["ts"], 1000)
         self.assertEqual(candle["open"], 50000)
@@ -132,8 +135,8 @@ class TestFeedWindow(unittest.TestCase):
             )
         )
 
-        candles = window.get_candles("BTC")
-        candle = candles[0]
+        result = window.get_input("BTC")
+        candle = result["candles_1m"][0]
 
         self.assertEqual(candle["open"], 49900)
         self.assertEqual(candle["high"], 50100)
@@ -164,8 +167,17 @@ class TestFeedWindow(unittest.TestCase):
 
         window.load_from_db(mock_repo, mock_settings)
 
-        candles = window.get_candles("BTC")
-        self.assertEqual(len(candles), 1)
+        result = window.get_input("BTC")
+        self.assertEqual(len(result["candles_1m"]), 1)
+
+    def test_get_input_empty_subject(self):
+        window = FeedWindow(max_size=10)
+
+        result = window.get_input("UNKNOWN")
+
+        self.assertEqual(result["symbol"], "UNKNOWN")
+        self.assertEqual(result["asof_ts"], 0)
+        self.assertEqual(result["candles_1m"], [])
 
 
 if __name__ == "__main__":

@@ -38,7 +38,8 @@ class TestPredictSink(unittest.TestCase):
 
         asyncio.run(self.sink.on_record(record))
 
-        candles = self.feed_window.get_candles("BTC")
+        result = self.feed_window.get_input("BTC")
+        candles = result["candles_1m"]
         self.assertEqual(len(candles), 1)
         self.assertEqual(candles[0]["close"], 50000)
 

@@ -67,14 +67,7 @@ class PredictSink:
         task.add_done_callback(self._persist_tasks.discard)
 
     def _build_input(self, subject: str) -> dict[str, Any]:
-        candles = self.feed_window.get_candles(subject)
-        asof_ts = self.feed_window.get_latest_ts(subject)
-
-        return {
-            "symbol": subject,
-            "asof_ts": asof_ts,
-            "candles_1m": candles,
-        }
+        return self.feed_window.get_input(subject)
 
     async def _persist_async(
         self,

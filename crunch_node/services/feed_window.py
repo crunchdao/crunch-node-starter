@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from crunch_node.feeds import FeedDataRecord
+from crunch_node.feeds.normalizers import get_normalizer
+
+if TYPE_CHECKING:
+    from crunch_node.feeds.normalizers.base import FeedNormalizer
 
 
 class FeedWindow:
@@ -16,9 +19,14 @@ class FeedWindow:
     On startup, call load_from_db() to initialize from existing records.
     """
 
-    def __init__(self, max_size: int = 120):
+    def __init__(
+        self,
+        max_size: int = 120,
+        normalizer: FeedNormalizer | None = None,
+    ):
         self._windows: dict[str, deque[FeedDataRecord]] = {}
         self._max_size = max_size
+        self._normalizer = normalizer or get_normalizer()
 
     def append(self, record: FeedDataRecord) -> None:
         subject = record.subject
@@ -26,18 +34,10 @@ class FeedWindow:
             self._windows[subject] = deque(maxlen=self._max_size)
         self._windows[subject].append(record)
 
-    def get_candles(self, subject: str) -> list[dict[str, Any]]:
-        """Return candle-format dicts for the given subject."""
-        window = self._windows.get(subject)
-        if not window:
-            return []
-
-        candles: list[dict[str, Any]] = []
-        for record in window:
-            candle = self._record_to_candle(record)
-            if candle:
-                candles.append(candle)
-        return candles
+    def get_input(self, subject: str) -> dict[str, Any]:
+        """Return normalized input for the given subject."""
+        records = list(self._windows.get(subject, []))
+        return self._normalizer.normalize(records, subject)
 
     def get_latest_ts(self, subject: str) -> int:
         """Return the timestamp of the most recent record for subject."""
@@ -68,40 +68,3 @@ class FeedWindow:
                     metadata=record.meta or {},
                 )
                 self._windows[subject].append(feed_record)
-
-    def _record_to_candle(self, record: FeedDataRecord) -> dict[str, Any] | None:
-        values = record.values or {}
-        price = self._extract_price(values)
-        if price is None:
-            return None
-
-        ts_event = int(record.ts_event)
-
-        if record.kind == "candle":
-            return {
-                "ts": ts_event,
-                "open": float(values.get("open", price)),
-                "high": float(values.get("high", price)),
-                "low": float(values.get("low", price)),
-                "close": float(values.get("close", price)),
-                "volume": float(values.get("volume", 0.0)),
-            }
-        else:
-            return {
-                "ts": ts_event,
-                "open": price,
-                "high": price,
-                "low": price,
-                "close": price,
-                "volume": 0.0,
-            }
-
-    @staticmethod
-    def _extract_price(values: dict[str, Any]) -> float | None:
-        for key in ("close", "price"):
-            if key in values:
-                try:
-                    return float(values[key])
-                except (TypeError, ValueError):
-                    return None
-        return None
