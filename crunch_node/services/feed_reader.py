@@ -74,7 +74,9 @@ class FeedReader:
             )
             records, feed_timing = self._load_recent_records(limit=self.window_size)
 
-        result = self._normalizer.normalize(records[-self.window_size :], self.subject).model_dump()
+        result = self._normalizer.normalize(
+            records[-self.window_size :], self.subject
+        ).model_dump()
         if feed_timing:
             result["_feed_timing"] = feed_timing
         return result
