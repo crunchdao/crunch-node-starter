@@ -1,0 +1,140 @@
+"""Tests for PredictSink feed-to-prediction integration."""
+
+import asyncio
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from crunch_node.feeds import FeedDataRecord
+from crunch_node.services.feed_window import FeedWindow
+from crunch_node.services.predict_sink import PredictSink
+
+
+class TestPredictSink(unittest.TestCase):
+    def setUp(self):
+        self.predict_service = MagicMock()
+        self.predict_service.run_once = AsyncMock()
+
+        self.feed_repository = MagicMock()
+
+        self.feed_window = FeedWindow(max_size=10)
+
+        self.sink = PredictSink(
+            predict_service=self.predict_service,
+            feed_repository=self.feed_repository,
+            feed_window=self.feed_window,
+            source="pyth",
+        )
+
+    def test_on_record_updates_window(self):
+        record = FeedDataRecord(
+            source="pyth",
+            subject="BTC",
+            kind="tick",
+            granularity="1s",
+            ts_event=1000,
+            values={"price": 50000},
+            metadata={},
+        )
+
+        asyncio.run(self.sink.on_record(record))
+
+        candles = self.feed_window.get_candles("BTC")
+        self.assertEqual(len(candles), 1)
+        self.assertEqual(candles[0]["close"], 50000)
+
+    def test_on_record_calls_predict_service(self):
+        record = FeedDataRecord(
+            source="pyth",
+            subject="BTC",
+            kind="tick",
+            granularity="1s",
+            ts_event=1000,
+            values={"price": 50000},
+            metadata={},
+        )
+
+        asyncio.run(self.sink.on_record(record))
+
+        self.predict_service.run_once.assert_called_once()
+
+        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        self.assertIn("raw_input", call_kwargs)
+        self.assertEqual(call_kwargs["raw_input"]["symbol"], "BTC")
+        self.assertIn("candles_1m", call_kwargs["raw_input"])
+
+    def test_on_record_includes_feed_timing(self):
+        record = FeedDataRecord(
+            source="pyth",
+            subject="BTC",
+            kind="tick",
+            granularity="1s",
+            ts_event=1000,
+            values={"price": 50000},
+            metadata={},
+        )
+
+        asyncio.run(self.sink.on_record(record))
+
+        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        self.assertIn("feed_timing", call_kwargs)
+        self.assertIn("feed_received_us", call_kwargs["feed_timing"])
+        self.assertIn("feed_normalized_us", call_kwargs["feed_timing"])
+
+    def test_build_input_returns_correct_format(self):
+        self.feed_window.append(
+            FeedDataRecord(
+                source="pyth",
+                subject="BTC",
+                kind="tick",
+                granularity="1s",
+                ts_event=1000,
+                values={"price": 50000},
+                metadata={},
+            )
+        )
+
+        raw_input = self.sink._build_input("BTC")
+
+        self.assertEqual(raw_input["symbol"], "BTC")
+        self.assertEqual(raw_input["asof_ts"], 1000)
+        self.assertIsInstance(raw_input["candles_1m"], list)
+        self.assertEqual(len(raw_input["candles_1m"]), 1)
+
+
+class TestPredictSinkPersistence(unittest.TestCase):
+    def test_persist_async_writes_to_repository(self):
+        predict_service = MagicMock()
+        predict_service.run_once = AsyncMock()
+
+        feed_repository = MagicMock()
+        feed_window = FeedWindow(max_size=10)
+
+        sink = PredictSink(
+            predict_service=predict_service,
+            feed_repository=feed_repository,
+            feed_window=feed_window,
+            source="pyth",
+        )
+
+        record = FeedDataRecord(
+            source="pyth",
+            subject="BTC",
+            kind="tick",
+            granularity="1s",
+            ts_event=1000,
+            values={"price": 50000},
+            metadata={},
+        )
+
+        async def run_test():
+            await sink.on_record(record)
+            await asyncio.sleep(0.05)
+
+        asyncio.run(run_test())
+
+        feed_repository.append_records.assert_called()
+        feed_repository.set_watermark.assert_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

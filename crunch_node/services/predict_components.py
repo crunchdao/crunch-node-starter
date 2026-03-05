@@ -30,13 +30,17 @@ try:
         ModelConcurrentRunner,
     )
     from model_runner_client.security.credentials import SecureCredentials
-    from model_runner_client.security.gateway_credentials import GatewayCredentials
     from model_runner_client.utils.datatype_transformer import encode_data
 
     MODEL_RUNNER_PROTO_AVAILABLE = True
 except Exception:  # pragma: no cover
     ModelConcurrentRunner = Any  # type: ignore[assignment]
     MODEL_RUNNER_PROTO_AVAILABLE = False
+
+try:
+    from model_runner_client.security.gateway_credentials import GatewayCredentials
+except ImportError:
+    GatewayCredentials = None  # type: ignore[assignment,misc]
 
 
 class ModelRegistry:
@@ -228,7 +232,7 @@ class PredictionKernel:
         gateway_cert_dir = self._gateway_cert_dir or os.getenv("GATEWAY_CERT_DIR")
         secure_cert_dir = self._secure_cert_dir or os.getenv("SECURE_CERT_DIR")
 
-        if gateway_cert_dir and self._proto_available:
+        if gateway_cert_dir and self._proto_available and GatewayCredentials is not None:
             gateway_credentials = GatewayCredentials.from_pem(
                 key_pem=Path(os.path.join(gateway_cert_dir, "key.pem")).read_bytes(),
             )
@@ -239,10 +243,12 @@ class PredictionKernel:
         else:
             self.logger.info("Using insecure connection (no credentials configured)")
 
-        return {
-            "secure_credentials": secure_credentials,
-            "gateway_credentials": gateway_credentials,
-        }
+        result = {}
+        if secure_credentials is not None:
+            result["secure_credentials"] = secure_credentials
+        if gateway_credentials is not None:
+            result["gateway_credentials"] = gateway_credentials
+        return result
 
     async def init_runner(self) -> None:
         if self.runner is None:

@@ -258,3 +258,70 @@ class TestTimingCollector:
         assert feed_ingestion["median_us"] == 49.5  # Middle of 0-99
         assert feed_ingestion["p95_us"] >= 90  # Should be around 95th percentile
         assert feed_ingestion["p99_us"] >= 95  # Should be around 99th percentile
+
+    def test_outlier_filtering(self):
+        """Test that records with e2e latency above threshold are filtered."""
+        timing_collector.configure(
+            enabled=True, outlier_threshold_us=100_000
+        )  # 100ms threshold
+
+        # Add normal record (10ms e2e)
+        timing_collector.record_timing(
+            "normal",
+            {
+                "feed_received_us": 1000,
+                "feed_normalized_us": 1500,
+                "persistence_completed_us": 11000,  # 10ms total
+            },
+        )
+
+        # Add outlier record (5 seconds e2e - simulates runner init)
+        timing_collector.record_timing(
+            "outlier",
+            {
+                "feed_received_us": 2000,
+                "feed_normalized_us": 2500,
+                "persistence_completed_us": 5_002_000,  # 5 seconds total
+            },
+        )
+
+        metrics = timing_collector.get_metrics()
+
+        assert metrics["total_records"] == 2
+        assert metrics["filtered_records"] == 1
+        assert metrics["outliers_removed"] == 1
+
+        # e2e stats should only include the normal record
+        e2e = next(
+            (s for s in metrics["stage_latencies"] if s["name"] == "end_to_end"), None
+        )
+        assert e2e["count"] == 1
+        assert e2e["mean_us"] == 10000  # 10ms from the normal record
+
+    def test_outlier_threshold_configuration(self):
+        """Test that outlier threshold can be configured."""
+        timing_collector.configure(
+            enabled=True, outlier_threshold_us=50_000
+        )  # 50ms threshold
+
+        # Record with 60ms latency should be filtered
+        timing_collector.record_timing(
+            "slow",
+            {
+                "feed_received_us": 1000,
+                "persistence_completed_us": 61000,  # 60ms
+            },
+        )
+
+        # Record with 40ms latency should not be filtered
+        timing_collector.record_timing(
+            "fast",
+            {
+                "feed_received_us": 2000,
+                "persistence_completed_us": 42000,  # 40ms
+            },
+        )
+
+        metrics = timing_collector.get_metrics()
+        assert metrics["outliers_removed"] == 1
+        assert metrics["filtered_records"] == 1

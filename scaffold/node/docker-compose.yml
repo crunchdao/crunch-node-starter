@@ -72,34 +72,6 @@ services:
         condition: service_healthy
     networks: [backend]
 
-  feed-data-worker:
-    <<: *common-build
-    container_name: crunch-node-${CRUNCH_ID:-starter-challenge}-feed-data-worker
-    healthcheck:
-      disable: true
-    environment:
-      <<: *common-db-env
-      FEED_SOURCE: ${FEED_SOURCE:-pyth}
-      FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
-      FEED_KIND: ${FEED_KIND:-tick}
-      FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
-      FEED_POLL_SECONDS: ${FEED_POLL_SECONDS:-5}
-      FEED_BACKFILL_MINUTES: ${FEED_BACKFILL_MINUTES:-180}
-      FEED_RECORD_TTL_DAYS: ${FEED_RECORD_TTL_DAYS:-90}
-      FEED_RETENTION_CHECK_SECONDS: ${FEED_RETENTION_CHECK_SECONDS:-3600}
-      PYTHONPATH: /app:/app/challenge
-    restart: always
-    stop_grace_period: 30s
-    command: ["python", "-m", "crunch_node.workers.feed_data_worker"]
-    volumes:
-      - ../challenge:/app/challenge
-    depends_on:
-      postgres:
-        condition: service_healthy
-      init-db:
-        condition: service_completed_successfully
-    networks: [backend, external]
-
   predict-worker:
     <<: *common-build
     container_name: crunch-node-${CRUNCH_ID:-starter-challenge}-predict-worker
@@ -117,6 +89,10 @@ services:
       FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
       FEED_KIND: ${FEED_KIND:-tick}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
+      FEED_POLL_SECONDS: ${FEED_POLL_SECONDS:-5}
+      FEED_BACKFILL_MINUTES: ${FEED_BACKFILL_MINUTES:-180}
+      FEED_RECORD_TTL_DAYS: ${FEED_RECORD_TTL_DAYS:-90}
+      FEED_RETENTION_CHECK_SECONDS: ${FEED_RETENTION_CHECK_SECONDS:-3600}
       PYTHONPATH: /app:/app/challenge
     restart: always
     stop_grace_period: 30s
@@ -130,9 +106,7 @@ services:
         condition: service_completed_successfully
       model-orchestrator:
         condition: service_started
-      feed-data-worker:
-        condition: service_started
-    networks: [backend]
+    networks: [backend, external]
 
   score-worker:
     <<: *common-build
@@ -159,8 +133,6 @@ services:
         condition: service_healthy
       init-db:
         condition: service_completed_successfully
-      feed-data-worker:
-        condition: service_started
     networks: [backend]
 
   report-worker:
