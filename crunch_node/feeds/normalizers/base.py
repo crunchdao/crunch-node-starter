@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Protocol
 
+from pydantic import BaseModel
+
 if TYPE_CHECKING:
     from crunch_node.feeds import FeedDataRecord
 
@@ -12,15 +14,17 @@ if TYPE_CHECKING:
 class FeedNormalizer(Protocol):
     """Protocol for transforming feed records into model input format.
 
-    Each normalizer defines its own output structure.
+    Each normalizer defines its own output structure via output_type.
     The contract config declares which normalizer to use.
     """
+
+    output_type: type[BaseModel]
 
     def normalize(
         self,
         records: Sequence[FeedDataRecord],
         subject: str,
-    ) -> dict[str, Any]:
+    ) -> BaseModel:
         """Transform feed records into model input format.
 
         Args:
@@ -28,7 +32,6 @@ class FeedNormalizer(Protocol):
             subject: The subject/symbol for these records.
 
         Returns:
-            Dict with at minimum 'symbol' and 'asof_ts' keys,
-            plus format-specific data (e.g., 'candles_1m').
+            Pydantic model instance with the normalized data.
         """
         ...

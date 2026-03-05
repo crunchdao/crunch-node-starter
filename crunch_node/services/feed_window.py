@@ -37,7 +37,7 @@ class FeedWindow:
     def get_input(self, subject: str) -> dict[str, Any]:
         """Return normalized input for the given subject."""
         records = list(self._windows.get(subject, []))
-        return self._normalizer.normalize(records, subject)
+        return self._normalizer.normalize(records, subject).model_dump()
 
     def get_latest_ts(self, subject: str) -> int:
         """Return the timestamp of the most recent record for subject."""

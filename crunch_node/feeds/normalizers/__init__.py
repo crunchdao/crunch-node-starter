@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from crunch_node.feeds.normalizers.candle import CandleNormalizer
+from crunch_node.feeds.normalizers.candle import Candle, CandleInput, CandleNormalizer
 
 if TYPE_CHECKING:
     from crunch_node.feeds.normalizers.base import FeedNormalizer
+
+__all__ = ["Candle", "CandleInput", "CandleNormalizer", "get_normalizer", "NORMALIZERS"]
 
 NORMALIZERS: dict[str, type[FeedNormalizer]] = {
     "candle": CandleNormalizer,
