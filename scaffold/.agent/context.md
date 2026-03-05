@@ -83,6 +83,12 @@ Full schema at `/openapi.json`. Key endpoints:
 
 Four dimensions configured in `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`, `FEED_KIND`, `FEED_GRANULARITY`.
 
+## Web UI Source
+
+- `report-ui` builds from local workspace path `../webapp` (`REPORT_UI_BUILD_CONTEXT`).
+- `make starter` uses `apps/starter/Dockerfile`.
+- `make platform` uses `apps/platform/Dockerfile`.
+
 ## Gotchas
 
 ### Feed subjects vs scope subjects
@@ -100,6 +106,10 @@ resolver ignores subject and just compares first/last price — works for single
 Next.js rewrites run server-side inside Docker. `localhost` = the container itself.
 - ✅ `http://report-worker:8000`
 - ❌ `http://localhost:8000`
+
+### Missing `webapp/` breaks UI builds
+`REPORT_UI_BUILD_CONTEXT` points to `../webapp`. If `webapp/` is missing or not a
+valid `coordinator-webapp` clone, `report-ui` fails during docker build.
 
 ### InferenceOutput key mismatches are caught at startup
 The score worker dry-runs the scoring function against default `InferenceOutput` and `GroundTruth` values on startup. A `KeyError` (scoring reads a field not in `InferenceOutput`) raises a hard `RuntimeError`. The predict worker also validates every model output against `InferenceOutput` and logs `INFERENCE_OUTPUT_VALIDATION_ERROR` if no keys match.

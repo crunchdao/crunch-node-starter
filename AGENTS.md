@@ -27,9 +27,13 @@ scaffold/
     api/              # Custom FastAPI endpoints (auto-discovered)
     extensions/       # Node-side extensions (position manager, etc.)
     deployment/       # Docker config (model-orchestrator, report-ui)
-crunch_node/     # Engine (published to PyPI as crunch-node)
+  webapp/             # Cloned from crunchdao/coordinator-webapp at scaffold init
+crunch_node/          # Engine (published to PyPI as crunch-node)
 tests/                # All tests
 ```
+
+Scaffolded workspaces build `report-ui` from the local `webapp/` clone via
+`node/.local.env` (`REPORT_UI_BUILD_CONTEXT=../webapp`).
 
 ## Key Architecture
 
