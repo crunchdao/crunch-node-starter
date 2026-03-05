@@ -12,6 +12,7 @@ make verify-e2e
 
 - `node/` — competition infrastructure (docker-compose, config, scripts)
 - `challenge/` — participant-facing package (tracker, scoring, examples)
+- `webapp/` — local clone of `crunchdao/coordinator-webapp` used by `report-ui`
 
 ## Performance target
 
