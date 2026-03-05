@@ -54,10 +54,10 @@ def notify(
 
 async def wait_for_notify(
     channel: str = DEFAULT_CHANNEL, timeout: float = 30.0
-) -> bool:
+) -> tuple[bool, str]:
     """Block (async) until a NOTIFY arrives on the channel or timeout.
 
-    Returns True if notified, False on timeout.
+    Returns (True, payload) if notified, (False, "") on timeout.
     """
     conn = _raw_connection()
     conn.autocommit = True
@@ -66,7 +66,11 @@ async def wait_for_notify(
             cur.execute(f"LISTEN {channel}")
 
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, _poll_notify, conn, timeout)
+        notified = await loop.run_in_executor(None, _poll_notify, conn, timeout)
+        if notified and conn.notifies:
+            n = conn.notifies.pop(0)
+            return (True, n.payload or "")
+        return (notified, "")
     finally:
         conn.close()
 

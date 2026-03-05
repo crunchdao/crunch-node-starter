@@ -125,25 +125,28 @@ class TestPollNotify(unittest.TestCase):
 class TestWaitForNotify(unittest.TestCase):
     @patch("crunch_node.db.pg_notify._poll_notify")
     @patch("crunch_node.db.pg_notify._raw_connection")
-    def test_returns_true_when_notified(self, mock_raw, mock_poll):
-        conn, cursor = _make_mock_connection()
+    def test_returns_true_and_payload_when_notified(self, mock_raw, mock_poll):
+        notif = Notification(channel="my_channel", payload='{"test": 123}')
+        conn, cursor = _make_mock_connection(notifies=[notif])
         mock_raw.return_value = conn
         mock_poll.return_value = True
 
-        result = asyncio.run(wait_for_notify("my_channel", timeout=1.0))
-        self.assertTrue(result)
+        notified, payload = asyncio.run(wait_for_notify("my_channel", timeout=1.0))
+        self.assertTrue(notified)
+        self.assertEqual(payload, '{"test": 123}')
         cursor.execute.assert_called_once_with("LISTEN my_channel")
         conn.close.assert_called_once()
 
     @patch("crunch_node.db.pg_notify._poll_notify")
     @patch("crunch_node.db.pg_notify._raw_connection")
-    def test_returns_false_on_timeout(self, mock_raw, mock_poll):
+    def test_returns_false_and_empty_payload_on_timeout(self, mock_raw, mock_poll):
         conn, cursor = _make_mock_connection()
         mock_raw.return_value = conn
         mock_poll.return_value = False
 
-        result = asyncio.run(wait_for_notify("my_channel", timeout=0.1))
-        self.assertFalse(result)
+        notified, payload = asyncio.run(wait_for_notify("my_channel", timeout=0.1))
+        self.assertFalse(notified)
+        self.assertEqual(payload, "")
         conn.close.assert_called_once()
 
     @patch("crunch_node.db.pg_notify._poll_notify")
