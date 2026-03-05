@@ -76,7 +76,9 @@ class PredictSink:
         feed_normalized_us: int,
     ) -> None:
         try:
-            domain = self._to_domain_record(record, feed_received_us, feed_normalized_us)
+            domain = self._to_domain_record(
+                record, feed_received_us, feed_normalized_us
+            )
             self.feed_repository.append_records([domain])
             self.feed_repository.set_watermark(
                 FeedIngestionState(

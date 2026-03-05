@@ -232,7 +232,11 @@ class PredictionKernel:
         gateway_cert_dir = self._gateway_cert_dir or os.getenv("GATEWAY_CERT_DIR")
         secure_cert_dir = self._secure_cert_dir or os.getenv("SECURE_CERT_DIR")
 
-        if gateway_cert_dir and self._proto_available and GatewayCredentials is not None:
+        if (
+            gateway_cert_dir
+            and self._proto_available
+            and GatewayCredentials is not None
+        ):
             gateway_credentials = GatewayCredentials.from_pem(
                 key_pem=Path(os.path.join(gateway_cert_dir, "key.pem")).read_bytes(),
             )
