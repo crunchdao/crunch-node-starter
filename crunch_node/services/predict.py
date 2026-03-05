@@ -180,31 +180,39 @@ class PredictService:
         """Persist prediction records to the repository.
 
         This is a critical correctness write-path: score/report workers depend
-        on these records. Non-critical persistence (e.g. model metadata) should
-        not block this path.
+        on these records. Foreign key integrity requires that all referenced
+        models exist before predictions can be saved.
         """
-        if predictions:
-            self.prediction_repository.save_all(predictions)
-            self.logger.info("Saved %d predictions", len(predictions))
-            if self.logger.isEnabledFor(logging.DEBUG):
-                for p in predictions:
-                    out = p.inference_output or {}
-                    summary = {
-                        k: round(v, 6) if isinstance(v, float) else v
-                        for k, v in list(out.items())[:3]
-                    }
-                    self.logger.debug(
-                        "  model=%s scope=%s status=%s output=%s",
-                        p.model_id,
-                        p.scope_key,
-                        p.status,
-                        summary,
-                    )
+        if not predictions:
+            return
 
-        # Non-critical metadata writes after critical prediction persistence.
+        # Ensure all referenced models exist in database before saving predictions
+        # to prevent foreign key violations on predictions.model_id → models.id
         registry = getattr(self, "_model_registry", None)
-        if registry is not None:
+        if registry is not None and registry._dirty_model_ids:
+            self.logger.debug(
+                f"Flushing {len(registry._dirty_model_ids)} dirty models before prediction save"
+            )
             registry.flush_non_critical()
+
+        # Critical path: save predictions with guaranteed FK integrity
+        self.prediction_repository.save_all(predictions)
+        self.logger.info("Saved %d predictions", len(predictions))
+
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for p in predictions:
+                out = p.inference_output or {}
+                summary = {
+                    k: round(v, 6) if isinstance(v, float) else v
+                    for k, v in list(out.items())[:3]
+                }
+                self.logger.debug(
+                    "  model=%s scope=%s status=%s output=%s",
+                    p.model_id,
+                    p.scope_key,
+                    p.status,
+                    summary,
+                )
 
     # ── runner lifecycle ──
 

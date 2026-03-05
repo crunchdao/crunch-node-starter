@@ -79,7 +79,11 @@ class ModelRegistry:
         self._dirty_model_ids.add(model.id)
 
     def flush_non_critical(self) -> None:
-        """Best-effort persistence for dirty model metadata."""
+        """Best-effort persistence for dirty model metadata.
+
+        Called before prediction persistence to ensure foreign key integrity.
+        Models must exist in database before predictions that reference them.
+        """
         if self.model_repository is None or not self._dirty_model_ids:
             return
 
