@@ -137,7 +137,7 @@ class TimingCollector:
         stage_definitions = [
             ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
             ("feed_persistence", "feed_normalized_us", "feed_persisted_us"),
-            ("notify_latency", "feed_persisted_us", "notify_received_us"),
+            ("notify_latency", "notify_sent_us", "notify_received_us"),
             ("data_loading", "notify_received_us", "data_loaded_us"),
             ("pre_model", "data_loaded_us", "models_dispatched_us"),
             ("model_execution", "models_dispatched_us", "models_completed_us"),
@@ -294,7 +294,7 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
     stage_definitions = [
         ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
         ("feed_persistence", "feed_normalized_us", "feed_persisted_us"),
-        ("notify_latency", "feed_persisted_us", "notify_received_us"),
+        ("notify_latency", "notify_sent_us", "notify_received_us"),
         ("data_loading", "notify_received_us", "data_loaded_us"),
         ("pre_model", "data_loaded_us", "models_dispatched_us"),
         ("model_execution", "models_dispatched_us", "models_completed_us"),

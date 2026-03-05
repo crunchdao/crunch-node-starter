@@ -177,12 +177,12 @@ class FeedDataService:
             return 0
 
         # For backfill, timing is less critical but still useful
-        feed_received_us = time.perf_counter_ns() // 1000
+        feed_received_us = time.time_ns() // 1000
         converted = [
             _feed_to_domain(self.settings.source, record, feed_received_us)
             for record in records
         ]
-        feed_normalized_us = time.perf_counter_ns() // 1000
+        feed_normalized_us = time.time_ns() // 1000
 
         # Add normalized timestamp to all converted records
         for domain_record in converted:
@@ -190,9 +190,9 @@ class FeedDataService:
                 feed_normalized_us
             )
 
-        result = self.feed_record_repository.append_records(converted)
+        count, _ = self.feed_record_repository.append_records(converted)
 
-        return result
+        return count
 
 
 class _RepositorySink:
@@ -204,15 +204,17 @@ class _RepositorySink:
 
     async def on_record(self, record: FeedDataRecord) -> None:
         # Stage 1: Feed received timestamp
-        feed_received_us = time.perf_counter_ns() // 1000
+        feed_received_us = time.time_ns() // 1000
 
         # Stage 2: Normalization
         domain = _feed_to_domain(record.source, record, feed_received_us)
-        feed_normalized_us = time.perf_counter_ns() // 1000
+        feed_normalized_us = time.time_ns() // 1000
         domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
         # Stage 3: Persistence (with timing recorded after commit)
-        self._repository.append_records([domain], record_persist_timing=True)
+        _, feed_persisted_us = self._repository.append_records(
+            [domain], record_persist_timing=True
+        )
 
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:
@@ -234,9 +236,16 @@ class _RepositorySink:
             )
         )
         try:
+            import json
+
             from crunch_node.db.pg_notify import notify
 
-            notify("new_feed_data")
+            timing_payload = json.dumps({
+                "feed_received_us": feed_received_us,
+                "feed_normalized_us": feed_normalized_us,
+                "feed_persisted_us": feed_persisted_us,
+            })
+            notify("new_feed_data", payload=timing_payload)
         except Exception:
             pass
 

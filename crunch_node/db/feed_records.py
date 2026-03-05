@@ -22,7 +22,12 @@ class DBFeedRecordRepository:
 
     def append_records(
         self, records: Iterable[FeedRecord], *, record_persist_timing: bool = False
-    ) -> int:
+    ) -> tuple[int, int | None]:
+        """Append feed records to the database.
+
+        Returns (count, feed_persisted_us) where feed_persisted_us is the
+        timestamp when records were persisted (only if record_persist_timing=True).
+        """
         rows_to_update = []
         count = 0
         for record in records:
@@ -44,8 +49,9 @@ class DBFeedRecordRepository:
 
         self._session.commit()
 
+        feed_persisted_us = None
         if record_persist_timing and rows_to_update:
-            feed_persisted_us = time.perf_counter_ns() // 1000
+            feed_persisted_us = time.time_ns() // 1000
             for row in rows_to_update:
                 meta = dict(row.meta_jsonb or {})
                 meta.setdefault("timing", {})["feed_persisted_us"] = feed_persisted_us
@@ -53,7 +59,7 @@ class DBFeedRecordRepository:
                 flag_modified(row, "meta_jsonb")
             self._session.commit()
 
-        return count
+        return (count, feed_persisted_us)
 
     def fetch_records(
         self,

@@ -75,11 +75,23 @@ class RealtimePredictService(PredictService):
         self.logger.info("realtime predict service started")
         while not self.stop_event.is_set():
             try:
-                # Wait for data and capture notification time
-                await self._wait_for_data()
-                notify_received_us = time.perf_counter_ns() // 1000
+                # Wait for data and capture notification time + payload
+                payload = await self._wait_for_data()
+                notify_received_us = time.time_ns() // 1000
 
-                await self.run_once(notify_received_us=notify_received_us)
+                # Extract feed timing from notify payload for cross-process timing
+                feed_timing: dict[str, int] = {}
+                if payload:
+                    try:
+                        import json
+                        feed_timing = json.loads(payload)
+                    except (ValueError, json.JSONDecodeError):
+                        pass
+
+                await self.run_once(
+                    notify_received_us=notify_received_us,
+                    feed_timing=feed_timing,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -90,6 +102,7 @@ class RealtimePredictService(PredictService):
         raw_input: dict[str, Any] | None = None,
         now: datetime | None = None,
         notify_received_us: int | None = None,
+        feed_timing: dict[str, int] | None = None,
     ) -> bool:
         now = now or datetime.now(UTC)
         await self.init_runner()
@@ -106,8 +119,18 @@ class RealtimePredictService(PredictService):
         else:
             inp = self.get_data(now)
 
-        data_loaded_us = time.perf_counter_ns() // 1000
+        data_loaded_us = time.time_ns() // 1000
 
+        # Use feed timing from notify payload for accurate cross-process measurement
+        # This overwrites any stale timing from old feed records in the DB
+        if feed_timing:
+            if "feed_received_us" in feed_timing:
+                inp._timing["feed_received_us"] = feed_timing["feed_received_us"]
+            if "feed_normalized_us" in feed_timing:
+                inp._timing["feed_normalized_us"] = feed_timing["feed_normalized_us"]
+            if "feed_persisted_us" in feed_timing:
+                inp._timing["feed_persisted_us"] = feed_timing["feed_persisted_us"]
+                inp._timing["notify_sent_us"] = feed_timing["feed_persisted_us"]
         if notify_received_us is not None:
             inp._timing["notify_received_us"] = notify_received_us
         inp._timing["data_loaded_us"] = data_loaded_us
@@ -119,7 +142,7 @@ class RealtimePredictService(PredictService):
 
         # Add callback timing (store in meta["timing"] for persistence)
         if self.post_predict_hook is not None:
-            callback_started_us = time.perf_counter_ns() // 1000
+            callback_started_us = time.time_ns() // 1000
             # Copy timing to all predictions
             for prediction in predictions:
                 pred_timing = prediction.meta.setdefault("timing", {})
@@ -128,7 +151,7 @@ class RealtimePredictService(PredictService):
 
             predictions = self.post_predict_hook(predictions, inp, now)
 
-            callback_completed_us = time.perf_counter_ns() // 1000
+            callback_completed_us = time.time_ns() // 1000
             # Update callback completion timing
             for prediction in predictions:
                 prediction.meta.setdefault("timing", {})["callback_completed_us"] = (
@@ -136,7 +159,7 @@ class RealtimePredictService(PredictService):
                 )
         else:
             # No callback - copy timing to predictions and mark callback as skipped
-            callback_completed_us = time.perf_counter_ns() // 1000
+            callback_completed_us = time.time_ns() // 1000
             for prediction in predictions:
                 pred_timing = prediction.meta.setdefault("timing", {})
                 pred_timing.update(inp._timing)
@@ -152,7 +175,7 @@ class RealtimePredictService(PredictService):
             return
 
         # Add persistence timing to meta (will be persisted to DB)
-        persistence_completed_us = time.perf_counter_ns() // 1000
+        persistence_completed_us = time.time_ns() // 1000
 
         for prediction in predictions:
             prediction.meta.setdefault("timing", {})["persistence_completed_us"] = (
@@ -207,9 +230,9 @@ class RealtimePredictService(PredictService):
                 self.input_repository.save(inp)
 
             # call models
-            models_dispatched_us = time.perf_counter_ns() // 1000
+            models_dispatched_us = time.time_ns() // 1000
             responses = await self._call_models(scope)
-            models_completed_us = time.perf_counter_ns() // 1000
+            models_completed_us = time.time_ns() // 1000
             seen: set[str] = set()
 
             for model_run, result in responses.items():
@@ -295,18 +318,28 @@ class RealtimePredictService(PredictService):
 
     # ── event-driven wait ──
 
-    async def _wait_for_data(self) -> None:
-        """Wait for pg NOTIFY or fall back to polling timeout."""
+    async def _wait_for_data(self) -> str:
+        """Wait for pg NOTIFY or fall back to polling timeout.
+
+        Returns the notification payload (feed_persisted_us as string) or empty string.
+        """
         timeout = float(self.checkpoint_interval_seconds)
         try:
             from crunch_node.db.pg_notify import wait_for_notify
 
-            await self._race_stop(wait_for_notify("new_feed_data", timeout=timeout))
+            result = await self._race_stop(
+                wait_for_notify("new_feed_data", timeout=timeout)
+            )
+            if result is not None:
+                notified, payload = result
+                return payload if notified else ""
+            return ""
         except Exception:
             await self._race_stop(asyncio.sleep(timeout))
+            return ""
 
-    async def _race_stop(self, coro: Any) -> None:
-        """Run coro until it completes or stop_event fires."""
+    async def _race_stop(self, coro: Any) -> Any:
+        """Run coro until it completes or stop_event fires. Returns coro result or None."""
         task = asyncio.create_task(coro)
         stop = asyncio.create_task(self.stop_event.wait())
         done, pending = await asyncio.wait(
@@ -318,6 +351,10 @@ class RealtimePredictService(PredictService):
                 await p
             except (asyncio.CancelledError, Exception):
                 pass
+
+        if task in done:
+            return task.result()
+        return None
 
     # ── helpers ──
 
