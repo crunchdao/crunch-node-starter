@@ -84,6 +84,7 @@ class RealtimePredictService(PredictService):
                 if payload:
                     try:
                         import json
+
                         feed_timing = json.loads(payload)
                     except (ValueError, json.JSONDecodeError):
                         pass

@@ -240,11 +240,13 @@ class _RepositorySink:
 
             from crunch_node.db.pg_notify import notify
 
-            timing_payload = json.dumps({
-                "feed_received_us": feed_received_us,
-                "feed_normalized_us": feed_normalized_us,
-                "feed_persisted_us": feed_persisted_us,
-            })
+            timing_payload = json.dumps(
+                {
+                    "feed_received_us": feed_received_us,
+                    "feed_normalized_us": feed_normalized_us,
+                    "feed_persisted_us": feed_persisted_us,
+                }
+            )
             notify("new_feed_data", payload=timing_payload)
         except Exception:
             pass
