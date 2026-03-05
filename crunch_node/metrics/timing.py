@@ -22,7 +22,6 @@ class TimingCollector:
 
     _instance = None
     _lock = threading.Lock()
-    DEFAULT_OUTLIER_THRESHOLD_US = 1_000_000  # 1 second - filters runner init samples
 
     def __new__(cls):
         if cls._instance is None:
@@ -38,7 +37,6 @@ class TimingCollector:
         self._buffer: deque = deque()
         self._enabled = False
         self._buffer_size = 10000
-        self._outlier_threshold_us = self.DEFAULT_OUTLIER_THRESHOLD_US
         self._data_lock = threading.Lock()
         self._initialized = True
 
@@ -46,24 +44,17 @@ class TimingCollector:
         self,
         enabled: bool = False,
         buffer_size: int = 10000,
-        outlier_threshold_us: int | None = None,
     ):
         """Configure the timing collector.
 
         Args:
             enabled: Enable timing collection
             buffer_size: Max records to retain
-            outlier_threshold_us: Filter out records with e2e latency above this
-                                  (default 1s, filters runner initialization overhead)
         """
         with self._data_lock:
             self._enabled = enabled
             self._buffer_size = buffer_size
-            if outlier_threshold_us is not None:
-                self._outlier_threshold_us = outlier_threshold_us
-            # Resize buffer if needed
             if len(self._buffer) > buffer_size:
-                # Keep the most recent entries
                 self._buffer = deque(
                     list(self._buffer)[-buffer_size:], maxlen=buffer_size
                 )
@@ -131,49 +122,24 @@ class TimingCollector:
                 "enabled": self._enabled,
                 "buffer_size": 0,
                 "total_records": 0,
-                "filtered_records": 0,
-                "outliers_removed": 0,
                 "stage_latencies": [],
                 "recent_samples": [],
             }
 
-        # Count outliers
-        outliers = self._count_outliers(records)
-
-        # Calculate stage latencies (with filtering applied)
         stage_latencies = self._calculate_stage_latencies(records)
 
         return {
             "enabled": self._enabled,
             "buffer_size": len(records),
             "total_records": len(records),
-            "filtered_records": len(records) - outliers,
-            "outliers_removed": outliers,
             "stage_latencies": stage_latencies,
             "recent_samples": self.get_recent(10),
         }
 
-    def _count_outliers(self, records: list[dict[str, Any]]) -> int:
-        """Count records with e2e latency above the outlier threshold."""
-        threshold = self._outlier_threshold_us
-        count = 0
-        for record in records:
-            start_time = record.get("feed_received_us")
-            end_time = record.get("persistence_completed_us")
-            if start_time is not None and end_time is not None:
-                latency = end_time - start_time
-                if latency > threshold:
-                    count += 1
-        return count
-
     def _calculate_stage_latencies(
         self, records: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Calculate latency statistics for each pipeline stage.
-
-        Filters out records with e2e latency exceeding the outlier threshold
-        (default 1 second) to exclude runner initialization samples.
-        """
+        """Calculate latency statistics for each pipeline stage."""
         stage_definitions = [
             ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
             ("feed_persistence", "feed_normalized_us", "feed_persisted_us"),
@@ -190,21 +156,8 @@ class TimingCollector:
             ),
         ]
 
-        # Filter records: exclude those with e2e latency above outlier threshold
-        threshold = self._outlier_threshold_us
-        filtered_records = []
-        for record in records:
-            start_time = record.get("feed_received_us")
-            end_time = record.get("persistence_completed_us")
-            if start_time is not None and end_time is not None:
-                latency = end_time - start_time
-                if 0 <= latency <= threshold:
-                    filtered_records.append(record)
-            else:
-                filtered_records.append(record)
-
         e2e_latencies = []
-        for record in filtered_records:
+        for record in records:
             start_time = record.get("feed_received_us")
             end_time = record.get("persistence_completed_us")
             if start_time is not None and end_time is not None:
@@ -221,7 +174,7 @@ class TimingCollector:
         ):
             latencies = []
 
-            for record in filtered_records:
+            for record in records:
                 start_time = record.get(start_field)
                 end_time = record.get(end_field)
 
@@ -301,6 +254,8 @@ class TimingCollector:
         """Calculate percentile of a list of values."""
         if not data:
             return 0.0
+        if len(data) < 2:
+            return data[0]
         return statistics.quantiles(data, n=100)[p - 1] if p <= 100 else max(data)
 
 
@@ -313,10 +268,7 @@ def get_timing_collector() -> TimingCollector:
     return timing_collector
 
 
-def aggregate_timing_from_predictions(
-    predictions: list,
-    outlier_threshold_us: int = TimingCollector.DEFAULT_OUTLIER_THRESHOLD_US,
-) -> dict[str, Any]:
+def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
     """
     Aggregate timing metrics from prediction records stored in the database.
 
@@ -325,15 +277,12 @@ def aggregate_timing_from_predictions(
 
     Args:
         predictions: List of prediction records with timing in meta
-        outlier_threshold_us: Filter out records with e2e latency above this
-                              (default 1s, filters runner initialization overhead)
     """
     if not predictions:
         return {
             "enabled": True,
             "buffer_size": 0,
             "total_records": 0,
-            "filtered_records": 0,
             "stage_latencies": [],
             "recent_samples": [],
         }
@@ -349,22 +298,9 @@ def aggregate_timing_from_predictions(
             "enabled": True,
             "buffer_size": 0,
             "total_records": 0,
-            "filtered_records": 0,
             "stage_latencies": [],
             "recent_samples": [],
         }
-
-    # Filter records: exclude those with e2e latency above outlier threshold
-    filtered_records = []
-    for record in records:
-        start_time = record.get("feed_received_us")
-        end_time = record.get("persistence_completed_us")
-        if start_time is not None and end_time is not None:
-            latency = end_time - start_time
-            if 0 <= latency <= outlier_threshold_us:
-                filtered_records.append(record)
-        else:
-            filtered_records.append(record)
 
     stage_definitions = [
         ("feed_ingestion", "feed_received_us", "feed_normalized_us"),
@@ -379,7 +315,7 @@ def aggregate_timing_from_predictions(
     ]
 
     e2e_latencies = []
-    for record in filtered_records:
+    for record in records:
         start_time = record.get("feed_received_us")
         end_time = record.get("persistence_completed_us")
         if start_time is not None and end_time is not None:
@@ -394,7 +330,7 @@ def aggregate_timing_from_predictions(
         stage_definitions, start=1
     ):
         latencies = []
-        for record in filtered_records:
+        for record in records:
             start_time = record.get(start_field)
             end_time = record.get(end_field)
             if start_time is not None and end_time is not None:
@@ -415,12 +351,8 @@ def aggregate_timing_from_predictions(
                     "median_us": statistics.median(latencies),
                     "min_us": min(latencies),
                     "max_us": max(latencies),
-                    "p95_us": statistics.quantiles(latencies, n=100)[94]
-                    if len(latencies) >= 2
-                    else latencies[0],
-                    "p99_us": statistics.quantiles(latencies, n=100)[98]
-                    if len(latencies) >= 2
-                    else latencies[0],
+                    "p95_us": _percentile(latencies, 95),
+                    "p99_us": _percentile(latencies, 99),
                 }
             )
         else:
@@ -450,12 +382,8 @@ def aggregate_timing_from_predictions(
                 "median_us": statistics.median(e2e_latencies),
                 "min_us": min(e2e_latencies),
                 "max_us": max(e2e_latencies),
-                "p95_us": statistics.quantiles(e2e_latencies, n=100)[94]
-                if len(e2e_latencies) >= 2
-                else e2e_latencies[0],
-                "p99_us": statistics.quantiles(e2e_latencies, n=100)[98]
-                if len(e2e_latencies) >= 2
-                else e2e_latencies[0],
+                "p95_us": _percentile(e2e_latencies, 95),
+                "p99_us": _percentile(e2e_latencies, 99),
             }
         )
     else:
@@ -478,8 +406,15 @@ def aggregate_timing_from_predictions(
         "enabled": True,
         "buffer_size": len(records),
         "total_records": len(records),
-        "filtered_records": len(filtered_records),
-        "outliers_removed": len(records) - len(filtered_records),
         "stage_latencies": stage_latencies,
-        "recent_samples": filtered_records[-10:],
+        "recent_samples": records[-10:],
     }
+
+
+def _percentile(data: list[float], p: float) -> float:
+    """Calculate percentile of a list of values."""
+    if not data:
+        return 0.0
+    if len(data) < 2:
+        return data[0]
+    return statistics.quantiles(data, n=100)[p - 1] if p <= 100 else max(data)
