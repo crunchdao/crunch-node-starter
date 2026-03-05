@@ -89,6 +89,19 @@ Four dimensions configured in `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`,
 - `make starter` uses `apps/starter/Dockerfile`.
 - `make platform` uses `apps/platform/Dockerfile`.
 
+## Backend → UI Contract Mapping
+
+For backend-driven UI work, treat node changes as source of truth and write a
+contract at `docs/ui-contracts/<topic>.md` before implementation.
+
+Minimum contract contents:
+- backend endpoints and response field mapping to UI components
+- loading/empty/error states for each view
+- acceptance criteria that can be checked in UI/API
+
+If backend source-of-truth or UI success criteria are missing, pause and ask
+before changing `webapp/` code.
+
 ## Gotchas
 
 ### Feed subjects vs scope subjects

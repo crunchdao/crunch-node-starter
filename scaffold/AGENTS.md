@@ -35,6 +35,25 @@ Never batch unrelated changes into one commit. If a step involves both code and 
   `apps/starter/Dockerfile` and `apps/platform/Dockerfile` in the local
   `webapp/` clone.
 
+## Backend → UI Extension Workflow (MANDATORY)
+
+For any request to extend `webapp/` based on node/backend features, use only
+**node-first contract**.
+
+Before editing UI code, collect both:
+1. **Backend source of truth** (`PR`, commit, branch, or endpoint spec)
+2. **UI success criteria** (pages/components/states/workflows expected)
+
+If either is missing, **stop and ask**. Do not implement UI changes yet.
+
+After inputs are confirmed, create/update `docs/ui-contracts/<topic>.md` with:
+- backend endpoint + payload mapping
+- loading/empty/error state definitions
+- acceptance criteria for the UI
+
+Implement only from this contract and report validation against its acceptance
+criteria.
+
 ## Workflow
 
 ### 1. Verify baseline
