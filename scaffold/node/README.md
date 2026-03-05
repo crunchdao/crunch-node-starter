@@ -19,3 +19,9 @@ From this folder:
 make deploy
 make verify-e2e
 ```
+
+## Performance target
+
+Architecture should allow for **~50ms predict roundtrip** when optimized.
+If architecture changes are expected to deviate materially from this target,
+call this out explicitly with impact and rationale.

@@ -12,3 +12,8 @@ make verify-e2e
 
 - `node/` — competition infrastructure (docker-compose, config, scripts)
 - `challenge/` — participant-facing package (tracker, scoring, examples)
+
+## Performance target
+
+- The coordinator architecture is expected to allow for **~50ms predict roundtrip** (when optimized).
+- If any architecture decision is likely to deviate materially from this target, it must be explicitly flagged and explained.

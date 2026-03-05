@@ -3,11 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from crunch_node.crunch_config import CrunchConfig
@@ -23,35 +20,26 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
 )
 from crunch_node.services.feed_reader import FeedReader
-
-try:
-    from model_runner_client.grpc.generated.commons_pb2 import (
-        Argument,
-        Variant,
-        VariantType,
-    )
-    from model_runner_client.model_concurrent_runners.dynamic_subclass_model_concurrent_runner import (
-        DynamicSubclassModelConcurrentRunner,
-    )
-    from model_runner_client.model_concurrent_runners.model_concurrent_runner import (
-        ModelConcurrentRunner,
-    )
-    from model_runner_client.security.credentials import SecureCredentials
-    from model_runner_client.security.gateway_credentials import GatewayCredentials
-    from model_runner_client.utils.datatype_transformer import encode_data
-
-    MODEL_RUNNER_PROTO_AVAILABLE = True
-except Exception:  # pragma: no cover
-    ModelConcurrentRunner = None  # type: ignore[misc,assignment]
-    MODEL_RUNNER_PROTO_AVAILABLE = False
+from crunch_node.services.predict_components import (
+    ModelConcurrentRunner,
+    ModelRegistry,
+    OutputValidator,
+    PredictionKernel,
+    PredictionRecordFactory,
+)
 
 
 class PredictService:
-    """Base: get data → run models → store predictions → resolve actuals."""
+    """Shared predict primitives for concrete orchestrators.
+
+    Subclasses own data ingestion/streaming and trigger/scheduling policy.
+    This base class provides shared model invocation, validation, record
+    construction, and persistence helpers.
+    """
 
     def __init__(
         self,
-        feed_reader: FeedReader,
+        feed_reader: FeedReader | None = None,
         contract: CrunchConfig | None = None,
         input_repository: DBInputRepository | None = None,
         model_repository: DBModelRepository | None = None,
@@ -76,22 +64,42 @@ class PredictService:
         self.base_classname = base_classname
 
         self._runner = runner
-        self._runner_host = model_runner_node_host
-        self._runner_port = model_runner_node_port
-        self._runner_timeout = model_runner_timeout_seconds
-        self._runner_initialized = False
-        self._runner_sync_task = None
-        self._gateway_cert_dir = gateway_cert_dir
-        self._secure_cert_dir = secure_cert_dir
 
         self._known_models: dict[str, Model] = {}
         self.logger = logging.getLogger(type(self).__name__)
+        self._model_registry = ModelRegistry(
+            known_models=self._known_models,
+            model_repository=self.model_repository,
+            logger=self.logger,
+        )
+        self._output_validator = OutputValidator(
+            output_type=self.contract.output_type,
+            logger=self.logger,
+        )
+        self._record_factory = PredictionRecordFactory()
+        self._kernel = PredictionKernel(
+            runner=runner,
+            model_runner_node_host=model_runner_node_host,
+            model_runner_node_port=model_runner_node_port,
+            model_runner_timeout_seconds=model_runner_timeout_seconds,
+            crunch_id=crunch_id,
+            base_classname=base_classname,
+            gateway_cert_dir=gateway_cert_dir,
+            secure_cert_dir=secure_cert_dir,
+            logger=self.logger,
+        )
         self.stop_event = asyncio.Event()
 
     # ── 1. get data ──
 
     def get_data(self, now: datetime) -> InputRecord:
         """Fetch input, validate through raw_input_type, save to DB."""
+        if self.feed_reader is None:
+            raise RuntimeError(
+                "PredictService.get_data requires a feed_reader; "
+                "non-feed modes should provide raw_input directly"
+            )
+
         raw = self.feed_reader.get_input(now)
 
         feed_timing = raw.pop("_feed_timing", None)
@@ -118,11 +126,18 @@ class PredictService:
     async def _call_models(self, scope: dict[str, Any]) -> dict:
         """Send call to model runner using the configured method name."""
         method = self.contract.call_method.method
-        return await self._runner.call(method, self._encode_predict(scope))
+        args = self._kernel.encode_predict(
+            scope=scope,
+            call_args=self.contract.call_method.args,
+            scope_defaults=self.contract.scope.model_dump(),
+        )
+        return await self._kernel.call(method, args)
 
     async def _tick_models(self, inference_input: dict[str, Any]) -> None:
         """Send latest data to all models."""
-        responses = await self._runner.call("tick", self._encode_tick(inference_input))
+        responses = await self._kernel.call(
+            "tick", self._kernel.encode_tick(inference_input)
+        )
         for model_run, _ in responses.items():
             self.register_model(self._to_model(model_run))
 
@@ -136,124 +151,99 @@ class PredictService:
         status: str,
         output: dict[str, Any],
         now: datetime,
-        resolvable_at: datetime,
+        resolvable_at: datetime | None,
         exec_time_ms: float = 0.0,
         config_id: str | None = None,
         timing_data: dict[str, Any] | None = None,
     ) -> PredictionRecord:
         """Construct a PredictionRecord from model runner output."""
-        suffix = "ABS" if status == PredictionStatus.ABSENT else "PRE"
-        safe_key = "".join(
-            ch if ch.isalnum() or ch in "-_" else "_" for ch in scope_key
-        )
-        pred_id = (
-            f"{suffix}_{model_id}_{safe_key}_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}"
-        )
+        factory = getattr(self, "_record_factory", None)
+        if factory is None:
+            factory = PredictionRecordFactory()
+            self._record_factory = factory
 
-        meta = {}
-        if timing_data:
-            meta["timing"] = timing_data
-
-        return PredictionRecord(
-            id=pred_id,
-            input_id=input_id,
+        return factory.build(
             model_id=model_id,
-            prediction_config_id=config_id,
+            input_id=input_id,
             scope_key=scope_key,
-            scope={k: v for k, v in scope.items() if k != "scope_key"},
+            scope=scope,
             status=status,
-            exec_time_ms=exec_time_ms,
-            inference_output=output,
-            meta=meta,
-            performed_at=now,
+            output=output,
+            now=now,
             resolvable_at=resolvable_at,
+            exec_time_ms=exec_time_ms,
+            config_id=config_id,
+            timing_data=timing_data,
         )
 
     def _save(self, predictions: list[PredictionRecord]) -> None:
-        """Persist prediction records to the repository."""
-        if predictions:
-            self.prediction_repository.save_all(predictions)
-            self.logger.info("Saved %d predictions", len(predictions))
-            if self.logger.isEnabledFor(logging.DEBUG):
-                for p in predictions:
-                    out = p.inference_output or {}
-                    summary = {
-                        k: round(v, 6) if isinstance(v, float) else v
-                        for k, v in list(out.items())[:3]
-                    }
-                    self.logger.debug(
-                        "  model=%s scope=%s status=%s output=%s",
-                        p.model_id,
-                        p.scope_key,
-                        p.status,
-                        summary,
-                    )
+        """Persist prediction records to the repository.
+
+        This is a critical correctness write-path: score/report workers depend
+        on these records. Foreign key integrity requires that all referenced
+        models exist before predictions can be saved.
+        """
+        if not predictions:
+            return
+
+        # Ensure all referenced models exist in database before saving predictions
+        # to prevent foreign key violations on predictions.model_id → models.id
+        registry = getattr(self, "_model_registry", None)
+        if registry is not None and registry._dirty_model_ids:
+            self.logger.debug(
+                f"Flushing {len(registry._dirty_model_ids)} dirty models before prediction save"
+            )
+            registry.flush_non_critical()
+
+        # Critical path: save predictions with guaranteed FK integrity
+        self.prediction_repository.save_all(predictions)
+        self.logger.info("Saved %d predictions", len(predictions))
+
+        if self.logger.isEnabledFor(logging.DEBUG):
+            for p in predictions:
+                out = p.inference_output or {}
+                summary = {
+                    k: round(v, 6) if isinstance(v, float) else v
+                    for k, v in list(out.items())[:3]
+                }
+                self.logger.debug(
+                    "  model=%s scope=%s status=%s output=%s",
+                    p.model_id,
+                    p.scope_key,
+                    p.status,
+                    summary,
+                )
 
     # ── runner lifecycle ──
 
-    def _build_credentials(self) -> dict:
-        """Build credential kwargs for the model runner.
-
-        Connection modes (mutually exclusive, first match wins):
-          1. GATEWAY_CERT_DIR → gateway TLS (TLS-terminating proxies, e.g. Phala CVM)
-          2. SECURE_CERT_DIR  → mTLS (direct secure connection)
-          3. Neither          → insecure (local development only)
-        """
-        import os
-
-        gateway_credentials = None
-        secure_credentials = None
-
-        gateway_cert_dir = self._gateway_cert_dir or os.getenv("GATEWAY_CERT_DIR")
-        secure_cert_dir = self._secure_cert_dir or os.getenv("SECURE_CERT_DIR")
-
-        if gateway_cert_dir:
-            gateway_credentials = GatewayCredentials.from_pem(
-                key_pem=Path(os.path.join(gateway_cert_dir, "key.pem")).read_bytes(),
-            )
-            self.logger.info("Using gateway TLS credentials from %s", gateway_cert_dir)
-        elif secure_cert_dir:
-            secure_credentials = SecureCredentials.from_directory(path=secure_cert_dir)
-            self.logger.info("Using mTLS secure credentials from %s", secure_cert_dir)
-        else:
-            self.logger.info("Using insecure connection (no credentials configured)")
-
-        return dict(
-            secure_credentials=secure_credentials,
-            gateway_credentials=gateway_credentials,
-        )
-
     async def init_runner(self) -> None:
-        if self._runner is None:
-            if not MODEL_RUNNER_PROTO_AVAILABLE:
-                raise RuntimeError("model-runner-client dependency is required")
-            self._runner = DynamicSubclassModelConcurrentRunner(
-                host=self._runner_host,
-                port=self._runner_port,
-                crunch_id=self.crunch_id,
-                base_classname=self.base_classname,
-                timeout=self._runner_timeout,
-                max_consecutive_failures=100,
-                max_consecutive_timeouts=100,
-                **self._build_credentials(),
-            )
-        if not self._runner_initialized:
-            await self._runner.init()
-            self._runner_sync_task = asyncio.create_task(self._runner.sync())
-            self._runner_initialized = True
+        # Compatibility: some tests/flows swap ``self._runner`` directly.
+        # Keep kernel and service runner references aligned.
+        if self._runner is not self._kernel.runner:
+            await self._kernel.replace_runner(self._runner)
+
+        await self._kernel.init_runner()
+        self._runner = self._kernel.runner
 
     async def shutdown(self) -> None:
         self.stop_event.set()
-        if self._runner_sync_task is not None:
-            self._runner_sync_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._runner_sync_task
+        await self._kernel.shutdown()
 
     # ── model management ──
 
     def register_model(self, model: Model) -> None:
-        self._known_models[model.id] = model
-        self.model_repository.save(model)
+        registry = getattr(self, "_model_registry", None)
+        if registry is None:
+            known = getattr(self, "_known_models", {})
+            self._known_models = known
+            registry = ModelRegistry(
+                known_models=known,
+                model_repository=getattr(self, "model_repository", None),
+                logger=getattr(self, "logger", None),
+            )
+            self._model_registry = registry
+
+        registry.register(model)
 
     def validate_output(self, output: dict[str, Any]) -> str | None:
         """Validate model output against InferenceOutput schema.
@@ -262,27 +252,42 @@ class PredictService:
         Catches both type mismatches AND outputs where no keys match
         the schema (model returning the wrong format entirely).
         """
-        try:
-            output_type = self.contract.output_type
-            schema_fields = set(output_type.model_fields.keys())
+        validator = getattr(self, "_output_validator", None)
+        if validator is None:
+            validator = OutputValidator(
+                output_type=self.contract.output_type,
+                logger=getattr(self, "logger", None),
+            )
+            self._output_validator = validator
 
-            # Check that at least one output key matches a schema field
-            matching_keys = set(output.keys()) & schema_fields
-            if schema_fields and not matching_keys:
-                msg = (
-                    f"Model output keys {set(output.keys())} do not match any "
-                    f"InferenceOutput fields {schema_fields}. The model is likely "
-                    f"returning the wrong schema."
-                )
-                self.logger.error("INFERENCE_OUTPUT_VALIDATION_ERROR: %s", msg)
-                return msg
+        return validator.validate_and_normalize(output)
 
-            validated = self.contract.output_type.model_validate(output)
-            output.update(validated.model_dump())
-            return None
-        except Exception as exc:
-            self.logger.error("INFERENCE_OUTPUT_VALIDATION_ERROR: %s", exc)
-            return str(exc)
+    def _map_runner_result(
+        self, result: Any
+    ) -> tuple[PredictionStatus, dict[str, Any]]:
+        """Map runner response to (PredictionStatus, normalized_output)."""
+        raw_status = getattr(result, "status", "UNKNOWN")
+        runner_status = (
+            str(raw_status.value) if hasattr(raw_status, "value") else str(raw_status)
+        )
+
+        output = getattr(result, "result", {})
+        output = output if isinstance(output, dict) else {"result": output}
+
+        validation_error = self.validate_output(output)
+        if validation_error:
+            return PredictionStatus.FAILED, {
+                "_validation_error": validation_error,
+                "raw_output": output,
+            }
+
+        if runner_status == "SUCCESS":
+            return PredictionStatus.PENDING, output
+
+        if runner_status in PredictionStatus.__members__:
+            return PredictionStatus(runner_status), output
+
+        return PredictionStatus.FAILED, output
 
     @staticmethod
     def _to_model(model_run) -> Model:
@@ -297,83 +302,18 @@ class PredictService:
             ),
         )
 
-    # ── proto encoding ──
+    # ── proto encoding compatibility wrappers ──
 
-    @staticmethod
-    def _encode_tick(inference_input: dict[str, Any]) -> tuple:
-        if MODEL_RUNNER_PROTO_AVAILABLE:
-            return (
-                [
-                    Argument(
-                        position=1,
-                        data=Variant(
-                            type=VariantType.JSON,
-                            value=encode_data(VariantType.JSON, inference_input),
-                        ),
-                    )
-                ],
-                [],
-            )
-        return (inference_input,)
-
-    # ── proto type mapping ──
-
-    _VARIANT_TYPE_MAP: dict[str, Any] = {}
+    def _encode_tick(self, inference_input: dict[str, Any]) -> tuple:
+        return self._kernel.encode_tick(inference_input)
 
     @classmethod
     def _get_variant_type(cls, type_name: str) -> Any:
-        """Resolve a CallMethodArg type string to a VariantType enum value."""
-        if not cls._VARIANT_TYPE_MAP and MODEL_RUNNER_PROTO_AVAILABLE:
-            cls._VARIANT_TYPE_MAP.update(
-                {
-                    "STRING": VariantType.STRING,
-                    "INT": VariantType.INT,
-                    "FLOAT": VariantType.DOUBLE,
-                    "DOUBLE": VariantType.DOUBLE,
-                    "JSON": VariantType.JSON,
-                }
-            )
-        return cls._VARIANT_TYPE_MAP.get(
-            type_name.upper(), cls._VARIANT_TYPE_MAP.get("STRING")
-        )
+        return PredictionKernel.get_variant_type(type_name)
 
     def _encode_predict(self, scope: dict[str, Any]) -> tuple:
-        """Encode arguments according to ``contract.call_method.args``.
-
-        Each arg reads its value from the scope dict (falling back to the
-        contract's default scope), converts to the declared type, and is
-        packed as a proto Argument when the model-runner client is available.
-        """
-        call_args = self.contract.call_method.args
-        scope_defaults = self.contract.scope.model_dump()
-
-        # Resolve raw values
-        raw_values: list[tuple[str, Any]] = []
-        for arg in call_args:
-            value = scope.get(arg.name)
-            if value is None:
-                value = scope_defaults.get(arg.name, "")
-            # Coerce to declared type
-            utype = arg.type.upper()
-            if utype == "INT":
-                value = int(value)
-            elif utype == "FLOAT":
-                value = float(value)
-            elif utype == "STRING":
-                value = str(value)
-            # JSON left as-is
-            raw_values.append((utype, value))
-
-        if MODEL_RUNNER_PROTO_AVAILABLE:
-            arguments = []
-            for position, (utype, value) in enumerate(raw_values, start=1):
-                vtype = self._get_variant_type(utype)
-                arguments.append(
-                    Argument(
-                        position=position,
-                        data=Variant(type=vtype, value=encode_data(vtype, value)),
-                    )
-                )
-            return (arguments, [])
-
-        return tuple(v for _, v in raw_values)
+        return self._kernel.encode_predict(
+            scope=scope,
+            call_args=self.contract.call_method.args,
+            scope_defaults=self.contract.scope.model_dump(),
+        )

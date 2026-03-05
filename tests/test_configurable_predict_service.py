@@ -120,6 +120,17 @@ class TestResolveServiceClass(unittest.TestCase):
 
 
 class TestServiceInstantiation(unittest.TestCase):
+    def test_base_service_can_instantiate_without_feed_reader(self):
+        """Base service should allow non-feed modes to omit feed_reader."""
+        service = PredictService(contract=CrunchConfig(), runner=FakeRunner())
+        self.assertIsNone(service.feed_reader)
+
+    def test_get_data_without_feed_reader_raises_clear_error(self):
+        service = PredictService(contract=CrunchConfig(), runner=FakeRunner())
+        with self.assertRaises(RuntimeError) as ctx:
+            service.get_data(datetime.now(UTC))
+        self.assertIn("feed_reader", str(ctx.exception))
+
     def test_custom_service_instantiated_with_kwargs(self):
         """Custom service class receives standard PredictService kwargs."""
         config = CrunchConfig(predict_service_class=CustomPredictService)
