@@ -99,7 +99,7 @@ class TournamentPredictService(PredictService):
 
         # Validate features through input_type
         validated_features = [
-            self.contract.input_type.model_validate(f).model_dump() for f in features
+            self.config.input_type.model_validate(f).model_dump() for f in features
         ]
 
         # Save input record (features batch)
@@ -222,14 +222,12 @@ class TournamentPredictService(PredictService):
         # Normalize ground truth to list
         if isinstance(ground_truth, list):
             gt_items = [
-                self.contract.ground_truth_type.model_validate(gt).model_dump()
+                self.config.ground_truth_type.model_validate(gt).model_dump()
                 for gt in ground_truth
             ]
         else:
             gt_items = [
-                self.contract.ground_truth_type.model_validate(
-                    ground_truth
-                ).model_dump()
+                self.config.ground_truth_type.model_validate(ground_truth).model_dump()
             ]
 
         # Find all pending predictions for this round (prefix match)
@@ -278,7 +276,7 @@ class TournamentPredictService(PredictService):
 
                 try:
                     result = self._scoring_function(typed_output, gt)
-                    validated_result = self.contract.score_type.model_validate(result)
+                    validated_result = self.config.score_type.model_validate(result)
 
                     score = ScoreRecord(
                         id=f"SCR_{pred.id}",
@@ -326,7 +324,7 @@ class TournamentPredictService(PredictService):
         like subject/horizon. Tournament models receive one feature dict
         as a single JSON argument.
         """
-        method = self.contract.call_method.method
+        method = self.config.call_method.method
         features = scope.get("features", scope)
         try:
             from model_runner_client.grpc.generated.commons_pb2 import (

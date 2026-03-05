@@ -45,6 +45,7 @@ class ScoreService:
         merkle_cycle_repository: DBMerkleCycleRepository | None = None,
         merkle_node_repository: DBMerkleNodeRepository | None = None,
         checkpoint_repository: DBCheckpointRepository | None = None,
+        config: CrunchConfig | None = None,
         contract: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
         **kwargs: Any,
@@ -61,7 +62,9 @@ class ScoreService:
         self.snapshot_repository = snapshot_repository
         self.model_repository = model_repository
         self.leaderboard_repository = leaderboard_repository
-        self.contract = contract or CrunchConfig()
+        if config is not None and contract is not None and config is not contract:
+            raise ValueError("Provide only one of config= or contract=")
+        self.config = config or contract or CrunchConfig()
 
         # Merkle tamper evidence
         if merkle_cycle_repository and merkle_node_repository:
@@ -78,7 +81,7 @@ class ScoreService:
                 snapshot_repository=snapshot_repository,
                 checkpoint_repository=checkpoint_repository,
                 model_repository=model_repository,
-                contract=self.contract,
+                config=self.config,
                 interval_seconds=checkpoint_interval_seconds,
                 merkle_service=self.merkle_service,
             )
@@ -88,6 +91,15 @@ class ScoreService:
 
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
+
+    @property
+    def contract(self) -> CrunchConfig:
+        """Backward-compatible alias for ``config``."""
+        return self.config
+
+    @contract.setter
+    def contract(self, value: CrunchConfig) -> None:
+        self.config = value
 
     # ── scoring stub detection ──
 
@@ -149,7 +161,7 @@ class ScoreService:
     # ── typed output coercion ──
 
     def _coerce_output(self, raw: dict[str, Any]) -> dict[str, Any]:
-        """Parse a raw inference_output dict through ``contract.output_type``.
+        """Parse a raw inference_output dict through ``config.output_type``.
 
         This ensures the scoring function always receives a dict whose keys
         exactly match the ``InferenceOutput`` fields (with defaults filled in
@@ -157,7 +169,7 @@ class ScoreService:
         ``InferenceOutput`` are preserved so no data is silently lost.
         """
         try:
-            typed = self.contract.output_type.model_validate(raw)
+            typed = self.config.output_type.model_validate(raw)
             result = typed.model_dump()
             for key, value in raw.items():
                 if key not in result:
@@ -171,14 +183,14 @@ class ScoreService:
             return raw
 
     def validate_scoring_io(self) -> None:
-        """Dry-run the scoring function with default contract types at startup.
+        """Dry-run the scoring function with default config types at startup.
 
         Catches field-name mismatches (e.g. scoring reads ``prediction["order_type"]``
         but ``InferenceOutput`` only defines ``value``) before any real predictions
         are scored.  Raises on hard errors; logs warnings on soft issues.
         """
-        output_type = self.contract.output_type
-        ground_truth_type = self.contract.ground_truth_type
+        output_type = self.config.output_type
+        ground_truth_type = self.config.ground_truth_type
 
         # Build a sample prediction dict from InferenceOutput defaults
         try:
@@ -223,11 +235,11 @@ class ScoreService:
 
         # Validate the result against ScoreResult
         try:
-            self.contract.score_type.model_validate(result)
+            self.config.score_type.model_validate(result)
         except Exception as exc:
             raise RuntimeError(
                 f"Scoring function returned {result!r} which does not match "
-                f"ScoreResult ({self.contract.score_type.__name__}): {exc}"
+                f"ScoreResult ({self.config.score_type.__name__}): {exc}"
             ) from exc
 
         self.logger.info(
@@ -327,11 +339,11 @@ class ScoreService:
             granularity=scope.get("granularity"),
         )
 
-        actuals = self.contract.resolve_ground_truth(records, prediction)
+        actuals = self.config.resolve_ground_truth(records, prediction)
         if actuals is None:
             return None
         # Validate through ground_truth_type
-        parsed = self.contract.ground_truth_type.model_validate(actuals)
+        parsed = self.config.ground_truth_type.model_validate(actuals)
         return parsed.model_dump()
 
     def _score_predictions(self, now: datetime) -> list[ScoreRecord]:
@@ -356,7 +368,7 @@ class ScoreService:
             typed_output["prediction_id"] = prediction.id
 
             result = self.scoring_function(typed_output, actuals)
-            validated = self.contract.score_type.model_validate(result)
+            validated = self.config.score_type.model_validate(result)
 
             score = ScoreRecord(
                 id=f"SCR_{prediction.id}",
@@ -433,10 +445,10 @@ class ScoreService:
 
         for model_id, results in by_model_scores.items():
             # Baseline aggregation
-            summary = self.contract.aggregate_snapshot(results)
+            summary = self.config.aggregate_snapshot(results)
 
             # Multi-metric enrichment
-            if self.contract.metrics:
+            if self.config.metrics:
                 ctx = MetricsContext(
                     model_id=model_id,
                     window_start=metrics_context_base.window_start,
@@ -444,8 +456,8 @@ class ScoreService:
                     all_model_predictions=metrics_context_base.all_model_predictions,
                     ensemble_predictions=metrics_context_base.ensemble_predictions,
                 )
-                metric_results = self.contract.compute_metrics(
-                    self.contract.metrics,
+                metric_results = self.config.compute_metrics(
+                    self.config.metrics,
                     by_model_preds.get(model_id, []),
                     by_model_score_dicts.get(model_id, []),
                     ctx,
@@ -483,7 +495,7 @@ class ScoreService:
 
     def _compute_ensembles(self, scored: list[ScoreRecord], now: datetime) -> None:
         """Compute ensemble predictions for all enabled ensemble configs."""
-        if not self.contract.ensembles:
+        if not self.config.ensembles:
             return
 
         from crunch_node.metrics.context import MetricsContext
@@ -529,7 +541,7 @@ class ScoreService:
 
         ensemble_predictions_map: dict[str, list[dict[str, Any]]] = {}
 
-        for ens_config in self.contract.ensembles:
+        for ens_config in self.config.ensembles:
             if not ens_config.enabled:
                 continue
 
@@ -577,7 +589,7 @@ class ScoreService:
                 if actuals is not None:
                     typed_output = self._coerce_output(ep.inference_output)
                     result = self.scoring_function(typed_output, actuals)
-                    validated = self.contract.score_type.model_validate(result)
+                    validated = self.config.score_type.model_validate(result)
                     score = ScoreRecord(
                         id=f"SCR_{ep.id}",
                         prediction_id=ep.id,
@@ -606,10 +618,10 @@ class ScoreService:
             if ens_scored and self.snapshot_repository:
                 ens_model_id = ensemble_model_id(ens_config.name)
                 results = [s.result for s in ens_scored]
-                summary = self.contract.aggregate_snapshot(results)
+                summary = self.config.aggregate_snapshot(results)
 
                 # Compute metrics for the ensemble too
-                if self.contract.metrics:
+                if self.config.metrics:
                     ctx = MetricsContext(
                         model_id=ens_model_id,
                         window_start=min(
@@ -623,8 +635,8 @@ class ScoreService:
                         {"result": s.result, "scored_at": s.scored_at}
                         for s in ens_scored
                     ]
-                    metric_results = self.contract.compute_metrics(
-                        self.contract.metrics,
+                    metric_results = self.config.compute_metrics(
+                        self.config.metrics,
                         ens_pred_dicts,
                         ens_score_dicts,
                         ctx,
@@ -693,7 +705,7 @@ class ScoreService:
         self, snapshots: list[SnapshotRecord], models: dict
     ) -> list[dict[str, Any]]:
         now = datetime.now(UTC)
-        aggregation = self.contract.aggregation
+        aggregation = self.config.aggregation
 
         # Group snapshots by model
         by_model: dict[str, list[SnapshotRecord]] = {}
@@ -754,8 +766,8 @@ class ScoreService:
         return entries
 
     def _rank(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        key = self.contract.aggregation.ranking_key
-        reverse = self.contract.aggregation.ranking_direction == "desc"
+        key = self.config.aggregation.ranking_key
+        reverse = self.config.aggregation.ranking_direction == "desc"
 
         def sort_key(e: dict[str, Any]) -> float:
             score = e.get("score")

@@ -62,7 +62,7 @@ def _get_service():
             logger.warning("Could not resolve scoring function: %s", exc)
 
     _service = TournamentPredictService(
-        contract=config,
+        config=config,
         input_repository=DBInputRepository(session),
         model_repository=DBModelRepository(session),
         prediction_repository=DBPredictionRepository(session),
