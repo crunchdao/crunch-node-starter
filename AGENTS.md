@@ -53,6 +53,13 @@ tests/                # All tests
 Feed → Input (dumb log) → Prediction (owns resolution) → Score → Snapshot → Leaderboard → Checkpoint
 ```
 
+### Predict Latency Budget (MANDATORY)
+
+- Treat **~50ms predict roundtrip** as an architecture target (when optimized).
+- "Predict roundtrip" = predict worker path from data availability/wakeup to persisted prediction records.
+- If a design/architecture decision is expected to push latency materially above this target, **explicitly notify the user**.
+- Always include: (1) why deviation is needed, (2) estimated latency impact, (3) mitigation alternatives.
+
 ### Scoring → Snapshots → Leaderboard
 
 1. `scoring_function(prediction, ground_truth)` → ScoreRecord

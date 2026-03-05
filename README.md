@@ -54,6 +54,21 @@ Changes to `crunch_node/` are picked up immediately on rebuild.
 Feed → Input → Prediction → Score → Snapshot → Checkpoint → On-chain
 ```
 
+### Predict latency target (architecture SLO)
+
+The architecture should support **~50ms predict roundtrip** when optimized.
+
+- Definition: predict-worker roundtrip from new data wake-up/availability to prediction persistence.
+- Any architecture decision expected to push this materially above ~50ms **must be called out explicitly** in specs, PR notes, and agent output.
+- If such a deviation is required, include rationale, expected impact, and mitigation options.
+
+### Architecture docs
+
+Detailed C4 + refactor documentation:
+
+- `docs/architecture/README.md`
+- `docs/architecture/predict-service-kernel-architecture.md`
+
 ### Workers
 
 | Worker | Purpose |

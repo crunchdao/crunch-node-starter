@@ -135,31 +135,7 @@ class TournamentPredictService(PredictService):
                 self.register_model(model)
                 seen.add(model.id)
 
-                raw_status = getattr(result, "status", "UNKNOWN")
-                runner_status = (
-                    str(raw_status.value)
-                    if hasattr(raw_status, "value")
-                    else str(raw_status)
-                )
-
-                output = getattr(result, "result", {})
-                output = output if isinstance(output, dict) else {"result": output}
-
-                validation_error = self.validate_output(output)
-                if validation_error:
-                    status = PredictionStatus.FAILED
-                    output = {
-                        "_validation_error": validation_error,
-                        "raw_output": output,
-                    }
-                elif runner_status == "SUCCESS":
-                    status = PredictionStatus.PENDING
-                else:
-                    status = (
-                        PredictionStatus(runner_status)
-                        if runner_status in PredictionStatus.__members__
-                        else PredictionStatus.FAILED
-                    )
+                status, output = self._map_runner_result(result)
 
                 predictions.append(
                     self._build_record(

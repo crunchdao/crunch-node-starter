@@ -52,7 +52,14 @@ Do not carry over [starter placeholder values](.agent/guide.md#starter-placehold
 
 ### 3. Implement
 Follow the [Implementation Guide](.agent/guide.md) — types/tracker, examples, feeds, ground truth, then scoring. Order matters.
-Validate proposals you have with the user and help them to make good decisions here by giving context and guidance. 
+Validate proposals you have with the user and help them to make good decisions here by giving context and guidance.
+
+### Predict latency budget (mandatory)
+
+- Keep architecture decisions aligned with a **~50ms predict roundtrip** target (when optimized).
+- Predict roundtrip means the predict-worker path from data availability/wakeup to persisted predictions.
+- If a decision is likely to deviate materially from this target, explicitly notify the user before/while implementing.
+- Include the reason, estimated impact, and lower-latency alternatives.
 
 ### 4. Wire in CrunchConfig
 Connect everything in `node/config/crunch_config.py` — the single source of truth for types, scoring, schedules, and callables.
