@@ -24,7 +24,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig(output_type=StrictOutput)
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")
@@ -45,7 +45,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig(output_type=TypedOutput)
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")
@@ -61,7 +61,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig()  # default InferenceOutput: value: float = 0.0
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")
@@ -76,7 +76,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig()
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")
@@ -92,7 +92,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig()  # default InferenceOutput: value: float = 0.0
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")
@@ -117,7 +117,7 @@ class TestOutputValidationRejectsInvalidOutput:
 
         config = CrunchConfig(output_type=StrictOutput)
         service = PredictService.__new__(PredictService)
-        service.contract = config
+        service.config = config
         import logging
 
         service.logger = logging.getLogger("test")

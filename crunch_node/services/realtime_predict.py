@@ -110,7 +110,7 @@ class RealtimePredictService(PredictService):
 
         # 1. get data → tick models
         if raw_input is not None:
-            validated = self.contract.raw_input_type.model_validate(raw_input)
+            validated = self.config.raw_input_type.model_validate(raw_input)
             data = validated.model_dump()
             inp = InputRecord(
                 id=f"INP_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
@@ -212,7 +212,7 @@ class RealtimePredictService(PredictService):
             resolve_seconds = int(schedule.resolve_horizon_seconds or 0)
             scope = {
                 "scope_key": str(config.get("scope_key") or "default-scope"),
-                **self.contract.scope.model_dump(),
+                **self.config.scope.model_dump(),
                 **(config.get("scope_template") or {}),
                 "resolve_horizon_seconds": resolve_seconds,
             }

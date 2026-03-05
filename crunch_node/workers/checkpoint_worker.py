@@ -40,7 +40,7 @@ def build_service() -> CheckpointService:
     session = create_session()
     interval = int(os.getenv("CHECKPOINT_INTERVAL_SECONDS", str(7 * 24 * 3600)))
 
-    contract = load_config()
+    config = load_config()
 
     # Env var overrides for on-chain identifiers (backward compat)
     crunch_pubkey = os.getenv("CRUNCH_PUBKEY", "")
@@ -48,11 +48,11 @@ def build_service() -> CheckpointService:
     data_provider = os.getenv("DATA_PROVIDER_PUBKEY")
 
     if crunch_pubkey:
-        contract.crunch_pubkey = crunch_pubkey
+        config.crunch_pubkey = crunch_pubkey
     if compute_provider:
-        contract.compute_provider = compute_provider
+        config.compute_provider = compute_provider
     if data_provider:
-        contract.data_provider = data_provider
+        config.data_provider = data_provider
 
     merkle_service = MerkleService(
         merkle_cycle_repository=DBMerkleCycleRepository(session),
@@ -63,7 +63,7 @@ def build_service() -> CheckpointService:
         snapshot_repository=DBSnapshotRepository(session),
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=DBModelRepository(session),
-        contract=contract,
+        config=config,
         interval_seconds=interval,
         merkle_service=merkle_service,
     )
