@@ -63,11 +63,11 @@ class FeedDataService:
         self,
         settings: FeedDataSettings,
         feed_record_repository,
-        sink=None,
+        sinks: Sequence | None = None,
     ):
         self.settings = settings
         self.feed_record_repository = feed_record_repository
-        self._custom_sink = sink
+        self._sinks = list(sinks) if sinks else []
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
         self._handles = []
@@ -86,7 +86,8 @@ class FeedDataService:
 
         await self._backfill(feed)
 
-        sink = self._custom_sink or _RepositorySink(self.feed_record_repository)
+        sinks = self._sinks or [RepositorySink(self.feed_record_repository)]
+        sink = _CompositeSink(sinks)
         subscription = FeedSubscription(
             subjects=self.settings.subjects,
             kind=self.settings.kind,
@@ -197,7 +198,24 @@ class FeedDataService:
         return count
 
 
-class _RepositorySink:
+class _CompositeSink:
+    def __init__(self, sinks: list):
+        self._sinks = sinks
+        self._logger = logging.getLogger(__name__)
+
+    async def on_record(self, record: FeedDataRecord) -> None:
+        results = await asyncio.gather(
+            *(sink.on_record(record) for sink in self._sinks),
+            return_exceptions=True,
+        )
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                self._logger.error(
+                    "sink %s failed: %s", type(self._sinks[i]).__name__, result
+                )
+
+
+class RepositorySink:
     def __init__(self, repository, label: str = "feed"):
         self._repository = repository
         self._label = label

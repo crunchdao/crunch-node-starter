@@ -18,7 +18,7 @@ from crunch_node.db import (
     DBPredictionRepository,
     create_session,
 )
-from crunch_node.services.feed_data import FeedDataService, FeedDataSettings
+from crunch_node.services.feed_data import FeedDataService, FeedDataSettings, RepositorySink
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.feed_window import FeedWindow
 from crunch_node.services.predict import PredictService
@@ -123,17 +123,16 @@ async def main() -> None:
     logger.info("Loading initial feed window from database")
     feed_window.load_from_db(feed_repository, feed_settings)
 
-    sink = PredictSink(
+    predict_sink = PredictSink(
         predict_service=predict_service,
-        feed_repository=feed_repository,
         feed_window=feed_window,
-        source=feed_settings.source,
     )
+    repo_sink = RepositorySink(feed_repository)
 
     feed_service = FeedDataService(
         settings=feed_settings,
         feed_record_repository=feed_repository,
-        sink=sink,
+        sinks=[repo_sink, predict_sink],
     )
 
     logger.info(
@@ -145,7 +144,6 @@ async def main() -> None:
     try:
         await feed_service.run()
     finally:
-        await sink.drain()
         await predict_service.shutdown()
 
 
