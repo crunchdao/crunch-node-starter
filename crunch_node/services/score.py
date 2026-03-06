@@ -339,6 +339,32 @@ class ScoreService:
             granularity=scope.get("granularity"),
         )
 
+        if not records:
+            return None
+
+        # Check that resolved data is near the horizon, not stale
+        staleness_fraction = self.config.max_ground_truth_staleness_fraction
+        if staleness_fraction > 0:
+            last_record = records[-1]
+            horizon_ts = prediction.resolvable_at.timestamp()
+            performed_ts = prediction.performed_at.timestamp()
+            resolved_ts = last_record.ts_event.timestamp()
+
+            horizon_seconds = horizon_ts - performed_ts
+            staleness_seconds = horizon_ts - resolved_ts
+            max_staleness = horizon_seconds * staleness_fraction
+
+            if staleness_seconds > max_staleness:
+                self.logger.warning(
+                    "Ground truth too stale for prediction %s: "
+                    "last record is %.1fs before horizon (max allowed: %.1fs = %.0f%% of horizon)",
+                    prediction.id,
+                    staleness_seconds,
+                    max_staleness,
+                    staleness_fraction * 100,
+                )
+                return None
+
         actuals = self.config.resolve_ground_truth(records, prediction)
         if actuals is None:
             return None

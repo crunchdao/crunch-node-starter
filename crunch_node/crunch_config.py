@@ -559,6 +559,17 @@ class CrunchConfig(BaseModel):
     resolve_ground_truth: Callable[
         [list[FeedRecord], PredictionRecord | None], dict[str, Any] | None
     ] = default_resolve_ground_truth
+    max_ground_truth_staleness_fraction: float = Field(
+        default=0.2,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Maximum allowed staleness as a fraction of the resolve horizon. "
+            "If the last feed record is more than (horizon * fraction) seconds "
+            "before the horizon, scoring is skipped. E.g., 0.2 means data must "
+            "be within the last 20% of the horizon window. Set to 0 to disable."
+        ),
+    )
     aggregate_snapshot: Callable[[list[dict[str, Any]]], dict[str, Any]] = (
         default_aggregate_snapshot
     )
