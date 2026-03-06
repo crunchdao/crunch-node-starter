@@ -51,14 +51,14 @@ class TestExampleContract:
     """Every example must satisfy the model contract."""
 
     def test_returns_dict_with_value(self, tracker):
-        tracker.tick(_make_tick("BTC", UPTREND_CLOSES))
+        tracker.feed_update(_make_tick("BTC", UPTREND_CLOSES))
         result = tracker.predict("BTC", resolve_horizon_seconds=60, step_seconds=15)
         assert isinstance(result, dict)
         assert "value" in result
         assert isinstance(result["value"], (int, float))
 
     def test_empty_data_returns_zero(self, tracker):
-        tracker.tick(EMPTY_TICK)
+        tracker.feed_update(EMPTY_TICK)
         result = tracker.predict("BTC", resolve_horizon_seconds=60, step_seconds=15)
         assert result["value"] == 0.0
 
@@ -68,23 +68,23 @@ class TestExampleContract:
 
     def test_sparse_candles_does_not_crash(self, tracker):
         """Fewer than 3 candles — models should handle gracefully."""
-        tracker.tick(_make_tick("BTC", [40000, 40010]))
+        tracker.feed_update(_make_tick("BTC", [40000, 40010]))
         result = tracker.predict("BTC", resolve_horizon_seconds=60, step_seconds=15)
         assert isinstance(result["value"], (int, float))
         assert result["value"] == 0.0  # < 3 prices triggers early return
 
     def test_single_candle(self, tracker):
-        tracker.tick(_make_tick("BTC", [40000]))
+        tracker.feed_update(_make_tick("BTC", [40000]))
         result = tracker.predict("BTC", resolve_horizon_seconds=60, step_seconds=15)
         assert result["value"] == 0.0
 
 
 class TestMultiSubjectIsolation:
-    """tick() data must be isolated per subject (P0 bug #1 regression test)."""
+    """feed_update() data must be isolated per subject (P0 bug #1 regression test)."""
 
     def test_btc_and_eth_produce_different_predictions(self, tracker):
-        tracker.tick(_make_tick("BTC", UPTREND_CLOSES))
-        tracker.tick(_make_tick("ETH", DOWNTREND_CLOSES))
+        tracker.feed_update(_make_tick("BTC", UPTREND_CLOSES))
+        tracker.feed_update(_make_tick("ETH", DOWNTREND_CLOSES))
 
         btc_pred = tracker.predict("BTC", 60, 15)
         eth_pred = tracker.predict("ETH", 60, 15)
@@ -94,15 +94,15 @@ class TestMultiSubjectIsolation:
         )
 
     def test_ticking_eth_does_not_change_btc(self, tracker):
-        tracker.tick(_make_tick("BTC", UPTREND_CLOSES))
+        tracker.feed_update(_make_tick("BTC", UPTREND_CLOSES))
         btc_before = tracker.predict("BTC", 60, 15)["value"]
 
-        tracker.tick(_make_tick("ETH", DOWNTREND_CLOSES))
+        tracker.feed_update(_make_tick("ETH", DOWNTREND_CLOSES))
         btc_after = tracker.predict("BTC", 60, 15)["value"]
 
         assert btc_before == btc_after
 
     def test_unknown_subject_returns_zero(self, tracker):
-        tracker.tick(_make_tick("BTC", UPTREND_CLOSES))
+        tracker.feed_update(_make_tick("BTC", UPTREND_CLOSES))
         result = tracker.predict("SOL", 60, 15)
         assert result["value"] == 0.0

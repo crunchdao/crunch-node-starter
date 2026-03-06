@@ -311,7 +311,7 @@ class PredictionKernel:
             type_name.upper(), cls._VARIANT_TYPE_MAP.get("STRING")
         )
 
-    def encode_tick(self, inference_input: dict[str, Any]) -> tuple:
+    def encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
         if self._proto_available:
             return (
                 [

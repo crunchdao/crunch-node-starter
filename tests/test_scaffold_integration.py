@@ -391,7 +391,7 @@ class TestTrackerOutputMatchesInferenceOutput:
                 {"ts": 1700000000 + i * 60, "close": 40000 + i * 10} for i in range(10)
             ],
         }
-        example_tracker.tick(tick_data)
+        example_tracker.feed_update(tick_data)
 
         scope = crunch_config.scope.model_dump()
         resolve = crunch_config.scheduled_predictions[0].resolve_horizon_seconds
@@ -421,7 +421,7 @@ class TestTrackerOutputMatchesInferenceOutput:
                 {"ts": 1700000000 + i * 60, "close": 40000 + i * 10} for i in range(10)
             ],
         }
-        example_tracker.tick(tick_data)
+        example_tracker.feed_update(tick_data)
 
         scope = crunch_config.scope.model_dump()
         resolve = crunch_config.scheduled_predictions[0].resolve_horizon_seconds

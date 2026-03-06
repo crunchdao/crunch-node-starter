@@ -546,27 +546,6 @@ class CrunchConfig(BaseModel):
             "Use for stateful scoring (e.g. PositionManager-backed trading)."
         ),
     )
-    pre_predict_hook: (
-        Callable[[dict[str, Any], datetime], dict[str, Any] | None] | None
-    ) = Field(
-        default=None,
-        description=(
-            "Hook called before models receive data. Receives (raw_data, now) "
-            "and returns the (possibly transformed) data dict for models. "
-            "Return None to skip prediction for this tick."
-        ),
-    )
-    post_predict_hook: (
-        Callable[[list[PredictionRecord], InputRecord, Any], list[PredictionRecord]]
-        | None
-    ) = Field(
-        default=None,
-        description=(
-            "Hook called after models produce outputs but before predictions "
-            "are saved to the database. Receives (predictions, input_record, now) "
-            "and returns the (possibly modified) list of PredictionRecords."
-        ),
-    )
     resolve_ground_truth: Callable[
         [list[FeedRecord], PredictionRecord | None], dict[str, Any] | None
     ] = default_resolve_ground_truth
