@@ -105,7 +105,11 @@ class PredictService:
     # ── 1. get data ──
 
     def get_data(self, now: datetime) -> InputRecord:
-        """Fetch input, validate through raw_input_type, save to DB."""
+        """Fetch input from feed reader, save to DB.
+
+        The feed reader's normalizer validates and shapes the data.
+        No additional validation is performed here.
+        """
         if self.feed_reader is None:
             raise RuntimeError(
                 "PredictService.get_data requires a feed_reader; "
@@ -113,15 +117,11 @@ class PredictService:
             )
 
         raw = self.feed_reader.get_input(now)
-
         feed_timing = raw.pop("_feed_timing", None)
-
-        validated = self.config.raw_input_type.model_validate(raw)
-        data = validated.model_dump()
 
         record = InputRecord(
             id=f"INP_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
-            raw_data=data,
+            raw_data=raw,
             received_at=now,
         )
 

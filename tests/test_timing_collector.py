@@ -3,8 +3,6 @@ Unit tests for TimingCollector functionality.
 """
 
 import threading
-import time
-from unittest.mock import patch
 
 import pytest
 
@@ -16,7 +14,6 @@ class TestTimingCollector:
 
     def setup_method(self):
         """Reset timing collector for each test."""
-        # Clear the buffer and reset to default config
         timing_collector.configure(enabled=False, buffer_size=10000)
         timing_collector.clear()
 
@@ -62,7 +59,6 @@ class TestTimingCollector:
         """Test that buffer respects size limit."""
         timing_collector.configure(enabled=True, buffer_size=3)
 
-        # Add 5 records, should only keep the last 3
         for i in range(5):
             timing_collector.record_timing(f"test-id-{i}", {"time": i})
 
@@ -75,7 +71,6 @@ class TestTimingCollector:
         """Test getting recent records."""
         timing_collector.configure(enabled=True)
 
-        # Add 10 records
         for i in range(10):
             timing_collector.record_timing(f"test-id-{i}", {"time": i})
 
@@ -108,7 +103,6 @@ class TestTimingCollector:
         """Test calculation of stage latencies."""
         timing_collector.configure(enabled=True)
 
-        # Add records with complete timing data
         timing_collector.record_timing(
             "test-1",
             {
@@ -141,25 +135,19 @@ class TestTimingCollector:
         def get_stage(name):
             return next((s for s in stage_latencies if s["name"] == name), None)
 
-        # Check feed ingestion stage (received to normalized)
         feed_ingestion = get_stage("feed_ingestion")
         assert feed_ingestion is not None
         assert feed_ingestion["count"] == 2
-        assert feed_ingestion["mean_us"] == 500.0  # (500 + 500) / 2
+        assert feed_ingestion["mean_us"] == 500.0
 
-        # Check model execution stage (dispatched to completed)
         model_execution = get_stage("model_execution")
         assert model_execution is not None
         assert model_execution["count"] == 2
-        assert model_execution["mean_us"] == 1050.0  # (1000 + 1100) / 2
+        assert model_execution["mean_us"] == 1050.0
 
-        # Check end-to-end (feed_received to persistence_completed)
         end_to_end = get_stage("end_to_end")
         assert end_to_end is not None
         assert end_to_end["count"] == 2
-        # Test 1: 5000 - 1000 = 4000
-        # Test 2: 5500 - 1100 = 4400
-        # Mean: (4000 + 4400) / 2 = 4200
         assert end_to_end["mean_us"] == 4200.0
 
     def test_metrics_with_empty_buffer(self):
@@ -178,14 +166,12 @@ class TestTimingCollector:
         """Test metrics calculation with incomplete timing data."""
         timing_collector.configure(enabled=True)
 
-        # Record with only some timing fields
         timing_collector.record_timing(
             "test-1",
             {
                 "feed_received_us": 1000,
                 "feed_normalized_us": 1500,
                 "feed_persisted_us": 2000,
-                # Missing model timing
                 "persistence_completed_us": 5000,
             },
         )
@@ -196,11 +182,9 @@ class TestTimingCollector:
         def get_stage(name):
             return next((s for s in stage_latencies if s["name"] == name), None)
 
-        # Feed ingestion should work
         feed_ingestion = get_stage("feed_ingestion")
         assert feed_ingestion["count"] == 1
 
-        # Model execution should have no data
         model_execution = get_stage("model_execution")
         assert model_execution["count"] == 0
         assert model_execution["mean_us"] is None
@@ -214,21 +198,17 @@ class TestTimingCollector:
             for i in range(100):
                 timing_collector.record_timing(f"thread-{thread_id}-{i}", {"time": i})
 
-        # Start multiple threads
         threads = []
         for thread_id in range(5):
             thread = threading.Thread(target=add_records, args=(thread_id,))
             threads.append(thread)
             thread.start()
 
-        # Wait for all threads to complete
         for thread in threads:
             thread.join()
 
-        # Should have 500 records total
         assert timing_collector.buffer_size == 500
 
-        # All records should be present
         records = timing_collector.get_all_records()
         assert len(records) == 500
 
@@ -236,13 +216,12 @@ class TestTimingCollector:
         """Test percentile calculation in metrics."""
         timing_collector.configure(enabled=True)
 
-        # Add records with known latencies for easy testing
         for i in range(100):
             timing_collector.record_timing(
                 f"test-{i}",
                 {
                     "feed_received_us": 1000,
-                    "feed_normalized_us": 1000 + i,  # Latencies from 0 to 99
+                    "feed_normalized_us": 1000 + i,
                 },
             )
 
@@ -255,6 +234,29 @@ class TestTimingCollector:
         assert feed_ingestion["count"] == 100
         assert feed_ingestion["min_us"] == 0.0
         assert feed_ingestion["max_us"] == 99.0
-        assert feed_ingestion["median_us"] == 49.5  # Middle of 0-99
-        assert feed_ingestion["p95_us"] >= 90  # Should be around 95th percentile
-        assert feed_ingestion["p99_us"] >= 95  # Should be around 99th percentile
+        assert feed_ingestion["median_us"] == 49.5
+        assert feed_ingestion["p95_us"] >= 90
+        assert feed_ingestion["p99_us"] >= 95
+
+    def test_percentile_with_single_record(self):
+        """Test percentile calculation with only one record."""
+        timing_collector.configure(enabled=True)
+
+        timing_collector.record_timing(
+            "single",
+            {
+                "feed_received_us": 1000,
+                "feed_normalized_us": 1500,
+                "persistence_completed_us": 2000,
+            },
+        )
+
+        metrics = timing_collector.get_metrics()
+        stage_latencies = metrics["stage_latencies"]
+        feed_ingestion = next(
+            (s for s in stage_latencies if s["name"] == "feed_ingestion"), None
+        )
+
+        assert feed_ingestion["count"] == 1
+        assert feed_ingestion["p95_us"] == 500
+        assert feed_ingestion["p99_us"] == 500

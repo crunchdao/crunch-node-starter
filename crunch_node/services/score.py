@@ -190,7 +190,7 @@ class ScoreService:
         are scored.  Raises on hard errors; logs warnings on soft issues.
         """
         output_type = self.config.output_type
-        ground_truth_type = self.config.ground_truth_type
+        ground_truth_type = self.config.get_ground_truth_type()
 
         # Build a sample prediction dict from InferenceOutput defaults
         try:
@@ -343,7 +343,7 @@ class ScoreService:
         if actuals is None:
             return None
         # Validate through ground_truth_type
-        parsed = self.config.ground_truth_type.model_validate(actuals)
+        parsed = self.config.get_ground_truth_type().model_validate(actuals)
         return parsed.model_dump()
 
     def _score_predictions(self, now: datetime) -> list[ScoreRecord]:

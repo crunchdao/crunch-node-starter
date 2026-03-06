@@ -3,12 +3,16 @@ from __future__ import annotations
 import logging
 import os
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from crunch_node.db.feed_records import DBFeedRecordRepository
 from crunch_node.db.session import create_session
 from crunch_node.entities.feed_record import FeedRecord
 from crunch_node.feeds import FeedFetchRequest, create_default_registry
+from crunch_node.feeds.normalizers import get_normalizer
+
+if TYPE_CHECKING:
+    from crunch_node.feeds.normalizers.base import FeedNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +29,7 @@ class FeedReader:
         window_size: int = 120,
         *,
         subject: str | None = None,  # backward compat — single subject
+        normalizer: FeedNormalizer | None = None,
     ):
         self.source = source
         if subjects:
@@ -37,6 +42,7 @@ class FeedReader:
         self.kind = kind
         self.granularity = granularity
         self.window_size = window_size
+        self._normalizer = normalizer or get_normalizer()
 
     @classmethod
     def from_env(cls) -> FeedReader:
@@ -55,97 +61,24 @@ class FeedReader:
     def get_input(self, now: datetime) -> dict[str, Any]:
         """Build raw input dict for this timestep from recent feed records.
 
-        Returns the latest 1m candles for the configured subject.
-        Higher-timeframe aggregation and microstructure data are NOT included —
-        those belong in the predict service transform layer if needed.
-
+        Uses the configured normalizer to transform records into model input format.
         Also includes `_feed_timing` with timing data from the latest feed record
         for end-to-end latency measurement.
         """
-        candles, feed_timing = self._load_recent_candles(limit=self.window_size)
+        records, feed_timing = self._load_recent_records(limit=self.window_size)
 
-        if len(candles) < min(3, self.window_size):
+        if len(records) < min(3, self.window_size):
             self._recover_window(
                 start=now - timedelta(minutes=max(5, self.window_size)),
                 end=now,
             )
-            candles, feed_timing = self._load_recent_candles(limit=self.window_size)
+            records, feed_timing = self._load_recent_records(limit=self.window_size)
 
-        asof_ts = int(now.timestamp())
-        if candles:
-            asof_ts = int(candles[-1].get("ts", asof_ts))
-
-        result = {
-            "symbol": self.subject,
-            "asof_ts": asof_ts,
-            "candles_1m": candles[-self.window_size :],
-        }
+        result = self._normalizer.normalize(
+            records[-self.window_size :], self.subject
+        ).model_dump()
         if feed_timing:
             result["_feed_timing"] = feed_timing
-        return result
-
-    def get_latest_candles(
-        self,
-        subjects: list[str] | None = None,
-        limit: int = 1,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Return the latest N candles per symbol from feed_records.
-
-        This is the primary method for the predict worker to fetch market data.
-        Returns ``{symbol: [candle_dict, ...]}`` where each candle has
-        keys: ts, open, high, low, close, volume.
-
-        Args:
-            subjects: Symbols to fetch. Defaults to ``[self.subject]``.
-            limit: Number of most-recent candles per symbol.
-        """
-        subjects = subjects or self.subjects
-        result: dict[str, list[dict[str, Any]]] = {}
-
-        for symbol in subjects:
-            with create_session() as session:
-                repo = DBFeedRecordRepository(session)
-                records = repo.fetch_records(
-                    source=self.source,
-                    subject=symbol,
-                    kind=self.kind,
-                    granularity=self.granularity,
-                    limit=max(1, limit),
-                )
-
-            candles: list[dict[str, Any]] = []
-            for record in records[-max(1, limit) :]:
-                values = record.values or {}
-                price = self._record_price(record)
-                if price is None:
-                    continue
-                ts_event = int(self._ensure_utc(record.ts_event).timestamp())
-
-                if record.kind == "candle":
-                    candles.append(
-                        {
-                            "ts": ts_event,
-                            "open": float(values.get("open", price)),
-                            "high": float(values.get("high", price)),
-                            "low": float(values.get("low", price)),
-                            "close": float(values.get("close", price)),
-                            "volume": float(values.get("volume", 0.0)),
-                        }
-                    )
-                else:
-                    candles.append(
-                        {
-                            "ts": ts_event,
-                            "open": price,
-                            "high": price,
-                            "low": price,
-                            "close": price,
-                            "volume": 0.0,
-                        }
-                    )
-
-            result[symbol] = candles
-
         return result
 
     def fetch_window(
@@ -211,9 +144,9 @@ class FeedReader:
 
     # ── internals ──
 
-    def _load_recent_candles(
+    def _load_recent_records(
         self, limit: int
-    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    ) -> tuple[list[FeedRecord], dict[str, Any]]:
         with create_session() as session:
             repo = DBFeedRecordRepository(session)
             records = repo.fetch_records(
@@ -224,45 +157,13 @@ class FeedReader:
                 limit=max(1, limit),
             )
 
-        candles: list[dict[str, Any]] = []
         latest_timing: dict[str, Any] = {}
-
-        for record in records[-max(1, limit) :]:
-            price = self._record_price(record)
-            if price is None:
-                continue
-            ts_event = int(self._ensure_utc(record.ts_event).timestamp())
-
-            if record.kind == "candle":
-                values = record.values or {}
-                candles.append(
-                    {
-                        "ts": ts_event,
-                        "open": float(values.get("open", price)),
-                        "high": float(values.get("high", price)),
-                        "low": float(values.get("low", price)),
-                        "close": float(values.get("close", price)),
-                        "volume": float(values.get("volume", 0.0)),
-                    }
-                )
-            else:
-                candles.append(
-                    {
-                        "ts": ts_event,
-                        "open": price,
-                        "high": price,
-                        "low": price,
-                        "close": price,
-                        "volume": 0.0,
-                    }
-                )
-
         if records:
             latest_record = records[-1]
             if latest_record.meta and latest_record.meta.get("timing"):
                 latest_timing = latest_record.meta["timing"]
 
-        return candles, latest_timing
+        return records, latest_timing
 
     def _latest_record(self, at_or_before: datetime) -> Any:
         with create_session() as session:
@@ -332,17 +233,6 @@ class FeedReader:
             return loop.run_until_complete(coro)
         except Exception:
             return []
-
-    @staticmethod
-    def _record_price(record) -> float | None:
-        values = record.values or {}
-        for key in ("close", "price"):
-            if key in values:
-                try:
-                    return float(values[key])
-                except Exception:
-                    return None
-        return None
 
     @staticmethod
     def _ensure_utc(value: datetime) -> datetime:

@@ -20,29 +20,24 @@ from crunch_node.crunch_config import (
 )
 
 # ── Type contracts ──────────────────────────────────────────────────
+# Input shape is defined by feed_normalizer="candle" → CandleInput
+# See crunch_node.feeds.normalizers.candle for the schema.
 
 
-class RawInput(BaseModel):
-    """What the feed produces. Simple OHLCV candles."""
+class GroundTruth(BaseModel):
+    """Actuals: same shape as input, resolved after the horizon.
+
+    TODO: This example shows candle fields, but the default resolve_ground_truth()
+    returns computed values (entry_price, profit, direction_up). Either override
+    resolve_ground_truth() to return candles, or update these fields to match
+    what the default resolver produces.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTC"
     asof_ts: int = 0
-
     candles_1m: list[dict] = Field(default_factory=list)
-
-
-class InferenceInput(RawInput):
-    """What models receive — same as RawInput."""
-
-    pass
-
-
-class GroundTruth(RawInput):
-    """Actuals: same shape as RawInput, resolved after the horizon."""
-
-    pass
 
 
 class InferenceOutput(BaseModel):
@@ -80,11 +75,12 @@ class CrunchConfig(BaseCrunchConfig):
 
     Single asset, fast feedback loop. Predictions every 15s,
     resolved after 60s. Good for getting started.
+
+    Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
     """
 
-    raw_input_type: type[BaseModel] = RawInput
+    feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
-    input_type: type[BaseModel] = InferenceInput
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 

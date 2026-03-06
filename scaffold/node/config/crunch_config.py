@@ -12,50 +12,39 @@ from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
 from crunch_node.crunch_config import (
-    GroundTruth,
     InferenceOutput,
     ScheduledPrediction,
     ScoreResult,
 )
 
+# Input shape is defined by feed_normalizer (default: "candle").
+# See crunch_node.feeds.normalizers for available normalizers and their output types:
+#   - "candle" → CandleInput {symbol, asof_ts, candles_1m: [Candle]}
+#   - "tick"   → TickInput {symbol, asof_ts, ticks: [Tick]}
 
-class RawInput(BaseModel):
-    """What the feed produces. 1m OHLCV candles."""
+
+class GroundTruth(BaseModel):
+    """Actuals: same shape as input, resolved after the horizon.
+
+    TODO: This example shows candle fields, but the default resolve_ground_truth()
+    returns computed values (entry_price, profit, direction_up). Either override
+    resolve_ground_truth() to return candles, or update these fields to match
+    what the default resolver produces.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTCUSDT"
     asof_ts: int = 0
-
     candles_1m: list[dict] = Field(default_factory=list)
 
 
-class InferenceInput(RawInput):
-    """What models receive. Same as RawInput unless you override.
-
-    To transform market data before it reaches models, define a different
-    shape here and provide a transform function:
-
-        class InferenceInput(BaseModel):
-            symbol: str
-            momentum: float
-
-        def transform(market: RawInput) -> InferenceInput:
-            candles = market.candles_1m
-            momentum = candles[-1]["close"] - candles[0]["close"] if candles else 0.0
-            return InferenceInput(symbol=market.symbol, momentum=momentum)
-    """
-
-    pass
-
-
 class CrunchConfig(BaseCrunchConfig):
-    """Competition config — overrides all data-shape types.
+    """Competition config — customize data shapes and scoring.
 
-    All five types are listed explicitly so you see what needs customization:
-      - raw_input_type:    What the feed produces (market data shape)
-      - ground_truth_type: What the actual outcome looks like
-      - input_type:        What models receive (can transform from RawInput)
+    Key configuration fields:
+      - feed_normalizer:   Which normalizer shapes the input ("candle", "tick")
+      - ground_truth_type: What the actual outcome looks like (for scoring)
       - output_type:       What models must return (prediction format)
       - score_type:        What scoring produces (metrics/result fields)
 
@@ -65,13 +54,12 @@ class CrunchConfig(BaseCrunchConfig):
     beyond the default 'value' field.
     """
 
-    raw_input_type: type[BaseModel] = RawInput
+    feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
-    input_type: type[BaseModel] = InferenceInput
     output_type: type[BaseModel] = (
-        InferenceOutput  # ← customize for your prediction format
+        InferenceOutput  # customize for your prediction format
     )
-    score_type: type[BaseModel] = ScoreResult  # ← customize for your scoring metrics
+    score_type: type[BaseModel] = ScoreResult  # customize for your scoring metrics
 
     # Prediction schedule — what to predict, how often, when to resolve
     scheduled_predictions: list[ScheduledPrediction] = [

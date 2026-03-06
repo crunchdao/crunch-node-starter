@@ -63,9 +63,11 @@ class FeedDataService:
         self,
         settings: FeedDataSettings,
         feed_record_repository,
+        sink=None,
     ):
         self.settings = settings
         self.feed_record_repository = feed_record_repository
+        self._custom_sink = sink
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
         self._handles = []
@@ -84,7 +86,7 @@ class FeedDataService:
 
         await self._backfill(feed)
 
-        sink = _RepositorySink(self.feed_record_repository)
+        sink = self._custom_sink or _RepositorySink(self.feed_record_repository)
         subscription = FeedSubscription(
             subjects=self.settings.subjects,
             kind=self.settings.kind,

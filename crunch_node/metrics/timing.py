@@ -40,14 +40,21 @@ class TimingCollector:
         self._data_lock = threading.Lock()
         self._initialized = True
 
-    def configure(self, enabled: bool = False, buffer_size: int = 10000):
-        """Configure the timing collector."""
+    def configure(
+        self,
+        enabled: bool = False,
+        buffer_size: int = 10000,
+    ):
+        """Configure the timing collector.
+
+        Args:
+            enabled: Enable timing collection
+            buffer_size: Max records to retain
+        """
         with self._data_lock:
             self._enabled = enabled
             self._buffer_size = buffer_size
-            # Resize buffer if needed
             if len(self._buffer) > buffer_size:
-                # Keep the most recent entries
                 self._buffer = deque(
                     list(self._buffer)[-buffer_size:], maxlen=buffer_size
                 )
@@ -119,7 +126,6 @@ class TimingCollector:
                 "recent_samples": [],
             }
 
-        # Calculate stage latencies
         stage_latencies = self._calculate_stage_latencies(records)
 
         return {
@@ -127,7 +133,7 @@ class TimingCollector:
             "buffer_size": len(records),
             "total_records": len(records),
             "stage_latencies": stage_latencies,
-            "recent_samples": self.get_recent(10),  # Last 10 for debugging
+            "recent_samples": self.get_recent(10),
         }
 
     def _calculate_stage_latencies(
@@ -248,6 +254,8 @@ class TimingCollector:
         """Calculate percentile of a list of values."""
         if not data:
             return 0.0
+        if len(data) < 2:
+            return data[0]
         return statistics.quantiles(data, n=100)[p - 1] if p <= 100 else max(data)
 
 
@@ -266,6 +274,9 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
 
     Extracts timing data from prediction.meta["timing"] and calculates
     stage latencies similar to TimingCollector.get_metrics().
+
+    Args:
+        predictions: List of prediction records with timing in meta
     """
     if not predictions:
         return {
@@ -340,12 +351,8 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
                     "median_us": statistics.median(latencies),
                     "min_us": min(latencies),
                     "max_us": max(latencies),
-                    "p95_us": statistics.quantiles(latencies, n=100)[94]
-                    if len(latencies) >= 2
-                    else latencies[0],
-                    "p99_us": statistics.quantiles(latencies, n=100)[98]
-                    if len(latencies) >= 2
-                    else latencies[0],
+                    "p95_us": _percentile(latencies, 95),
+                    "p99_us": _percentile(latencies, 99),
                 }
             )
         else:
@@ -375,12 +382,8 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
                 "median_us": statistics.median(e2e_latencies),
                 "min_us": min(e2e_latencies),
                 "max_us": max(e2e_latencies),
-                "p95_us": statistics.quantiles(e2e_latencies, n=100)[94]
-                if len(e2e_latencies) >= 2
-                else e2e_latencies[0],
-                "p99_us": statistics.quantiles(e2e_latencies, n=100)[98]
-                if len(e2e_latencies) >= 2
-                else e2e_latencies[0],
+                "p95_us": _percentile(e2e_latencies, 95),
+                "p99_us": _percentile(e2e_latencies, 99),
             }
         )
     else:
@@ -406,3 +409,12 @@ def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
         "stage_latencies": stage_latencies,
         "recent_samples": records[-10:],
     }
+
+
+def _percentile(data: list[float], p: float) -> float:
+    """Calculate percentile of a list of values."""
+    if not data:
+        return 0.0
+    if len(data) < 2:
+        return data[0]
+    return statistics.quantiles(data, n=100)[p - 1] if p <= 100 else max(data)
