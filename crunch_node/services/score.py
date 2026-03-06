@@ -256,7 +256,7 @@ class ScoreService:
         )
         while not self.stop_event.is_set():
             try:
-                self.run_once()
+                self.score_and_snapshot()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -269,7 +269,7 @@ class ScoreService:
             except TimeoutError:
                 pass
 
-    def run_once(self) -> bool:
+    def score_and_snapshot(self) -> bool:
         now = datetime.now(UTC)
 
         # 1. score predictions past their resolve horizon

@@ -152,11 +152,11 @@ def _make_service(
 
 
 class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
-    async def test_run_once_generates_prediction_rows(self):
+    async def test_process_tick_generates_prediction_rows(self):
         repo = InMemoryPredictionRepository()
         service = _make_service(prediction_repo=repo)
 
-        await service.run_once(
+        await service.process_tick(
             raw_input={"symbol": "BTC", "asof_ts": 123}, now=datetime.now(UTC)
         )
 
@@ -169,23 +169,23 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(pred.input_id)
         self.assertIn("value", pred.inference_output)
 
-    async def test_run_once_uses_feed_reader_when_no_raw_input(self):
+    async def test_process_tick_uses_feed_reader_when_no_raw_input(self):
         repo = InMemoryPredictionRepository()
         service = _make_service(
             feed_reader=FakeFeedReader({"symbol": "ETH", "asof_ts": 999}),
             prediction_repo=repo,
         )
 
-        await service.run_once(now=datetime.now(UTC))
+        await service.process_tick(now=datetime.now(UTC))
 
         self.assertGreaterEqual(len(repo.saved_predictions), 1)
         self.assertIsNotNone(repo.saved_predictions[0].input_id)
 
-    async def test_run_once_returns_false_when_no_active_configs(self):
+    async def test_process_tick_returns_false_when_no_active_configs(self):
         service = _make_service(prediction_repo=NoConfigPredictionRepository())
 
         with self.assertLogs("RealtimePredictService", level="INFO") as logs:
-            changed = await service.run_once(
+            changed = await service.process_tick(
                 raw_input={"symbol": "BTC"}, now=datetime.now(UTC)
             )
 
@@ -194,7 +194,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
             any("No active prediction configs" in line for line in logs.output)
         )
 
-    async def test_run_once_marks_failed_on_output_validation_error(self):
+    async def test_process_tick_marks_failed_on_output_validation_error(self):
         from pydantic import BaseModel, Field
 
         class StrictOutput(BaseModel):
@@ -216,7 +216,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         )
 
         with self.assertLogs("RealtimePredictService", level="ERROR") as logs:
-            changed = await service.run_once(
+            changed = await service.process_tick(
                 raw_input={"symbol": "BTC"}, now=datetime.now(UTC)
             )
 
@@ -228,7 +228,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
             any("INFERENCE_OUTPUT_VALIDATION_ERROR" in line for line in logs.output)
         )
 
-    async def test_run_once_sets_prediction_scope_with_feed_dimensions(self):
+    async def test_process_tick_sets_prediction_scope_with_feed_dimensions(self):
         """Prediction scope must include source/subject/kind/granularity
         so the score worker can query matching feed records for ground truth."""
         input_repo = InMemoryInputRepository()
@@ -245,7 +245,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
             input_repo=input_repo,
         )
 
-        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
 
         self.assertGreater(len(pred_repo.saved_predictions), 0)
         pred = pred_repo.saved_predictions[0]
@@ -255,7 +255,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(pred.scope.get("granularity"), "1m")
         self.assertIn("subject", pred.scope)
 
-    async def test_run_once_sets_prediction_resolvable_at(self):
+    async def test_process_tick_sets_prediction_resolvable_at(self):
         """Predictions must have resolvable_at so score worker can find
         predictions ready for ground truth resolution."""
         input_repo = InMemoryInputRepository()
@@ -266,7 +266,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         )
 
         now = datetime.now(UTC)
-        await service.run_once(raw_input={"symbol": "BTC"}, now=now)
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=now)
 
         self.assertGreater(len(pred_repo.saved_predictions), 0)
         for pred in pred_repo.saved_predictions:
@@ -319,7 +319,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
             config=contract,
         )
 
-        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
 
         self.assertEqual(runner.captured_method, "trade")
         self.assertGreaterEqual(len(repo.saved_predictions), 1)

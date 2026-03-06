@@ -231,7 +231,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
         # Force _last_checkpoint_at to be well in the past
         service._last_checkpoint_at = now - timedelta(hours=1)
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertEqual(len(ckpt_repo.checkpoints), 1)
         self.assertEqual(ckpt_repo.checkpoints[0].status, CheckpointStatus.PENDING)
@@ -255,7 +255,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             checkpoint_interval=604800,  # weekly
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         # Only the pre-existing checkpoint
         self.assertEqual(len(ckpt_repo.checkpoints), 1)
@@ -268,7 +268,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             checkpoint_interval=1,
         )
 
-        result = service.run_once()
+        result = service.score_and_snapshot()
 
         self.assertFalse(result)
         self.assertEqual(len(ckpt_repo.checkpoints), 0)
@@ -296,7 +296,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
         )
 
         # Should not raise
-        result = service.run_once()
+        result = service.score_and_snapshot()
         self.assertTrue(result)
 
     def test_checkpoint_service_accessible(self):
@@ -313,7 +313,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
         )
         service._last_checkpoint_at = now - timedelta(hours=1)
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertIsNotNone(service._last_checkpoint_at)
         self.assertEqual(len(ckpt_repo.checkpoints), 1)
@@ -327,7 +327,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
         )
         service._last_checkpoint_at = now - timedelta(hours=1)
 
-        service.run_once()
+        service.score_and_snapshot()
 
         checkpoint = ckpt_repo.checkpoints[0]
         self.assertEqual(len(checkpoint.entries), 1)

@@ -97,7 +97,7 @@ class RealtimePredictService(PredictService):
                     except (ValueError, json.JSONDecodeError):
                         pass
 
-                await self.run_once(
+                await self.process_tick(
                     notify_received_us=notify_received_us,
                     feed_timing=feed_timing,
                 )
@@ -106,7 +106,7 @@ class RealtimePredictService(PredictService):
             except Exception as exc:
                 self.logger.exception("predict loop error: %s", exc)
 
-    async def run_once(
+    async def process_tick(
         self,
         raw_input: dict[str, Any] | None = None,
         now: datetime | None = None,

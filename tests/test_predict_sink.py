@@ -12,7 +12,7 @@ from crunch_node.services.predict_sink import PredictSink
 class TestPredictSink(unittest.TestCase):
     def setUp(self):
         self.predict_service = MagicMock()
-        self.predict_service.run_once = AsyncMock()
+        self.predict_service.process_tick = AsyncMock()
 
         self.feed_window = FeedWindow(max_size=10)
 
@@ -64,9 +64,9 @@ class TestPredictSink(unittest.TestCase):
 
         asyncio.run(self.sink.on_record(record))
 
-        self.predict_service.run_once.assert_called_once()
+        self.predict_service.process_tick.assert_called_once()
 
-        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        call_kwargs = self.predict_service.process_tick.call_args.kwargs
         self.assertIn("raw_input", call_kwargs)
         self.assertEqual(call_kwargs["raw_input"]["symbol"], "BTC")
         self.assertIn("candles_1m", call_kwargs["raw_input"])
@@ -90,7 +90,7 @@ class TestPredictSink(unittest.TestCase):
 
         asyncio.run(self.sink.on_record(record))
 
-        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        call_kwargs = self.predict_service.process_tick.call_args.kwargs
         self.assertIn("feed_timing", call_kwargs)
         self.assertIn("feed_received_us", call_kwargs["feed_timing"])
         self.assertIn("feed_normalized_us", call_kwargs["feed_timing"])

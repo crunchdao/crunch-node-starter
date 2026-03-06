@@ -119,7 +119,7 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
 
         service = _make_service(post_predict_hook=hook)
         now = datetime.now(UTC)
-        await service.run_once(raw_input={"symbol": "BTC"}, now=now)
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=now)
 
         self.assertIn("predictions", captured)
         self.assertIsInstance(captured["predictions"], list)
@@ -137,7 +137,7 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
             return predictions
 
         service = _make_service(post_predict_hook=hook)
-        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
 
         repo = service.prediction_repository
         self.assertGreater(len(repo.saved_predictions), 0)
@@ -151,7 +151,7 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
             return []  # drop all
 
         service = _make_service(post_predict_hook=hook)
-        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
 
         repo = service.prediction_repository
         self.assertEqual(len(repo.saved_predictions), 0)
@@ -159,7 +159,7 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
     async def test_no_hook_saves_normally(self):
         """Without a hook, predictions are saved as usual."""
         service = _make_service(post_predict_hook=None)
-        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+        await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
 
         repo = service.prediction_repository
         self.assertGreater(len(repo.saved_predictions), 0)
@@ -173,7 +173,7 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
             return predictions
 
         service = _make_service(post_predict_hook=hook)
-        await service.run_once(
+        await service.process_tick(
             raw_input={"symbol": "BTC", "price": 42000.0},
             now=datetime.now(UTC),
         )
@@ -196,7 +196,7 @@ class TestPrePredictHook(unittest.IsolatedAsyncioTestCase):
 
         service = _make_service(pre_predict_hook=hook)
         now = datetime.now(UTC)
-        await service.run_once(raw_input={"symbol": "BTC", "price": 100.0}, now=now)
+        await service.process_tick(raw_input={"symbol": "BTC", "price": 100.0}, now=now)
 
         self.assertEqual(captured["raw_data"], {"symbol": "BTC", "price": 100.0})
         self.assertEqual(captured["now"], now)
@@ -217,7 +217,7 @@ class TestPrePredictHook(unittest.IsolatedAsyncioTestCase):
         service = _make_service(pre_predict_hook=obfuscate)
         RealtimePredictService._tick_models = spy_tick
         try:
-            await service.run_once(
+            await service.process_tick(
                 raw_input={"symbol": "BTC", "price": 100.0},
                 now=datetime.now(UTC),
             )
@@ -234,7 +234,7 @@ class TestPrePredictHook(unittest.IsolatedAsyncioTestCase):
             return None
 
         service = _make_service(pre_predict_hook=reject)
-        result = await service.run_once(
+        result = await service.process_tick(
             raw_input={"symbol": "BTC"}, now=datetime.now(UTC)
         )
 
@@ -253,7 +253,7 @@ class TestPrePredictHook(unittest.IsolatedAsyncioTestCase):
         service = _make_service()
         RealtimePredictService._tick_models = spy_tick
         try:
-            await service.run_once(
+            await service.process_tick(
                 raw_input={"symbol": "ETH", "price": 3000.0},
                 now=datetime.now(UTC),
             )

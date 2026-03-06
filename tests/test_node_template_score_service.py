@@ -223,7 +223,7 @@ class TestScoreService(unittest.TestCase):
             feed_records=_make_feed_records(),
         )
 
-        changed = service.run_once()
+        changed = service.score_and_snapshot()
 
         self.assertTrue(changed)
         self.assertEqual(len(service.score_repository.scores), 1)
@@ -237,7 +237,7 @@ class TestScoreService(unittest.TestCase):
         )
 
         with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.run_once()
+            changed = service.score_and_snapshot()
 
         self.assertFalse(changed)
         self.assertEqual(len(service.score_repository.scores), 0)
@@ -246,7 +246,7 @@ class TestScoreService(unittest.TestCase):
         service = _build_service()
 
         with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.run_once()
+            changed = service.score_and_snapshot()
 
         self.assertFalse(changed)
 
@@ -257,11 +257,11 @@ class TestScoreService(unittest.TestCase):
             feed_records=_make_feed_records(),
         )
 
-        service.run_once()
+        service.score_and_snapshot()
         self.assertEqual(len(service.score_repository.scores), 1)
 
         with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.run_once()
+            changed = service.score_and_snapshot()
         self.assertFalse(changed)
         self.assertEqual(len(service.score_repository.scores), 1)
 
@@ -299,7 +299,7 @@ class TestScoreServiceRunLoop(unittest.IsolatedAsyncioTestCase):
             service.stop_event.set()
             raise RuntimeError("boom")
 
-        service.run_once = boom
+        service.score_and_snapshot = boom
 
         with self.assertLogs("crunch_node.services.score", level="ERROR"):
             await service.run()
@@ -414,7 +414,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             config=contract,
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         # Scorer should have received the coerced dict with defaults
         self.assertEqual(captured["direction"], "LONG")
@@ -586,7 +586,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertEqual(len(captured), 1)
         self.assertIn("model_id", captured[0])
@@ -612,7 +612,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertEqual(len(captured), 1)
         self.assertIn("prediction_id", captured[0])
@@ -657,7 +657,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertEqual(sorted(captured), ["alpha", "beta"])
 
@@ -698,7 +698,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.run_once()
+        service.score_and_snapshot()
 
         self.assertEqual(len(captured), 1)
         self.assertEqual(captured[0]["model_id"], "correct_model")

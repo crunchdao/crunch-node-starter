@@ -38,7 +38,7 @@ class PredictSink:
         }
 
         try:
-            await self.predict_service.run_once(
+            await self.predict_service.process_tick(
                 raw_input=raw_input,
                 feed_timing=feed_timing,
             )

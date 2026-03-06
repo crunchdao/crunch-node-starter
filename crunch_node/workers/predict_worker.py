@@ -120,7 +120,7 @@ async def main() -> None:
     )
 
     predict_service = build_predict_service(session, config, runtime_settings)
-    # init_runner() is called lazily by run_once() when first prediction happens
+    # init_runner() is called lazily by process_tick() when first prediction happens
 
     feed_settings = FeedDataSettings.from_env()
     feed_repository = DBFeedRecordRepository(session)
