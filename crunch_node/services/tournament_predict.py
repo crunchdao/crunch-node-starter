@@ -98,10 +98,9 @@ class TournamentPredictService(PredictService):
         await self.init_runner()
 
         # Validate features through input_type if configured
-        if self.contract.input_type is not None:
+        if self.config.input_type is not None:
             validated_features = [
-                self.contract.input_type.model_validate(f).model_dump()
-                for f in features
+                self.config.input_type.model_validate(f).model_dump() for f in features
             ]
         else:
             validated_features = features
@@ -224,7 +223,7 @@ class TournamentPredictService(PredictService):
             )
 
         # Normalize ground truth to list
-        gt_type = self.contract.get_ground_truth_type()
+        gt_type = self.config.get_ground_truth_type()
         if isinstance(ground_truth, list):
             gt_items = [gt_type.model_validate(gt).model_dump() for gt in ground_truth]
         else:
