@@ -1,11 +1,14 @@
 """CrunchConfig for simple prediction competitions.
 
-Models receive live price data and return a scalar prediction value.
+Models receive live tick data and return a scalar prediction value.
 Scoring compares the prediction direction against realized price movement.
-Immediate resolution — ground truth comes from the next feed update.
 
 This is the simplest competition format: predict a value every N seconds,
 get scored immediately against the next observation.
+
+Feed: Pyth-style price ticks (symbol, price, timestamp)
+Output: value float (positive=up, negative=down, magnitude=conviction)
+Scoring: direction * magnitude — rewards correct direction with conviction
 """
 
 from __future__ import annotations
@@ -24,14 +27,14 @@ from crunch_node.entities.feed_record import FeedRecord
 from crunch_node.entities.prediction_record import PredictionRecord
 
 # ── Type contracts ──────────────────────────────────────────────────
-# Input shape is defined by feed_normalizer="candle" → CandleInput
-# See crunch_node.feeds.normalizers.candle for the schema.
+# Input shape is defined by feed_normalizer="tick" → TickInput
+# See crunch_node.feeds.normalizers.tick for the schema.
 
 
 class GroundTruth(BaseModel):
-    """Actuals: candle data from the resolution window.
+    """Actuals: tick data from the resolution window.
 
-    Same shape as input — the scorer receives future candles
+    Same shape as input — the scorer receives future ticks
     and computes whether the prediction was correct.
     """
 
@@ -39,17 +42,17 @@ class GroundTruth(BaseModel):
 
     symbol: str = "BTC"
     asof_ts: int = 0
-    candles_1m: list[dict] = Field(default_factory=list)
+    ticks: list[dict] = Field(default_factory=list)
 
 
 def resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
-    """Extract candle data from feed records at the resolution horizon.
+    """Extract tick data from feed records at the resolution horizon.
 
-    Returns the same shape as the input (GroundTruth matches CandleInput).
-    The scorer can then compute profit/direction from the candles.
+    Returns the same shape as the input (GroundTruth matches TickInput).
+    The scorer computes profit/direction from the tick prices.
     """
     if not feed_records:
         return None
@@ -58,7 +61,53 @@ def resolve_ground_truth(
     return {
         "symbol": record.subject,
         "asof_ts": int(record.ts_event.timestamp() * 1000),
-        "candles_1m": record.values.get("candles_1m", []),
+        "ticks": record.values.get("ticks", []),
+    }
+
+
+def score_prediction(
+    prediction: dict[str, Any],
+    ground_truth: dict[str, Any],
+) -> dict[str, Any]:
+    """Score a prediction against tick-based ground truth.
+
+    Computes directional accuracy: did the model predict the right direction?
+    Score = sign(prediction) * sign(actual_return) * |prediction|
+    """
+    ticks = ground_truth.get("ticks", [])
+    if len(ticks) < 2:
+        return {
+            "value": 0.0,
+            "actual_return": 0.0,
+            "direction_correct": False,
+            "success": False,
+            "failed_reason": "not enough ticks to compute return",
+        }
+
+    entry_price = ticks[0].get("price", 0.0)
+    resolved_price = ticks[-1].get("price", 0.0)
+
+    if entry_price == 0:
+        return {
+            "value": 0.0,
+            "actual_return": 0.0,
+            "direction_correct": False,
+            "success": False,
+            "failed_reason": "entry price is zero",
+        }
+
+    actual_return = (resolved_price - entry_price) / entry_price
+    pred_value = prediction.get("value", 0.0)
+
+    direction_correct = (pred_value > 0) == (actual_return > 0)
+    score = abs(pred_value) if direction_correct else -abs(pred_value)
+
+    return {
+        "value": score,
+        "actual_return": actual_return,
+        "direction_correct": direction_correct,
+        "success": True,
+        "failed_reason": None,
     }
 
 
@@ -98,15 +147,16 @@ class CrunchConfig(BaseCrunchConfig):
     Single asset, fast feedback loop. Predictions every 15s,
     resolved after 60s. Good for getting started.
 
-    Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
+    Input shape: TickInput {symbol, asof_ts, ticks: [{ts, price}]}
     """
 
-    feed_normalizer: str = "candle"
+    feed_normalizer: str = "tick"
     ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 
     resolve_ground_truth: Any = resolve_ground_truth
+    scoring_function: Any = score_prediction
 
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [

@@ -22,12 +22,13 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from crunch_node.entities.feed_record import FeedRecord
-from crunch_node.entities.prediction_record import PredictionRecord
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
 # See crunch_node.feeds.normalizers.candle for the schema.
+# Uses default resolve_ground_truth which returns candle data.
+
+SPREAD_FEE = 0.0001  # 1 basis point spread cost
 
 
 class GroundTruth(BaseModel):
@@ -44,23 +45,59 @@ class GroundTruth(BaseModel):
     candles_1m: list[dict] = Field(default_factory=list)
 
 
-def resolve_ground_truth(
-    feed_records: list[FeedRecord],
-    prediction: PredictionRecord | None = None,
-) -> dict[str, Any] | None:
-    """Extract candle data from feed records at the resolution horizon.
+def score_prediction(
+    prediction: dict[str, Any],
+    ground_truth: dict[str, Any],
+) -> dict[str, Any]:
+    """Score a trading signal against candle-based ground truth.
 
-    Returns the same shape as the input (GroundTruth matches CandleInput).
-    The scorer computes PnL from the candle price movement.
+    PnL = signal * actual_return - |signal| * spread_fee
     """
-    if not feed_records:
-        return None
+    candles = ground_truth.get("candles_1m", [])
+    if len(candles) < 2:
+        return {
+            "value": 0.0,
+            "pnl": 0.0,
+            "spread_cost": 0.0,
+            "actual_return": 0.0,
+            "signal_clamped": 0.0,
+            "direction_correct": False,
+            "success": False,
+            "failed_reason": "not enough candles to compute return",
+        }
 
-    record = feed_records[-1]
+    entry_price = candles[0].get("close", 0.0)
+    resolved_price = candles[-1].get("close", 0.0)
+
+    if entry_price == 0:
+        return {
+            "value": 0.0,
+            "pnl": 0.0,
+            "spread_cost": 0.0,
+            "actual_return": 0.0,
+            "signal_clamped": 0.0,
+            "direction_correct": False,
+            "success": False,
+            "failed_reason": "entry price is zero",
+        }
+
+    actual_return = (resolved_price - entry_price) / entry_price
+    signal = prediction.get("signal", 0.0)
+    signal_clamped = max(-1.0, min(1.0, signal))
+
+    spread_cost = abs(signal_clamped) * SPREAD_FEE
+    pnl = signal_clamped * actual_return - spread_cost
+    direction_correct = (signal_clamped > 0) == (actual_return > 0)
+
     return {
-        "symbol": record.subject,
-        "asof_ts": int(record.ts_event.timestamp() * 1000),
-        "candles_1m": record.values.get("candles_1m", []),
+        "value": pnl,
+        "pnl": pnl,
+        "spread_cost": spread_cost,
+        "actual_return": actual_return,
+        "signal_clamped": signal_clamped,
+        "direction_correct": direction_correct,
+        "success": True,
+        "failed_reason": None,
     }
 
 
@@ -109,7 +146,7 @@ class CrunchConfig(BaseCrunchConfig):
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 
-    resolve_ground_truth: Any = resolve_ground_truth
+    scoring_function: Any = score_prediction
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(

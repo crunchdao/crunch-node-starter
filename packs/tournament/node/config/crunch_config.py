@@ -13,6 +13,8 @@ setting is ignored — input data comes directly from the tournament API.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from crunch_node.crunch_config import (
@@ -85,6 +87,33 @@ class ScoreResult(BaseModel):
     failed_reason: str | None = None
 
 
+def score_prediction(
+    prediction: dict[str, Any],
+    ground_truth: dict[str, Any],
+) -> dict[str, Any]:
+    """Score a tournament prediction against the revealed target.
+
+    Uses negative squared residual: closer to target = higher score.
+    IC (information coefficient) is computed across the full round,
+    but per-prediction scoring uses residual-based metric.
+    """
+    pred_value = prediction.get("prediction", 0.0)
+    target = ground_truth.get("target", 0.0)
+    residual = pred_value - target
+
+    # Negative squared residual — less error = higher score
+    score = -(residual**2)
+
+    return {
+        "value": score,
+        "prediction": pred_value,
+        "target": target,
+        "residual": residual,
+        "success": True,
+        "failed_reason": None,
+    }
+
+
 # ── CrunchConfig ────────────────────────────────────────────────────
 
 
@@ -102,6 +131,8 @@ class CrunchConfig(BaseCrunchConfig):
     ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
+
+    scoring_function: Any = score_prediction
 
     # Tournament: model.predict(features) where features is a single JSON dict
     call_method: CallMethodConfig = Field(
