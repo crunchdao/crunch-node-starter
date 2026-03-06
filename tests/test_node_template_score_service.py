@@ -196,7 +196,7 @@ def _make_feed_records(
     ]
 
 
-def _build_service(*, inputs=None, predictions=None, feed_records=None, contract=None):
+def _build_service(*, inputs=None, predictions=None, feed_records=None, config=None):
     return ScoreService(
         checkpoint_interval_seconds=60,
         scoring_function=lambda pred, act: {
@@ -211,7 +211,7 @@ def _build_service(*, inputs=None, predictions=None, feed_records=None, contract
         snapshot_repository=MemSnapshotRepository(),
         model_repository=MemModelRepository(),
         leaderboard_repository=MemLeaderboardRepository(),
-        contract=contract,
+        config=config,
     )
 
 
@@ -273,7 +273,7 @@ class TestScoreService(unittest.TestCase):
                 ranking_direction="asc",
             )
         )
-        service = _build_service(contract=contract)
+        service = _build_service(config=contract)
 
         ranked = service._rank_leaderboard(
             [
@@ -339,7 +339,7 @@ class TestCoerceOutput(unittest.TestCase):
             leverage: float = Field(default=1.0)
 
         contract = CrunchConfig(output_type=TradingOutput)
-        service = _build_service(contract=contract)
+        service = _build_service(config=contract)
 
         # Model returns partial output — defaults should fill in
         result = service._coerce_output({"order_type": "LONG"})
@@ -359,7 +359,7 @@ class TestCoerceOutput(unittest.TestCase):
             value: float = Field(ge=0.0, le=1.0)
 
         contract = CrunchConfig(output_type=StrictOutput)
-        service = _build_service(contract=contract)
+        service = _build_service(config=contract)
 
         # value=999 violates ge/le constraint — should fall back to raw dict
         with self.assertLogs("crunch_node.services.score", level="WARNING"):
@@ -411,7 +411,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            contract=contract,
+            config=contract,
         )
 
         service.run_once()
@@ -452,7 +452,7 @@ class TestValidateScoringIO(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            contract=CrunchConfig(output_type=TradeOutput),
+            config=CrunchConfig(output_type=TradeOutput),
         )
 
         # Should not raise
@@ -505,7 +505,7 @@ class TestValidateScoringIO(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            contract=CrunchConfig(score_type=StrictScoreResult),
+            config=CrunchConfig(score_type=StrictScoreResult),
         )
 
         with self.assertRaises(RuntimeError) as ctx:

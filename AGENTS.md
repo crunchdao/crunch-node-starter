@@ -27,9 +27,33 @@ scaffold/
     api/              # Custom FastAPI endpoints (auto-discovered)
     extensions/       # Node-side extensions (position manager, etc.)
     deployment/       # Docker config (model-orchestrator, report-ui)
-crunch_node/     # Engine (published to PyPI as crunch-node)
+  webapp/             # Cloned from crunchdao/coordinator-webapp at scaffold init
+crunch_node/          # Engine (published to PyPI as crunch-node)
 tests/                # All tests
 ```
+
+Scaffolded workspaces build `report-ui` from the local `webapp/` clone via
+`node/.local.env` (`REPORT_UI_BUILD_CONTEXT=../webapp`).
+
+## Backend → UI Extension Workflow (MANDATORY)
+
+When a request includes extending `webapp/` for node/backend features, use one
+coordination model only: **node-first contract**.
+
+Before any UI code edits, collect both:
+1. **Backend source of truth** (`PR`, commit, branch, or endpoint spec)
+2. **UI success criteria** (what should appear where, expected states/workflows)
+
+If either is missing, **stop implementation and ask**. Do not proceed with
+assumption-based UI edits.
+
+Then create/update `docs/ui-contracts/<topic>.md` with:
+- endpoint and payload mapping
+- loading/empty/error states
+- acceptance criteria tied to backend behavior
+
+Implement UI changes from this contract, then validate against the acceptance
+criteria.
 
 ## Key Architecture
 

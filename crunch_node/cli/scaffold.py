@@ -5,12 +5,15 @@ The scaffold logic:
 2. If a pack is specified, overlays ``packs/<pack>/`` on top (overwriting matches)
 3. Replaces ``starter-challenge`` → ``<name>`` and ``starter_challenge`` → ``<module>``
    in all text file contents AND in directory/file names
+4. Clones ``https://github.com/crunchdao/coordinator-webapp.git`` into
+   ``<workspace>/webapp``
 """
 
 from __future__ import annotations
 
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 # ── Skip patterns ──────────────────────────────────────────────────────
@@ -21,6 +24,9 @@ _SKIP_NAMES = {
     ".DS_Store",
     ".ruff_cache",
 }
+
+_WEBAPP_REPO_URL = "https://github.com/crunchdao/coordinator-webapp.git"
+_WEBAPP_DIRNAME = "webapp"
 
 # File extensions that should have text replacement applied.
 _TEXT_EXTENSIONS = {
@@ -137,6 +143,28 @@ def _copy_tree(
                 dst_item.chmod(dst_item.stat().st_mode | 0o111)
 
 
+def _clone_webapp_repo(workspace_dir: Path) -> None:
+    """Clone coordinator-webapp into ``workspace_dir/webapp``."""
+    try:
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--depth",
+                "1",
+                _WEBAPP_REPO_URL,
+                _WEBAPP_DIRNAME,
+            ],
+            cwd=workspace_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip() if exc.stderr else "unknown git error"
+        raise RuntimeError(f"Failed to clone coordinator-webapp: {stderr}") from exc
+
+
 # ── Public API ─────────────────────────────────────────────────────────
 
 
@@ -144,6 +172,7 @@ def scaffold_workspace(
     name: str,
     pack: str | None = None,
     output_dir: str = ".",
+    clone_webapp: bool = True,
 ) -> Path:
     """Create a new competition workspace.
 
@@ -151,6 +180,7 @@ def scaffold_workspace(
         name: Competition name in kebab-case (e.g. ``my-btc-challenge``).
         pack: Optional pack overlay (prediction, trading, tournament).
         output_dir: Parent directory for the workspace.
+        clone_webapp: If True, clone coordinator-webapp into ``webapp/``.
 
     Returns:
         Path to the created workspace directory.
@@ -190,7 +220,8 @@ def scaffold_workspace(
         "starter_challenge": module_name,
     }
 
-    # Copy scaffold base, then pack overlay.  Clean up on any failure.
+    # Copy scaffold base, then pack overlay, then clone webapp.
+    # Clean up on any failure.
     try:
         print(f"Creating workspace '{name}' from scaffold template...")
         _copy_tree(scaffold_dir, dest, replacements)
@@ -198,6 +229,10 @@ def scaffold_workspace(
         if pack_dir:
             print(f"Applying '{pack}' pack overlay...")
             _copy_tree(pack_dir, dest, replacements)
+
+        if clone_webapp:
+            print(f"Cloning coordinator-webapp into {dest / _WEBAPP_DIRNAME}...")
+            _clone_webapp_repo(dest)
     except BaseException:
         if dest.exists():
             shutil.rmtree(dest)
@@ -209,6 +244,8 @@ def scaffold_workspace(
     print(f"  Module:    {module_name}")
     if pack:
         print(f"  Pack:      {pack}")
+    if clone_webapp:
+        print(f"  UI repo:   {dest / _WEBAPP_DIRNAME}")
     print()
     print("Next steps:")
     print(f"  cd {name}")

@@ -36,6 +36,11 @@ def main() -> None:
         default=".",
         help="Parent directory for the workspace (default: current directory)",
     )
+    init_parser.add_argument(
+        "--no-webapp-clone",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
 
     # ── list-packs ─────────────────────────────────────────────────────
     subparsers.add_parser(
@@ -51,8 +56,9 @@ def main() -> None:
                 name=args.name,
                 pack=args.pack,
                 output_dir=args.output_dir,
+                clone_webapp=not args.no_webapp_clone,
             )
-        except (FileExistsError, FileNotFoundError, ValueError) as exc:
+        except (FileExistsError, FileNotFoundError, ValueError, RuntimeError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(1)
     elif args.command == "list-packs":

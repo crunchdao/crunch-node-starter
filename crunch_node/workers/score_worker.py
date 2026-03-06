@@ -34,11 +34,11 @@ def configure_logging() -> None:
 def build_service() -> ScoreService:
     extension_settings = ExtensionSettings.from_env()
     runtime_settings = RuntimeSettings.from_env()
-    contract = load_config()
+    config = load_config()
 
     # CrunchConfig.scoring_function takes precedence over env var
-    if contract.scoring_function is not None:
-        scoring_function = contract.scoring_function
+    if config.scoring_function is not None:
+        scoring_function = config.scoring_function
     else:
         scoring_function = resolve_callable(
             extension_settings.scoring_function,
@@ -61,7 +61,7 @@ def build_service() -> ScoreService:
         checkpoint_repository=DBCheckpointRepository(session),
         merkle_cycle_repository=DBMerkleCycleRepository(session),
         merkle_node_repository=DBMerkleNodeRepository(session),
-        contract=contract,
+        config=config,
     )
 
 

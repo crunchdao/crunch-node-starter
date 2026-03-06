@@ -5,10 +5,12 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
 
+import crunch_node.cli.scaffold as scaffold_module
 from crunch_node.cli.scaffold import (
     _copy_tree,
     _find_templates_dir,
@@ -175,7 +177,9 @@ class TestCopyTree:
 
 class TestScaffoldWorkspace:
     def test_creates_workspace_basic(self, tmp_path):
-        ws = scaffold_workspace("my-test-comp", output_dir=str(tmp_path))
+        ws = scaffold_workspace(
+            "my-test-comp", output_dir=str(tmp_path), clone_webapp=False
+        )
 
         assert ws == tmp_path / "my-test-comp"
         assert ws.is_dir()
@@ -191,8 +195,37 @@ class TestScaffoldWorkspace:
             assert "my-test-comp" in content
             assert "starter-challenge" not in content
 
+    def test_clones_webapp_and_uses_local_build_context(self, tmp_path, monkeypatch):
+        calls: list[list[str]] = []
+
+        def fake_run(cmd: list[str], **_kwargs):
+            calls.append(cmd)
+            (tmp_path / "my-webapp-comp" / "webapp").mkdir(parents=True, exist_ok=True)
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        monkeypatch.setattr(
+            scaffold_module,
+            "subprocess",
+            types.SimpleNamespace(run=fake_run),
+            raising=False,
+        )
+
+        ws = scaffold_workspace("my-webapp-comp", output_dir=str(tmp_path))
+
+        assert (ws / "webapp").is_dir()
+        assert any(
+            cmd[:2] == ["git", "clone"]
+            and "https://github.com/crunchdao/coordinator-webapp.git" in cmd
+            for cmd in calls
+        )
+
+        local_env = (ws / "node" / ".local.env").read_text()
+        assert "REPORT_UI_BUILD_CONTEXT=../webapp" in local_env
+
     def test_crunch_config_renamed(self, tmp_path):
-        ws = scaffold_workspace("btc-direction", output_dir=str(tmp_path))
+        ws = scaffold_workspace(
+            "btc-direction", output_dir=str(tmp_path), clone_webapp=False
+        )
 
         config = ws / "node" / "config" / "crunch_config.py"
         assert config.exists()
@@ -201,7 +234,9 @@ class TestScaffoldWorkspace:
         assert "starter-challenge" not in content
 
     def test_challenge_pyproject_renamed(self, tmp_path):
-        ws = scaffold_workspace("eth-signal", output_dir=str(tmp_path))
+        ws = scaffold_workspace(
+            "eth-signal", output_dir=str(tmp_path), clone_webapp=False
+        )
 
         pyproject = ws / "challenge" / "pyproject.toml"
         assert pyproject.exists()
@@ -213,10 +248,12 @@ class TestScaffoldWorkspace:
     def test_fails_if_exists(self, tmp_path):
         (tmp_path / "existing").mkdir()
         with pytest.raises(FileExistsError, match="already exists"):
-            scaffold_workspace("existing", output_dir=str(tmp_path))
+            scaffold_workspace("existing", output_dir=str(tmp_path), clone_webapp=False)
 
     def test_no_venv_or_pycache_in_output(self, tmp_path):
-        ws = scaffold_workspace("clean-check", output_dir=str(tmp_path))
+        ws = scaffold_workspace(
+            "clean-check", output_dir=str(tmp_path), clone_webapp=False
+        )
 
         for root, dirs, _files in os.walk(ws):
             assert ".venv" not in dirs, f".venv found in {root}"
@@ -227,7 +264,10 @@ class TestScaffoldWorkspace:
 class TestScaffoldWithPack:
     def test_prediction_pack(self, tmp_path):
         ws = scaffold_workspace(
-            "pred-test", pack="prediction", output_dir=str(tmp_path)
+            "pred-test",
+            pack="prediction",
+            output_dir=str(tmp_path),
+            clone_webapp=False,
         )
 
         config = ws / "node" / "config" / "crunch_config.py"
@@ -237,7 +277,12 @@ class TestScaffoldWithPack:
         assert "starter_challenge" not in content
 
     def test_trading_pack(self, tmp_path):
-        ws = scaffold_workspace("trade-test", pack="trading", output_dir=str(tmp_path))
+        ws = scaffold_workspace(
+            "trade-test",
+            pack="trading",
+            output_dir=str(tmp_path),
+            clone_webapp=False,
+        )
 
         # Trading pack includes tracker.py and examples
         tracker = ws / "challenge" / "trade_test" / "tracker.py"
@@ -256,7 +301,10 @@ class TestScaffoldWithPack:
 
     def test_tournament_pack(self, tmp_path):
         ws = scaffold_workspace(
-            "tourney-test", pack="tournament", output_dir=str(tmp_path)
+            "tourney-test",
+            pack="tournament",
+            output_dir=str(tmp_path),
+            clone_webapp=False,
         )
 
         # Tournament pack includes examples
@@ -265,12 +313,20 @@ class TestScaffoldWithPack:
 
     def test_unknown_pack_raises(self, tmp_path):
         with pytest.raises(ValueError, match="Unknown pack"):
-            scaffold_workspace("bad-pack", pack="nonexistent", output_dir=str(tmp_path))
+            scaffold_workspace(
+                "bad-pack",
+                pack="nonexistent",
+                output_dir=str(tmp_path),
+                clone_webapp=False,
+            )
 
     def test_pack_overlay_overwrites_base(self, tmp_path):
         """Pack files should overwrite scaffold base files."""
         ws = scaffold_workspace(
-            "overlay-test", pack="trading", output_dir=str(tmp_path)
+            "overlay-test",
+            pack="trading",
+            output_dir=str(tmp_path),
+            clone_webapp=False,
         )
 
         # Trading pack overrides scoring.py
@@ -311,6 +367,7 @@ class TestCLIEntryPoint:
                 "cli-test-comp",
                 "-o",
                 str(tmp_path),
+                "--no-webapp-clone",
             ],
             capture_output=True,
             text=True,
@@ -331,6 +388,7 @@ class TestCLIEntryPoint:
                 "trading",
                 "-o",
                 str(tmp_path),
+                "--no-webapp-clone",
             ],
             capture_output=True,
             text=True,

@@ -11,10 +11,10 @@ RUN addgroup --gid 1001 --system appgroup && \
 
 WORKDIR /app
 
-# Coordinator engine (from PyPI)
+# Crunch engine (from PyPI)
 # Bump this to force Docker to re-pull the latest package version
-ARG COORDINATOR_NODE_VERSION=0.1.82
-RUN pip install --no-cache-dir "coordinator-node>=${COORDINATOR_NODE_VERSION}"
+ARG CRUNCH_NODE_VERSION=0.1.86
+RUN pip install --no-cache-dir "crunch-node>=${CRUNCH_NODE_VERSION}"
 
 # model-runner-client: force-reinstall from git master to pick up gateway_credentials
 # support that is missing from the PyPI 0.11.0 wheel.

@@ -1,6 +1,6 @@
 # Coordinator Workspace
 
-Crunch coordinator node. `node/` runs the infrastructure, `challenge/` is the participant-facing package.
+Crunch coordinator node. `node/` runs the infrastructure, `challenge/` is the participant-facing package, and `webapp/` is a local clone of `crunchdao/coordinator-webapp`.
 
 ## Git Discipline
 
@@ -27,6 +27,32 @@ Fix scoring edge case — all tests green, logs clean
 ```
 
 Never batch unrelated changes into one commit. If a step involves both code and config, that's fine in one commit — but separate steps get separate commits.
+
+## UI Source
+
+- `node/.local.env` should use `REPORT_UI_BUILD_CONTEXT=../webapp`.
+- `make starter` and `make platform` switch `REPORT_UI_DOCKERFILE` between
+  `apps/starter/Dockerfile` and `apps/platform/Dockerfile` in the local
+  `webapp/` clone.
+
+## Backend → UI Extension Workflow (MANDATORY)
+
+For any request to extend `webapp/` based on node/backend features, use only
+**node-first contract**.
+
+Before editing UI code, collect both:
+1. **Backend source of truth** (`PR`, commit, branch, or endpoint spec)
+2. **UI success criteria** (pages/components/states/workflows expected)
+
+If either is missing, **stop and ask**. Do not implement UI changes yet.
+
+After inputs are confirmed, create/update `docs/ui-contracts/<topic>.md` with:
+- backend endpoint + payload mapping
+- loading/empty/error state definitions
+- acceptance criteria for the UI
+
+Implement only from this contract and report validation against its acceptance
+criteria.
 
 ## Workflow
 
@@ -119,6 +145,7 @@ If anything is wrong:
 | Scoring function | `challenge/starter_challenge/scoring.py` |
 | Example models | `challenge/starter_challenge/examples/` |
 | Docker / deployment | `node/deployment/` |
+| UI app code | `webapp/apps/starter/`, `webapp/apps/platform/` |
 
 ## Done Criteria
 

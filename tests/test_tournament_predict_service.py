@@ -83,7 +83,7 @@ class FakeRepo:
 def make_service(scoring_function=None, config=None) -> TournamentPredictService:
     """Create a TournamentPredictService with in-memory repos."""
     return TournamentPredictService(
-        contract=config or CrunchConfig(),
+        config=config or CrunchConfig(),
         input_repository=FakeRepo(),
         model_repository=FakeRepo(),
         prediction_repository=FakeRepo(),
@@ -490,7 +490,7 @@ class TestScaffoldPattern(unittest.TestCase):
             }
 
         service = TournamentPredictService(
-            contract=config,
+            config=config,
             input_repository=FakeRepo(),
             model_repository=FakeRepo(),
             prediction_repository=FakeRepo(),

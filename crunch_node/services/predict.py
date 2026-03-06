@@ -40,6 +40,7 @@ class PredictService:
     def __init__(
         self,
         feed_reader: FeedReader | None = None,
+        config: CrunchConfig | None = None,
         contract: CrunchConfig | None = None,
         input_repository: DBInputRepository | None = None,
         model_repository: DBModelRepository | None = None,
@@ -55,7 +56,9 @@ class PredictService:
         **kwargs,
     ):
         self.feed_reader = feed_reader
-        self.contract = contract or CrunchConfig()
+        if config is not None and contract is not None and config is not contract:
+            raise ValueError("Provide only one of config= or contract=")
+        self.config = config or contract or CrunchConfig()
 
         self.input_repository = input_repository
         self.model_repository = model_repository
@@ -73,7 +76,7 @@ class PredictService:
             logger=self.logger,
         )
         self._output_validator = OutputValidator(
-            output_type=self.contract.output_type,
+            output_type=self.config.output_type,
             logger=self.logger,
         )
         self._record_factory = PredictionRecordFactory()
@@ -89,6 +92,15 @@ class PredictService:
             logger=self.logger,
         )
         self.stop_event = asyncio.Event()
+
+    @property
+    def contract(self) -> CrunchConfig:
+        """Backward-compatible alias for ``config``."""
+        return self.config
+
+    @contract.setter
+    def contract(self, value: CrunchConfig) -> None:
+        self.config = value
 
     # ── 1. get data ──
 
@@ -125,11 +137,11 @@ class PredictService:
 
     async def _call_models(self, scope: dict[str, Any]) -> dict:
         """Send call to model runner using the configured method name."""
-        method = self.contract.call_method.method
+        method = self.config.call_method.method
         args = self._kernel.encode_predict(
             scope=scope,
-            call_args=self.contract.call_method.args,
-            scope_defaults=self.contract.scope.model_dump(),
+            call_args=self.config.call_method.args,
+            scope_defaults=self.config.scope.model_dump(),
         )
         return await self._kernel.call(method, args)
 
@@ -255,7 +267,7 @@ class PredictService:
         validator = getattr(self, "_output_validator", None)
         if validator is None:
             validator = OutputValidator(
-                output_type=self.contract.output_type,
+                output_type=self.config.output_type,
                 logger=getattr(self, "logger", None),
             )
             self._output_validator = validator
@@ -314,6 +326,6 @@ class PredictService:
     def _encode_predict(self, scope: dict[str, Any]) -> tuple:
         return self._kernel.encode_predict(
             scope=scope,
-            call_args=self.contract.call_method.args,
-            scope_defaults=self.contract.scope.model_dump(),
+            call_args=self.config.call_method.args,
+            scope_defaults=self.config.scope.model_dump(),
         )
