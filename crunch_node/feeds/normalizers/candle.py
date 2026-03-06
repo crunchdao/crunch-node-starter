@@ -31,10 +31,7 @@ class CandleInput(BaseModel):
 class CandleNormalizer:
     """Normalizes feed records to OHLCV candle format.
 
-    Handles both:
-    - kind="candle": Uses OHLCV values from record
-    - kind="tick" (or other): Converts single price to candle (open=high=low=close)
-
+    Only handles kind="candle". Skips records of other kinds.
     Accepts both FeedDataRecord (ts_event: int) and FeedRecord (ts_event: datetime).
     """
 
@@ -60,6 +57,9 @@ class CandleNormalizer:
         )
 
     def _record_to_candle(self, record: Any) -> Candle | None:
+        if record.kind != "candle":
+            return None
+
         values = getattr(record, "values", None) or {}
         price = self._extract_price(values)
         if price is None:
@@ -67,24 +67,14 @@ class CandleNormalizer:
 
         ts_event = self._to_timestamp(record.ts_event)
 
-        if record.kind == "candle":
-            return Candle(
-                ts=ts_event,
-                open=float(values.get("open", price)),
-                high=float(values.get("high", price)),
-                low=float(values.get("low", price)),
-                close=float(values.get("close", price)),
-                volume=float(values.get("volume", 0.0)),
-            )
-        else:
-            return Candle(
-                ts=ts_event,
-                open=price,
-                high=price,
-                low=price,
-                close=price,
-                volume=0.0,
-            )
+        return Candle(
+            ts=ts_event,
+            open=float(values.get("open", price)),
+            high=float(values.get("high", price)),
+            low=float(values.get("low", price)),
+            close=float(values.get("close", price)),
+            volume=float(values.get("volume", 0.0)),
+        )
 
     @staticmethod
     def _extract_price(values: dict[str, Any]) -> float | None:

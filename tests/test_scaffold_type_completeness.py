@@ -1,7 +1,8 @@
-"""Tests that the scaffold's CrunchConfig overrides all customizable types.
+"""Tests that the scaffold's CrunchConfig overrides key customizable types.
 
-Issue #6: Scaffold overrides raw_input_type/input_type but forgets
-output_type/score_type, making it easy to miss they need customization.
+The scaffold should explicitly set output_type and score_type so users
+see they need customization for their prediction format and scoring metrics.
+Input shape is defined by feed_normalizer (not raw_input_type).
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ SCAFFOLD_CONFIG_PATH = (
 
 
 class TestScaffoldTypeCompleteness:
-    """The scaffold crunch_config.py should explicitly set all 5 data-shape types."""
+    """The scaffold crunch_config.py should explicitly set key data-shape types."""
 
     def test_scaffold_config_exists(self):
         assert SCAFFOLD_CONFIG_PATH.exists(), f"Missing {SCAFFOLD_CONFIG_PATH}"

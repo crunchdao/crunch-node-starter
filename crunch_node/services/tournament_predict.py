@@ -97,10 +97,13 @@ class TournamentPredictService(PredictService):
         now = now or datetime.now(UTC)
         await self.init_runner()
 
-        # Validate features through input_type
-        validated_features = [
-            self.contract.input_type.model_validate(f).model_dump() for f in features
-        ]
+        # Validate features through input_type if configured
+        if self.contract.input_type is not None:
+            validated_features = [
+                self.contract.input_type.model_validate(f).model_dump() for f in features
+            ]
+        else:
+            validated_features = features
 
         # Save input record (features batch)
         inp = InputRecord(
@@ -220,17 +223,11 @@ class TournamentPredictService(PredictService):
             )
 
         # Normalize ground truth to list
+        gt_type = self.contract.get_ground_truth_type()
         if isinstance(ground_truth, list):
-            gt_items = [
-                self.contract.ground_truth_type.model_validate(gt).model_dump()
-                for gt in ground_truth
-            ]
+            gt_items = [gt_type.model_validate(gt).model_dump() for gt in ground_truth]
         else:
-            gt_items = [
-                self.contract.ground_truth_type.model_validate(
-                    ground_truth
-                ).model_dump()
-            ]
+            gt_items = [gt_type.model_validate(ground_truth).model_dump()]
 
         # Find all pending predictions for this round (prefix match)
         predictions = self.prediction_repository.find(

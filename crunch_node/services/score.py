@@ -178,7 +178,7 @@ class ScoreService:
         are scored.  Raises on hard errors; logs warnings on soft issues.
         """
         output_type = self.contract.output_type
-        ground_truth_type = self.contract.ground_truth_type
+        ground_truth_type = self.contract.get_ground_truth_type()
 
         # Build a sample prediction dict from InferenceOutput defaults
         try:
@@ -331,7 +331,7 @@ class ScoreService:
         if actuals is None:
             return None
         # Validate through ground_truth_type
-        parsed = self.contract.ground_truth_type.model_validate(actuals)
+        parsed = self.contract.get_ground_truth_type().model_validate(actuals)
         return parsed.model_dump()
 
     def _score_predictions(self, now: datetime) -> list[ScoreRecord]:

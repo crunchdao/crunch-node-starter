@@ -27,12 +27,12 @@ class TestPredictSink(unittest.TestCase):
 
     def test_on_record_updates_window(self):
         record = FeedDataRecord(
-            source="pyth",
+            source="binance",
             subject="BTC",
-            kind="tick",
-            granularity="1s",
+            kind="candle",
+            granularity="1m",
             ts_event=1000,
-            values={"price": 50000},
+            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
             metadata={},
         )
 
@@ -45,12 +45,12 @@ class TestPredictSink(unittest.TestCase):
 
     def test_on_record_calls_predict_service(self):
         record = FeedDataRecord(
-            source="pyth",
+            source="binance",
             subject="BTC",
-            kind="tick",
-            granularity="1s",
+            kind="candle",
+            granularity="1m",
             ts_event=1000,
-            values={"price": 50000},
+            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
             metadata={},
         )
 
@@ -65,12 +65,12 @@ class TestPredictSink(unittest.TestCase):
 
     def test_on_record_includes_feed_timing(self):
         record = FeedDataRecord(
-            source="pyth",
+            source="binance",
             subject="BTC",
-            kind="tick",
-            granularity="1s",
+            kind="candle",
+            granularity="1m",
             ts_event=1000,
-            values={"price": 50000},
+            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
             metadata={},
         )
 
@@ -84,12 +84,12 @@ class TestPredictSink(unittest.TestCase):
     def test_build_input_returns_correct_format(self):
         self.feed_window.append(
             FeedDataRecord(
-                source="pyth",
+                source="binance",
                 subject="BTC",
-                kind="tick",
-                granularity="1s",
+                kind="candle",
+                granularity="1m",
                 ts_event=1000,
-                values={"price": 50000},
+                values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
                 metadata={},
             )
         )
@@ -118,12 +118,12 @@ class TestPredictSinkPersistence(unittest.TestCase):
         )
 
         record = FeedDataRecord(
-            source="pyth",
+            source="binance",
             subject="BTC",
-            kind="tick",
-            granularity="1s",
+            kind="candle",
+            granularity="1m",
             ts_event=1000,
-            values={"price": 50000},
+            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
             metadata={},
         )
 

@@ -21,22 +21,14 @@ class Meta(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class RawInput(BaseModel):
-    """What the feed produces. Override to define your feed's data shape."""
+class GroundTruth(BaseModel):
+    """What the actual outcome looks like for scoring.
+
+    This is computed by resolve_ground_truth(), not raw feed data.
+    Override to define your scoring ground truth shape.
+    """
 
     model_config = ConfigDict(extra="allow")
-
-
-class GroundTruth(RawInput):
-    """What the actual outcome looks like. Same shape as RawInput unless you override."""
-
-    pass
-
-
-class InferenceInput(RawInput):
-    """What models receive. Same as RawInput unless you override."""
-
-    pass
 
 
 class InferenceOutput(BaseModel):
@@ -466,9 +458,31 @@ class CrunchConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     meta_type: type[BaseModel] = Meta
-    raw_input_type: type[BaseModel] = RawInput
-    ground_truth_type: type[BaseModel] = GroundTruth
-    input_type: type[BaseModel] = InferenceInput
+    feed_normalizer: str = Field(
+        default="candle",
+        description=(
+            "Normalizer name that defines the input shape models receive. "
+            "The normalizer transforms feed records into a Pydantic model. "
+            "Available: 'candle' (OHLCV), 'tick' (price ticks). "
+            "Use get_normalizer(config.feed_normalizer).output_type to get the input schema."
+        ),
+    )
+    input_type: type[BaseModel] | None = Field(
+        default=None,
+        description=(
+            "Optional input schema for non-feed modes (e.g., tournament API). "
+            "When set, used to validate API-provided inputs. "
+            "For feed-based modes, use feed_normalizer instead."
+        ),
+    )
+    ground_truth_type: type[BaseModel] | None = Field(
+        default=None,
+        description=(
+            "Ground truth schema for scoring. When None (default), derived from "
+            "the feed normalizer's output_type. Set explicitly for API-driven "
+            "modes (tournament) or when ground truth differs from input shape."
+        ),
+    )
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
     scope: PredictionScope = Field(default_factory=PredictionScope)
@@ -561,3 +575,14 @@ class CrunchConfig(BaseModel):
         default_aggregate_snapshot
     )
     build_emission: Callable[..., EmissionCheckpoint] = default_build_emission
+
+    def get_ground_truth_type(self) -> type[BaseModel]:
+        """Return the effective ground truth type.
+
+        If ground_truth_type is explicitly set, return it.
+        Otherwise, return the base GroundTruth (accepts any fields via extra="allow").
+        """
+        if self.ground_truth_type is not None:
+            return self.ground_truth_type
+
+        return GroundTruth

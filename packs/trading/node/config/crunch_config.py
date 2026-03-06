@@ -10,8 +10,6 @@ Scoring: pnl = signal * actual_return - |signal| * spread_fee
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from crunch_node.crunch_config import (
@@ -24,32 +22,24 @@ from crunch_node.crunch_config import (
 )
 
 # ── Type contracts ──────────────────────────────────────────────────
+# Input shape is defined by feed_normalizer="candle" → CandleInput
+# See crunch_node.feeds.normalizers.candle for the schema.
 
 
-class RawInput(BaseModel):
-    """What the feed produces. Multi-timeframe OHLCV from exchange."""
+class GroundTruth(BaseModel):
+    """Actuals: same shape as input, resolved after the horizon.
+
+    TODO: This example shows candle fields, but the default resolve_ground_truth()
+    returns computed values (entry_price, profit, direction_up). Either override
+    resolve_ground_truth() to return candles, or update these fields to match
+    what the default resolver produces.
+    """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTCUSDT"
     asof_ts: int = 0
-
     candles_1m: list[dict] = Field(default_factory=list)
-    candles_5m: list[dict] = Field(default_factory=list)
-    candles_15m: list[dict] = Field(default_factory=list)
-    candles_1h: list[dict] = Field(default_factory=list)
-
-
-class InferenceInput(RawInput):
-    """What models receive — identical to RawInput (all market data exposed)."""
-
-    pass
-
-
-class GroundTruth(RawInput):
-    """Actuals: same shape as RawInput, resolved after the horizon."""
-
-    pass
 
 
 class InferenceOutput(BaseModel):
@@ -88,11 +78,12 @@ class CrunchConfig(BaseCrunchConfig):
 
     Multi-asset signal prediction with PnL scoring.
     Models return signal [-1, 1], scored on realized return minus spread.
+
+    Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
     """
 
-    raw_input_type: type[BaseModel] = RawInput
+    feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
-    input_type: type[BaseModel] = InferenceInput
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 

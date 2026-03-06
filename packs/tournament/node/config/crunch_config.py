@@ -6,11 +6,12 @@ Scoring uses IC (information coefficient) as the primary ranking metric.
 
 This is the classic quant-tournament format: submit predictions,
 wait for resolution, rank by statistical quality.
+
+NOTE: Tournament mode is API-driven, not feed-based. The feed_normalizer
+setting is ignored — input data comes directly from the tournament API.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,27 +26,22 @@ from crunch_node.crunch_config import (
 )
 
 # ── Type contracts ──────────────────────────────────────────────────
+# Tournament mode doesn't use feed normalizers — data comes via API.
+# input_type is used to validate API-provided feature dicts.
 
 
-class RawInput(BaseModel):
-    """What the feed produces. Feature set with multiple columns."""
+class TournamentInput(BaseModel):
+    """What the tournament API provides. Feature dict for each sample."""
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTC"
     asof_ts: int = 0
     round_id: int = 0
-
     features: dict[str, float] = Field(
         default_factory=dict,
-        description="Named feature values for this round.",
+        description="Named feature values for this sample.",
     )
-
-
-class InferenceInput(RawInput):
-    """What models receive — same as RawInput."""
-
-    pass
 
 
 class GroundTruth(BaseModel):
@@ -102,9 +98,8 @@ class CrunchConfig(BaseCrunchConfig):
     No feed, no scheduled predictions — rounds are API-driven.
     """
 
-    raw_input_type: type[BaseModel] = RawInput
+    input_type: type[BaseModel] = TournamentInput  # For API input validation
     ground_truth_type: type[BaseModel] = GroundTruth
-    input_type: type[BaseModel] = InferenceInput
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 

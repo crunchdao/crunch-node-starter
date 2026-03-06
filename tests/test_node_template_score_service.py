@@ -515,11 +515,17 @@ class TestValidateScoringIO(unittest.TestCase):
 
     def test_warns_on_non_keyerror_exceptions(self):
         """Non-KeyError exceptions in the scorer produce a warning, not a crash."""
+        from pydantic import BaseModel
+
+        class GroundTruthWithPrice(BaseModel):
+            entry_price: float = 0.0
 
         def scorer_needs_real_data(prediction, ground_truth):
             # This scorer needs real prices that defaults don't provide
+            # entry_price defaults to 0.0, causing ZeroDivisionError
             return {"value": prediction["value"] / ground_truth["entry_price"]}
 
+        config = CrunchConfig(ground_truth_type=GroundTruthWithPrice)
         service = ScoreService(
             checkpoint_interval_seconds=60,
             scoring_function=scorer_needs_real_data,
@@ -530,13 +536,13 @@ class TestValidateScoringIO(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
+            contract=config,
         )
 
-        # Should warn but not crash (ZeroDivisionError or KeyError depending on GroundTruth defaults)
-        # GroundTruth defaults have extra="allow" so empty dict → KeyError for entry_price
-        with self.assertRaises(RuntimeError) as ctx:
+        # Should warn but not crash — ZeroDivisionError with entry_price=0.0 default
+        with self.assertLogs("crunch_node.services.score", level="WARNING") as log:
             service.validate_scoring_io()
-        self.assertIn("entry_price", str(ctx.exception))
+        self.assertTrue(any("ZeroDivisionError" in msg for msg in log.output))
 
 
 class TestScorerReceivesPredictionMetadata(unittest.TestCase):
