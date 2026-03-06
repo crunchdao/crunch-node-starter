@@ -32,36 +32,40 @@ from crunch_node.entities.prediction_record import PredictionRecord
 
 
 class GroundTruth(BaseModel):
-    """Actuals: tick data from the resolution window.
+    """Actuals: tick data from entry and resolution times.
 
-    Same shape as input — the scorer receives future ticks
-    and computes whether the prediction was correct.
+    Contains both entry (at prediction time) and resolved (at horizon time)
+    ticks so scoring can compute return.
     """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTC"
     asof_ts: int = 0
-    ticks: list[dict] = Field(default_factory=list)
+    entry_ticks: list[dict] = Field(default_factory=list)
+    resolved_ticks: list[dict] = Field(default_factory=list)
 
 
 def resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
-    """Extract tick data from feed records at the resolution horizon.
+    """Extract tick data from entry and resolved feed records.
 
-    Returns the same shape as the input (GroundTruth matches TickInput).
-    The scorer computes profit/direction from the tick prices.
+    Returns both entry (first record) and resolved (last record) ticks
+    so the scorer can compute price return.
     """
     if not feed_records:
         return None
 
-    record = feed_records[-1]
+    entry = feed_records[0]
+    resolved = feed_records[-1]
+
     return {
-        "symbol": record.subject,
-        "asof_ts": int(record.ts_event.timestamp() * 1000),
-        "ticks": record.values.get("ticks", []),
+        "symbol": resolved.subject,
+        "asof_ts": int(resolved.ts_event.timestamp() * 1000),
+        "entry_ticks": entry.values.get("ticks", []),
+        "resolved_ticks": resolved.values.get("ticks", []),
     }
 
 
@@ -74,18 +78,20 @@ def score_prediction(
     Computes directional accuracy: did the model predict the right direction?
     Score = sign(prediction) * sign(actual_return) * |prediction|
     """
-    ticks = ground_truth.get("ticks", [])
-    if len(ticks) < 2:
+    entry_ticks = ground_truth.get("entry_ticks", [])
+    resolved_ticks = ground_truth.get("resolved_ticks", [])
+
+    if not entry_ticks or not resolved_ticks:
         return {
             "value": 0.0,
             "actual_return": 0.0,
             "direction_correct": False,
             "success": False,
-            "failed_reason": "not enough ticks to compute return",
+            "failed_reason": "missing entry or resolved ticks",
         }
 
-    entry_price = ticks[0].get("price", 0.0)
-    resolved_price = ticks[-1].get("price", 0.0)
+    entry_price = entry_ticks[-1].get("price", 0.0)
+    resolved_price = resolved_ticks[-1].get("price", 0.0)
 
     if entry_price == 0:
         return {

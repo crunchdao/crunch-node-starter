@@ -32,17 +32,18 @@ SPREAD_FEE = 0.0001  # 1 basis point spread cost
 
 
 class GroundTruth(BaseModel):
-    """Actuals: candle data from the resolution window.
+    """Actuals: candle data from entry and resolution times.
 
-    Same shape as input — the scorer receives future candles
-    and computes PnL from the price movement.
+    The default resolve_ground_truth returns both entry (at prediction time)
+    and resolved (at horizon time) candles so scoring can compute PnL.
     """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTCUSDT"
     asof_ts: int = 0
-    candles_1m: list[dict] = Field(default_factory=list)
+    entry_candles_1m: list[dict] = Field(default_factory=list)
+    resolved_candles_1m: list[dict] = Field(default_factory=list)
 
 
 def score_prediction(
@@ -53,8 +54,10 @@ def score_prediction(
 
     PnL = signal * actual_return - |signal| * spread_fee
     """
-    candles = ground_truth.get("candles_1m", [])
-    if len(candles) < 2:
+    entry_candles = ground_truth.get("entry_candles_1m", [])
+    resolved_candles = ground_truth.get("resolved_candles_1m", [])
+
+    if not entry_candles or not resolved_candles:
         return {
             "value": 0.0,
             "pnl": 0.0,
@@ -63,11 +66,11 @@ def score_prediction(
             "signal_clamped": 0.0,
             "direction_correct": False,
             "success": False,
-            "failed_reason": "not enough candles to compute return",
+            "failed_reason": "missing entry or resolved candles",
         }
 
-    entry_price = candles[0].get("close", 0.0)
-    resolved_price = candles[-1].get("close", 0.0)
+    entry_price = entry_candles[-1].get("close", 0.0)
+    resolved_price = resolved_candles[-1].get("close", 0.0)
 
     if entry_price == 0:
         return {

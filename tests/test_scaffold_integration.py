@@ -192,8 +192,8 @@ class TestGroundTruthResolution:
             self._make_feed_record("BTC", 40100.0, now),
         ]
         result = crunch_config.resolve_ground_truth(records)
-        # Default resolver produces candle-based ground truth
-        for key in ("symbol", "asof_ts", "candles_1m"):
+        # Default resolver produces entry and resolved candles
+        for key in ("symbol", "asof_ts", "entry_candles_1m", "resolved_candles_1m"):
             assert key in result, (
                 f"resolve_ground_truth missing key '{key}'. "
                 f"Scoring function may KeyError at runtime."
@@ -206,9 +206,14 @@ class TestGroundTruthResolution:
             self._make_feed_record("BTC", 40100.0, now),
         ]
         result = crunch_config.resolve_ground_truth(records)
-        candles = result.get("candles_1m", [])
-        assert len(candles) > 0, (
-            "resolve_ground_truth returned empty candles. "
+        entry_candles = result.get("entry_candles_1m", [])
+        resolved_candles = result.get("resolved_candles_1m", [])
+        assert len(entry_candles) > 0, (
+            "resolve_ground_truth returned empty entry candles. "
+            "Scoring function cannot compute returns."
+        )
+        assert len(resolved_candles) > 0, (
+            "resolve_ground_truth returned empty resolved candles. "
             "Scoring function cannot compute returns."
         )
 

@@ -24,19 +24,18 @@ from crunch_node.crunch_config import (
 
 
 class GroundTruth(BaseModel):
-    """Actuals: same shape as input, resolved after the horizon.
+    """Actuals: candle data from entry and resolution times.
 
-    TODO: This example shows candle fields, but the default resolve_ground_truth()
-    returns computed values (entry_price, profit, direction_up). Either override
-    resolve_ground_truth() to return candles, or update these fields to match
-    what the default resolver produces.
+    The default resolve_ground_truth returns both entry (at prediction time)
+    and resolved (at horizon time) candles so scoring can compute return.
     """
 
     model_config = ConfigDict(extra="allow")
 
     symbol: str = "BTCUSDT"
     asof_ts: int = 0
-    candles_1m: list[dict] = Field(default_factory=list)
+    entry_candles_1m: list[dict] = Field(default_factory=list)
+    resolved_candles_1m: list[dict] = Field(default_factory=list)
 
 
 class CrunchConfig(BaseCrunchConfig):
