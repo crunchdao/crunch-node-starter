@@ -1,4 +1,4 @@
-"""Tests for post_predict_hook on RealtimePredictService."""
+"""Tests for pre_predict_hook and post_predict_hook on RealtimePredictService."""
 
 from __future__ import annotations
 
@@ -92,9 +92,10 @@ class InMemoryInputRepository:
         self.records.append(record)
 
 
-def _make_service(post_predict_hook=None):
+def _make_service(pre_predict_hook=None, post_predict_hook=None):
     return RealtimePredictService(
         checkpoint_interval_seconds=60,
+        pre_predict_hook=pre_predict_hook,
         post_predict_hook=post_predict_hook,
         feed_reader=FakeFeedReader(),
         config=CrunchConfig(),
@@ -181,7 +182,101 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured["raw_data"].get("price"), 42000.0)
 
 
+# ── pre_predict_hook ──
+
+
+class TestPrePredictHook(unittest.IsolatedAsyncioTestCase):
+    async def test_hook_is_called_with_raw_data_and_now(self):
+        captured: dict[str, Any] = {}
+
+        def hook(raw_data, now):
+            captured["raw_data"] = raw_data
+            captured["now"] = now
+            return raw_data
+
+        service = _make_service(pre_predict_hook=hook)
+        now = datetime.now(UTC)
+        await service.run_once(raw_input={"symbol": "BTC", "price": 100.0}, now=now)
+
+        self.assertEqual(captured["raw_data"], {"symbol": "BTC", "price": 100.0})
+        self.assertEqual(captured["now"], now)
+
+    async def test_hook_can_transform_data(self):
+        """Models receive transformed data, original InputRecord is preserved."""
+        tick_inputs: list[dict] = []
+
+        original_tick = RealtimePredictService._tick_models
+
+        async def spy_tick(self_svc, inference_input):
+            tick_inputs.append(inference_input)
+            return await original_tick(self_svc, inference_input)
+
+        def obfuscate(raw_data, now):
+            return {"obfuscated": True, "n_fields": len(raw_data)}
+
+        service = _make_service(pre_predict_hook=obfuscate)
+        RealtimePredictService._tick_models = spy_tick
+        try:
+            await service.run_once(
+                raw_input={"symbol": "BTC", "price": 100.0},
+                now=datetime.now(UTC),
+            )
+        finally:
+            RealtimePredictService._tick_models = original_tick
+
+        self.assertEqual(tick_inputs, [{"obfuscated": True, "n_fields": 2}])
+
+        saved_input = service.input_repository.records[0]
+        self.assertEqual(saved_input.raw_data, {"symbol": "BTC", "price": 100.0})
+
+    async def test_hook_returning_none_skips_prediction(self):
+        def reject(raw_data, now):
+            return None
+
+        service = _make_service(pre_predict_hook=reject)
+        result = await service.run_once(
+            raw_input={"symbol": "BTC"}, now=datetime.now(UTC)
+        )
+
+        self.assertFalse(result)
+        self.assertEqual(len(service.prediction_repository.saved_predictions), 0)
+
+    async def test_no_hook_passes_raw_data_unchanged(self):
+        tick_inputs: list[dict] = []
+
+        original_tick = RealtimePredictService._tick_models
+
+        async def spy_tick(self_svc, inference_input):
+            tick_inputs.append(inference_input)
+            return await original_tick(self_svc, inference_input)
+
+        service = _make_service()
+        RealtimePredictService._tick_models = spy_tick
+        try:
+            await service.run_once(
+                raw_input={"symbol": "ETH", "price": 3000.0},
+                now=datetime.now(UTC),
+            )
+        finally:
+            RealtimePredictService._tick_models = original_tick
+
+        self.assertEqual(tick_inputs, [{"symbol": "ETH", "price": 3000.0}])
+
+
 # ── CrunchConfig integration ──
+
+
+class TestCrunchConfigPrePredictHook(unittest.TestCase):
+    def test_default_is_none(self):
+        config = CrunchConfig()
+        self.assertIsNone(config.pre_predict_hook)
+
+    def test_accepts_callable(self):
+        def my_hook(raw_data, now):
+            return raw_data
+
+        config = CrunchConfig(pre_predict_hook=my_hook)
+        self.assertIs(config.pre_predict_hook, my_hook)
 
 
 class TestCrunchConfigPostPredictHook(unittest.TestCase):

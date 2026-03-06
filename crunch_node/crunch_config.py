@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -543,6 +544,16 @@ class CrunchConfig(BaseModel):
             "Scoring callable: (prediction_dict, ground_truth_dict) → score_dict. "
             "If set, takes precedence over the SCORING_FUNCTION env var. "
             "Use for stateful scoring (e.g. PositionManager-backed trading)."
+        ),
+    )
+    pre_predict_hook: (
+        Callable[[dict[str, Any], datetime], dict[str, Any] | None] | None
+    ) = Field(
+        default=None,
+        description=(
+            "Hook called before models receive data. Receives (raw_data, now) "
+            "and returns the (possibly transformed) data dict for models. "
+            "Return None to skip prediction for this tick."
         ),
     )
     post_predict_hook: (

@@ -21,6 +21,13 @@ class RealtimePredictService(PredictService):
     def __init__(
         self,
         checkpoint_interval_seconds: int = 60 * 60,
+        pre_predict_hook: (
+            Callable[
+                [dict[str, Any], datetime],
+                dict[str, Any] | None,
+            ]
+            | None
+        ) = None,
         post_predict_hook: (
             Callable[
                 [list[PredictionRecord], InputRecord, datetime],
@@ -32,6 +39,7 @@ class RealtimePredictService(PredictService):
     ) -> None:
         super().__init__(**kwargs)
         self.checkpoint_interval_seconds = checkpoint_interval_seconds
+        self.pre_predict_hook = pre_predict_hook
         self.post_predict_hook = post_predict_hook
         self._next_run: dict[str, datetime] = {}
 
@@ -134,7 +142,14 @@ class RealtimePredictService(PredictService):
             inp._timing["notify_received_us"] = notify_received_us
         inp._timing["data_loaded_us"] = data_loaded_us
 
-        await self._tick_models(inp.raw_data)
+        model_input = inp.raw_data
+        if self.pre_predict_hook is not None:
+            model_input = self.pre_predict_hook(model_input, now)
+            if model_input is None:
+                self.logger.info("pre_predict_hook returned None — skipping tick")
+                return False
+
+        await self._tick_models(model_input)
 
         # 2. run configs → build records → save
         predictions = await self._predict_all_configs(inp, now)
