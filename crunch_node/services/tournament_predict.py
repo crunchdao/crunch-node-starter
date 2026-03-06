@@ -100,7 +100,8 @@ class TournamentPredictService(PredictService):
         # Validate features through input_type if configured
         if self.contract.input_type is not None:
             validated_features = [
-                self.contract.input_type.model_validate(f).model_dump() for f in features
+                self.contract.input_type.model_validate(f).model_dump()
+                for f in features
             ]
         else:
             validated_features = features

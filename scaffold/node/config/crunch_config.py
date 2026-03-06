@@ -56,7 +56,9 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
-    output_type: type[BaseModel] = InferenceOutput  # customize for your prediction format
+    output_type: type[BaseModel] = (
+        InferenceOutput  # customize for your prediction format
+    )
     score_type: type[BaseModel] = ScoreResult  # customize for your scoring metrics
 
     # Prediction schedule — what to predict, how often, when to resolve

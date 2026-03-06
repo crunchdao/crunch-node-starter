@@ -87,7 +87,13 @@ class TestCandleNormalizer(unittest.TestCase):
             kind = "candle"
             granularity = "1m"
             ts_event = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
-            values = {"open": 50000, "high": 50100, "low": 49900, "close": 50050, "volume": 100}
+            values = {
+                "open": 50000,
+                "high": 50100,
+                "low": 49900,
+                "close": 50050,
+                "volume": 100,
+            }
 
         records = [MockDBRecord()]
 
@@ -122,7 +128,13 @@ class TestCandleNormalizer(unittest.TestCase):
                 kind="candle",
                 granularity="1m",
                 ts_event=1000 + i * 60,
-                values={"open": 50000, "high": 50100, "low": 49900, "close": 50000 + i * 100, "volume": 100},
+                values={
+                    "open": 50000,
+                    "high": 50100,
+                    "low": 49900,
+                    "close": 50000 + i * 100,
+                    "volume": 100,
+                },
                 metadata={},
             )
             for i in range(5)
@@ -143,7 +155,13 @@ class TestCandleNormalizer(unittest.TestCase):
                 kind="candle",
                 granularity="1m",
                 ts_event=1000,
-                values={"open": 50000, "high": 50100, "low": 49900, "close": 50000, "volume": 100},
+                values={
+                    "open": 50000,
+                    "high": 50100,
+                    "low": 49900,
+                    "close": 50000,
+                    "volume": 100,
+                },
                 metadata={},
             )
         ]
@@ -193,7 +211,13 @@ class TestTickNormalizer(unittest.TestCase):
                 kind="candle",
                 granularity="1m",
                 ts_event=1000,
-                values={"open": 50000, "high": 50100, "low": 49900, "close": 50000, "volume": 100},
+                values={
+                    "open": 50000,
+                    "high": 50100,
+                    "low": 49900,
+                    "close": 50000,
+                    "volume": 100,
+                },
                 metadata={},
             )
         ]

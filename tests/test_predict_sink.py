@@ -32,7 +32,13 @@ class TestPredictSink(unittest.TestCase):
             kind="candle",
             granularity="1m",
             ts_event=1000,
-            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
+            values={
+                "open": 49900,
+                "high": 50100,
+                "low": 49800,
+                "close": 50000,
+                "volume": 100,
+            },
             metadata={},
         )
 
@@ -50,7 +56,13 @@ class TestPredictSink(unittest.TestCase):
             kind="candle",
             granularity="1m",
             ts_event=1000,
-            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
+            values={
+                "open": 49900,
+                "high": 50100,
+                "low": 49800,
+                "close": 50000,
+                "volume": 100,
+            },
             metadata={},
         )
 
@@ -70,7 +82,13 @@ class TestPredictSink(unittest.TestCase):
             kind="candle",
             granularity="1m",
             ts_event=1000,
-            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
+            values={
+                "open": 49900,
+                "high": 50100,
+                "low": 49800,
+                "close": 50000,
+                "volume": 100,
+            },
             metadata={},
         )
 
@@ -89,7 +107,13 @@ class TestPredictSink(unittest.TestCase):
                 kind="candle",
                 granularity="1m",
                 ts_event=1000,
-                values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
+                values={
+                    "open": 49900,
+                    "high": 50100,
+                    "low": 49800,
+                    "close": 50000,
+                    "volume": 100,
+                },
                 metadata={},
             )
         )
@@ -123,7 +147,13 @@ class TestPredictSinkPersistence(unittest.TestCase):
             kind="candle",
             granularity="1m",
             ts_event=1000,
-            values={"open": 49900, "high": 50100, "low": 49800, "close": 50000, "volume": 100},
+            values={
+                "open": 49900,
+                "high": 50100,
+                "low": 49800,
+                "close": 50000,
+                "volume": 100,
+            },
             metadata={},
         )
 
