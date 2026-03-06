@@ -20,6 +20,7 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
+from crunch_node.services.realtime_predict import RealtimeServiceConfig
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
@@ -86,6 +87,11 @@ class CrunchConfig(BaseCrunchConfig):
     ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
+
+    # Realtime service hooks (pre/post feed_update lifecycle)
+    realtime_service: RealtimeServiceConfig = Field(
+        default_factory=RealtimeServiceConfig
+    )
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(

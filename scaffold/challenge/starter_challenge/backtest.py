@@ -439,10 +439,10 @@ class BacktestRunner:
             if current_ts.tzinfo is None:
                 current_ts = current_ts.replace(tzinfo=UTC)
 
-            # Build window for tick()
+            # Build window for feed_update()
             window_df = df.iloc[max(0, i - window_size + 1) : i + 1]
-            tick_data = _df_to_tick_data(window_df, subject)
-            self.model.tick(tick_data)
+            feed_data = _df_to_feed_update_data(window_df, subject)
+            self.model.feed_update(feed_data)
 
             # Predict at intervals
             if last_predict_ts is None or (current_ts - last_predict_ts) >= interval:
@@ -543,8 +543,8 @@ class BacktestRunner:
         }
 
 
-def _df_to_tick_data(window_df, subject: str) -> dict[str, Any]:
-    """Convert a DataFrame window to the tick data format models expect."""
+def _df_to_feed_update_data(window_df, subject: str) -> dict[str, Any]:
+    """Convert a DataFrame window to the feed update data format models expect."""
     candles = []
     for _, row in window_df.iterrows():
         ts = row["ts_event"]

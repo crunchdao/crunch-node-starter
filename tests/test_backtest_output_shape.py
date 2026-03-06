@@ -22,7 +22,7 @@ class TestBacktestOutputShape:
 
         # Model that returns a raw float
         model = MagicMock()
-        model.tick = MagicMock()
+        model.feed_update = MagicMock()
         model.predict = MagicMock(return_value=1.5)
 
         runner = BacktestRunner(model=model)

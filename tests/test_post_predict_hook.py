@@ -1,4 +1,4 @@
-"""Tests for post_predict_hook on RealtimePredictService."""
+"""Tests for pre_feed_update_hook and post_predict_hook on RealtimePredictService."""
 
 from __future__ import annotations
 
@@ -6,9 +6,14 @@ import unittest
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import Field
+
 from crunch_node.crunch_config import CrunchConfig
 from crunch_node.entities.prediction import InputRecord, PredictionRecord
-from crunch_node.services.realtime_predict import RealtimePredictService
+from crunch_node.services.realtime_predict import (
+    RealtimePredictService,
+    RealtimeServiceConfig,
+)
 
 # ── reuse test fixtures from test_node_template_predict_service ──
 
@@ -92,9 +97,18 @@ class InMemoryInputRepository:
         self.records.append(record)
 
 
-def _make_service(post_predict_hook=None):
+class HookedCrunchConfig(CrunchConfig):
+    """CrunchConfig subclass with realtime_service (as a pack would define)."""
+
+    realtime_service: RealtimeServiceConfig = Field(
+        default_factory=RealtimeServiceConfig
+    )
+
+
+def _make_service(pre_feed_update_hook=None, post_predict_hook=None):
     return RealtimePredictService(
         checkpoint_interval_seconds=60,
+        pre_feed_update_hook=pre_feed_update_hook,
         post_predict_hook=post_predict_hook,
         feed_reader=FakeFeedReader(),
         config=CrunchConfig(),
@@ -103,6 +117,42 @@ def _make_service(post_predict_hook=None):
         prediction_repository=InMemoryPredictionRepository(),
         runner=FakeRunner(),
     )
+
+
+class TestPreFeedUpdateHook(unittest.IsolatedAsyncioTestCase):
+    async def test_hook_is_called_with_correct_args(self):
+        captured: dict[str, Any] = {}
+
+        def hook(input_record, now):
+            captured["input_record"] = input_record
+            captured["now"] = now
+            return input_record
+
+        service = _make_service(pre_feed_update_hook=hook)
+        now = datetime.now(UTC)
+        await service.run_once(raw_input={"symbol": "BTC"}, now=now)
+
+        self.assertIsInstance(captured["input_record"], InputRecord)
+        self.assertEqual(captured["now"], now)
+
+    async def test_hook_can_mutate_input_record(self):
+        def hook(input_record, now):
+            input_record.raw_data["mutated"] = True
+            return input_record
+
+        captured: dict[str, Any] = {}
+
+        def post_hook(predictions, input_record, now):
+            captured["raw_data"] = input_record.raw_data
+            return predictions
+
+        service = _make_service(
+            pre_feed_update_hook=hook,
+            post_predict_hook=post_hook,
+        )
+        await service.run_once(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
+
+        self.assertTrue(captured["raw_data"].get("mutated"))
 
 
 class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
@@ -184,31 +234,55 @@ class TestPostPredictHook(unittest.IsolatedAsyncioTestCase):
 # ── CrunchConfig integration ──
 
 
-class TestCrunchConfigPostPredictHook(unittest.TestCase):
-    def test_default_is_none(self):
+class TestCrunchConfigHooks(unittest.TestCase):
+    def test_base_config_has_no_realtime_service(self):
         config = CrunchConfig()
-        self.assertIsNone(config.post_predict_hook)
+        self.assertFalse(hasattr(config, "realtime_service"))
 
-    def test_accepts_callable(self):
+    def test_hooked_config_defaults_are_none(self):
+        config = HookedCrunchConfig()
+        self.assertIsNone(config.realtime_service.pre_feed_update_hook)
+        self.assertIsNone(config.realtime_service.post_predict_hook)
+
+    def test_accepts_pre_feed_update_callable(self):
+        def my_hook(input_record, now):
+            return input_record
+
+        config = HookedCrunchConfig(
+            realtime_service=RealtimeServiceConfig(pre_feed_update_hook=my_hook)
+        )
+        self.assertIs(config.realtime_service.pre_feed_update_hook, my_hook)
+
+    def test_accepts_post_predict_callable(self):
         def my_hook(predictions, input_record, now):
             return predictions
 
-        config = CrunchConfig(post_predict_hook=my_hook)
-        self.assertIs(config.post_predict_hook, my_hook)
+        config = HookedCrunchConfig(
+            realtime_service=RealtimeServiceConfig(post_predict_hook=my_hook)
+        )
+        self.assertIs(config.realtime_service.post_predict_hook, my_hook)
 
 
 # ── predict_worker wiring ──
 
 
 class TestPredictWorkerWiring(unittest.TestCase):
-    def test_hook_passed_from_config_to_service(self):
-        """build_service wires config.post_predict_hook to service."""
+    def test_hooks_passed_from_config_to_service(self):
+        """build_service wires config hooks to service."""
         from unittest.mock import MagicMock, patch
 
-        def my_hook(predictions, input_record, now):
+        def my_pre_hook(input_record, now):
+            return input_record
+
+        def my_post_hook(predictions, input_record, now):
             return predictions
 
-        config = CrunchConfig(post_predict_hook=my_hook)
+        config = HookedCrunchConfig(
+            realtime_service=RealtimeServiceConfig(
+                pre_feed_update_hook=my_pre_hook,
+                post_predict_hook=my_post_hook,
+            )
+        )
 
         mock_settings = MagicMock()
         mock_settings.model_runner_node_host = "localhost"
@@ -255,7 +329,8 @@ class TestPredictWorkerWiring(unittest.TestCase):
             service = build_service()
 
         self.assertIsInstance(service, RealtimePredictService)
-        self.assertIs(service.post_predict_hook, my_hook)
+        self.assertIs(service.pre_feed_update_hook, my_pre_hook)
+        self.assertIs(service.post_predict_hook, my_post_hook)
 
 
 if __name__ == "__main__":

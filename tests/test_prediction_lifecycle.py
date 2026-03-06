@@ -224,7 +224,7 @@ class FakeRunner:
         pass
 
     async def call(self, method: str, args: Any) -> dict:
-        if method == "tick":
+        if method == "feed_update":
             return {FakeModelRun(mid): None for mid in self._outputs}
         return {
             FakeModelRun(mid): FakeResult(out) for mid, out in self._outputs.items()

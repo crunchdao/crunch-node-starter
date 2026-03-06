@@ -92,8 +92,12 @@ def build_predict_service(session, config, runtime_settings) -> PredictService:
         kwargs["checkpoint_interval_seconds"] = (
             runtime_settings.checkpoint_interval_seconds
         )
-        if config.post_predict_hook is not None:
-            kwargs["post_predict_hook"] = config.post_predict_hook
+        realtime_cfg = getattr(config, "realtime_service", None)
+        if realtime_cfg is not None:
+            if getattr(realtime_cfg, "pre_feed_update_hook", None) is not None:
+                kwargs["pre_feed_update_hook"] = realtime_cfg.pre_feed_update_hook
+            if getattr(realtime_cfg, "post_predict_hook", None) is not None:
+                kwargs["post_predict_hook"] = realtime_cfg.post_predict_hook
 
     return service_class(**kwargs)
 
