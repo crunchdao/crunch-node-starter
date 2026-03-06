@@ -18,7 +18,11 @@ from crunch_node.db import (
     DBPredictionRepository,
     create_session,
 )
-from crunch_node.services.feed_data import FeedDataService, FeedDataSettings, RepositorySink
+from crunch_node.services.feed_data import (
+    FeedDataService,
+    FeedDataSettings,
+    RepositorySink,
+)
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.feed_window import FeedWindow
 from crunch_node.services.predict import PredictService
