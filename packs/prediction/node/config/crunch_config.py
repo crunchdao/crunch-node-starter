@@ -10,6 +10,8 @@ get scored immediately against the next observation.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from crunch_node.crunch_config import (
@@ -18,6 +20,7 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     ScheduledPrediction,
 )
+from crunch_node.entities import FeedRecord, PredictionRecord
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
@@ -25,12 +28,10 @@ from crunch_node.crunch_config import (
 
 
 class GroundTruth(BaseModel):
-    """Actuals: same shape as input, resolved after the horizon.
+    """Actuals: candle data from the resolution window.
 
-    TODO: This example shows candle fields, but the default resolve_ground_truth()
-    returns computed values (entry_price, profit, direction_up). Either override
-    resolve_ground_truth() to return candles, or update these fields to match
-    what the default resolver produces.
+    Same shape as input — the scorer receives future candles
+    and computes whether the prediction was correct.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -38,6 +39,26 @@ class GroundTruth(BaseModel):
     symbol: str = "BTC"
     asof_ts: int = 0
     candles_1m: list[dict] = Field(default_factory=list)
+
+
+def resolve_ground_truth(
+    feed_records: list[FeedRecord],
+    prediction: PredictionRecord | None = None,
+) -> dict[str, Any] | None:
+    """Extract candle data from feed records at the resolution horizon.
+
+    Returns the same shape as the input (GroundTruth matches CandleInput).
+    The scorer can then compute profit/direction from the candles.
+    """
+    if not feed_records:
+        return None
+
+    record = feed_records[-1]
+    return {
+        "symbol": record.subject,
+        "asof_ts": int(record.ts_event.timestamp() * 1000),
+        "candles_1m": record.values.get("candles_1m", []),
+    }
 
 
 class InferenceOutput(BaseModel):
@@ -83,6 +104,8 @@ class CrunchConfig(BaseCrunchConfig):
     ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
+
+    resolve_ground_truth: Any = resolve_ground_truth
 
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [

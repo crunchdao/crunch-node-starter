@@ -6,6 +6,8 @@ Only defines what's different for this competition.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from crunch_node.crunch_config import (
@@ -16,6 +18,7 @@ from crunch_node.crunch_config import (
     ScheduledPrediction,
     ScoreResult,
 )
+from crunch_node.entities import FeedRecord, PredictionRecord
 
 # Input shape is defined by feed_normalizer (default: "candle").
 # See crunch_node.feeds.normalizers for available normalizers and their output types:
@@ -24,12 +27,10 @@ from crunch_node.crunch_config import (
 
 
 class GroundTruth(BaseModel):
-    """Actuals: same shape as input, resolved after the horizon.
+    """Actuals: candle data from the resolution window.
 
-    TODO: This example shows candle fields, but the default resolve_ground_truth()
-    returns computed values (entry_price, profit, direction_up). Either override
-    resolve_ground_truth() to return candles, or update these fields to match
-    what the default resolver produces.
+    Same shape as input — the scorer receives future candles
+    and computes whether the prediction was correct.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -37,6 +38,27 @@ class GroundTruth(BaseModel):
     symbol: str = "BTCUSDT"
     asof_ts: int = 0
     candles_1m: list[dict] = Field(default_factory=list)
+
+
+def resolve_ground_truth(
+    feed_records: list[FeedRecord],
+    prediction: PredictionRecord | None = None,
+) -> dict[str, Any] | None:
+    """Extract candle data from feed records at the resolution horizon.
+
+    Override this to customize how ground truth is resolved from feed data.
+    Returns the same shape as GroundTruth — the scorer then computes
+    whether the prediction was correct based on the candle price movement.
+    """
+    if not feed_records:
+        return None
+
+    record = feed_records[-1]
+    return {
+        "symbol": record.subject,
+        "asof_ts": int(record.ts_event.timestamp() * 1000),
+        "candles_1m": record.values.get("candles_1m", []),
+    }
 
 
 class CrunchConfig(BaseCrunchConfig):
@@ -60,6 +82,8 @@ class CrunchConfig(BaseCrunchConfig):
         InferenceOutput  # customize for your prediction format
     )
     score_type: type[BaseModel] = ScoreResult  # customize for your scoring metrics
+
+    resolve_ground_truth: Any = resolve_ground_truth
 
     # Prediction schedule — what to predict, how often, when to resolve
     scheduled_predictions: list[ScheduledPrediction] = [
