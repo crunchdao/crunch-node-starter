@@ -22,7 +22,8 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from crunch_node.entities import FeedRecord, PredictionRecord
+from crunch_node.entities.feed_record import FeedRecord
+from crunch_node.entities.prediction_record import PredictionRecord
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput

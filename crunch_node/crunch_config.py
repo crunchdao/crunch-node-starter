@@ -240,7 +240,11 @@ def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
-    """Default resolver: compare first and last record's close/price in the window.
+    """Default resolver: return candle data from the last feed record.
+
+    Matches the default GroundTruth shape (symbol, asof_ts, candles_1m).
+    The scorer computes whether the prediction was correct based on
+    the candle price movement.
 
     Args:
         feed_records: All feed records in the resolution window (any subject).
@@ -252,29 +256,11 @@ def default_resolve_ground_truth(
     if len(feed_records) < 1:
         return None
 
-    def _price(record: FeedRecord) -> float | None:
-        values = record.values or {}
-        for key in ("close", "price"):
-            if key in values:
-                try:
-                    return float(values[key])
-                except Exception:
-                    pass
-        return None
-
-    entry = feed_records[0]
-    resolved = feed_records[-1]
-    entry_price = _price(entry)
-    resolved_price = _price(resolved)
-
-    if entry_price is None or resolved_price is None:
-        return None
-
+    record = feed_records[-1]
     return {
-        "entry_price": entry_price,
-        "resolved_price": resolved_price,
-        "profit": (resolved_price - entry_price) / max(abs(entry_price), 1e-9),
-        "direction_up": resolved_price > entry_price,
+        "symbol": record.subject,
+        "asof_ts": int(record.ts_event.timestamp() * 1000),
+        "candles_1m": record.values.get("candles_1m", []),
     }
 
 
