@@ -124,7 +124,7 @@ How "what actually happened" is derived from feed data. If this returns None or 
 - Signature: `resolve_ground_truth(feed_records, prediction)` — receives all feed records in the window plus the prediction being scored. Use `prediction.scope` to filter records in multi-asset competitions.
 - Returns a dict or Pydantic model. If a Pydantic model, the score service calls `.model_dump()` automatically.
 
-**Verify** non-zero returns with your feed granularity. A 60s horizon with 1m candles may produce 0.0 returns if only one candle falls in the window.
+**IMPORTANT:** With kline feeds, a 60s horizon window may only contain 1-2 feed records. Your `resolve_ground_truth` **must handle single-record windows** (e.g. use open vs close of the same candle). Do NOT require `len(feed_records) >= 2` — that will silently skip scoring for most predictions.
 
 ## 5. Scoring Function
 

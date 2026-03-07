@@ -61,19 +61,28 @@ The default resolve_ground_truth returns raw candle data:
 You MUST override resolve_ground_truth in CrunchConfig to compute
 the fields your scoring function needs (profit, direction_up).
 
-Example resolve_ground_truth:
+Example resolve_ground_truth (handles both 1 and 2+ records):
 ```python
 def resolve_ground_truth(feed_records, prediction=None):
-    if len(feed_records) < 2:
+    if not feed_records:
         return None
     entry = feed_records[0]
     resolved = feed_records[-1]
+    # Extract close prices from candle data
     entry_candles = entry.values.get("candles_1m", [])
     resolved_candles = resolved.values.get("candles_1m", [])
-    if not entry_candles or not resolved_candles:
-        return None
-    entry_price = entry_candles[-1].get("close", 0.0)
-    resolved_price = resolved_candles[-1].get("close", 0.0)
+    # For single-record windows: use open as entry, close as resolved
+    if len(feed_records) == 1:
+        if not entry_candles:
+            return None
+        candle = entry_candles[-1]
+        entry_price = candle.get("open", 0.0)
+        resolved_price = candle.get("close", 0.0)
+    else:
+        if not entry_candles or not resolved_candles:
+            return None
+        entry_price = entry_candles[-1].get("close", 0.0)
+        resolved_price = resolved_candles[-1].get("close", 0.0)
     if entry_price == 0:
         return None
     profit = (resolved_price - entry_price) / abs(entry_price)
@@ -82,6 +91,10 @@ def resolve_ground_truth(feed_records, prediction=None):
         "direction_up": resolved_price > entry_price,
     }
 ```
+
+IMPORTANT: With kline feeds, a 60s horizon window may only contain 1-2
+records. Your resolve_ground_truth MUST handle single-record windows
+(use open vs close of the same candle). Do NOT require len(feed_records) >= 2.
 
 Set it in CrunchConfig:
 ```python

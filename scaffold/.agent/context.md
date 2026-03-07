@@ -130,8 +130,11 @@ The score worker dry-runs the scoring function against default `InferenceOutput(
 ### score_prediction receives typed Pydantic objects
 The score worker coerces raw dicts into typed `output_type` and `ground_truth_type` Pydantic instances before calling the scoring function. Use attribute access (e.g. `prediction.direction`) not dict access (`prediction["direction"]`). The `model_id` and `prediction_id` are injected as extra attributes on the output model.
 
-### All scores zero?
-Scoring stub not replaced, or `resolve_horizon_seconds` ≤ feed interval, or `resolve_ground_truth` returns zeroed data.
+### All scores zero (or no scores at all)?
+- Scoring stub not replaced
+- `resolve_horizon_seconds` ≤ feed interval
+- `resolve_ground_truth` returns zeroed data or `None`
+- `resolve_ground_truth` requires 2+ feed records but the window only has 1. With kline feeds, a 60s window often has only 1-2 records. Handle single-record windows (e.g. open vs close of same candle).
 
 ### Leaderboard rankings all zero?
 `aggregation.value_field` doesn't match any field in `score_type`.
