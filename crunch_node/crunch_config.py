@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -154,6 +153,87 @@ class AggregateSnapshot(Protocol):
     def __call__(self, score_results: list[dict[str, Any]]) -> dict[str, Any]: ...
 
 
+@runtime_checkable
+class BuildEmission(Protocol):
+    """Build an EmissionCheckpoint from ranked leaderboard entries.
+
+    Args:
+        ranked_entries: Leaderboard entries sorted by rank, each a dict
+            with at least 'rank', 'model_id', and score fields.
+        crunch_pubkey: On-chain crunch account public key.
+        compute_provider: Compute provider wallet pubkey (optional).
+        data_provider: Data provider wallet pubkey (optional).
+
+    Returns:
+        EmissionCheckpoint with reward distributions.
+    """
+
+    def __call__(
+        self,
+        ranked_entries: list[dict[str, Any]],
+        crunch_pubkey: str,
+        compute_provider: str | None = ...,
+        data_provider: str | None = ...,
+    ) -> EmissionCheckpoint: ...
+
+
+@runtime_checkable
+class ComputeMetrics(Protocol):
+    """Compute named metrics from predictions and scores.
+
+    Args:
+        metrics: List of metric names to compute (e.g. ["ic", "hit_rate"]).
+        predictions: List of prediction dicts with inference_output, scope, etc.
+        scores: List of score result dicts.
+        context: MetricsContext with model_id, time window, cross-model data.
+
+    Returns:
+        Dict mapping metric name to float value.
+    """
+
+    def __call__(
+        self,
+        metrics: list[str],
+        predictions: list[dict[str, Any]],
+        scores: list[dict[str, Any]],
+        context: Any,
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class EnsembleStrategy(Protocol):
+    """Compute per-model weights for an ensemble.
+
+    Args:
+        model_metrics: Per-model metric dicts (e.g. {"model_1": {"value": 0.5}}).
+        predictions: Per-model prediction lists.
+
+    Returns:
+        Dict mapping model_id to weight (will be normalized).
+    """
+
+    def __call__(
+        self,
+        model_metrics: dict[str, dict[str, float]],
+        predictions: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class EnsembleModelFilter(Protocol):
+    """Filter which models participate in an ensemble.
+
+    Args:
+        model_id: The model being evaluated.
+        metrics: That model's metric dict.
+
+    Returns:
+        True to include, False to exclude.
+    """
+
+    def __call__(self, model_id: str, metrics: dict[str, float]) -> bool: ...
+
+
 class PredictionScope(BaseModel):
     """What defines a single prediction context — passed to model.predict()."""
 
@@ -259,13 +339,25 @@ class Aggregation(BaseModel):
 
 
 class EnsembleConfig(BaseModel):
-    """Configuration for a named ensemble (virtual meta-model)."""
+    """Configuration for a named ensemble (virtual meta-model).
+
+    strategy: Callable that computes per-model weights.
+        Signature: (model_metrics, predictions) → {model_id: weight}
+    model_filter: Optional callable to select which models participate.
+        Signature: (model_id, metrics) → bool
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
-    strategy: Callable = Field(default=None)  # weight function, set below
-    model_filter: Callable | None = Field(default=None)
+    strategy: EnsembleStrategy | None = Field(
+        default=None,
+        description="Weight function: (model_metrics, predictions) → {model_id: weight}",
+    )
+    model_filter: EnsembleModelFilter | None = Field(
+        default=None,
+        description="Filter: (model_id, metrics) → bool. Use top_n(5) or min_metric(...).",
+    )
     enabled: bool = True
 
 
@@ -554,7 +646,7 @@ class CrunchConfig(BaseModel):
             "model_correlation",
         ]
     )
-    compute_metrics: Callable = default_compute_metrics
+    compute_metrics: ComputeMetrics = default_compute_metrics
 
     # Ensembles
     ensembles: list[EnsembleConfig] = Field(default_factory=list)
@@ -599,10 +691,7 @@ class CrunchConfig(BaseModel):
             "If set, takes precedence over the SCORING_FUNCTION env var."
         ),
     )
-    resolve_ground_truth: (
-        ResolveGroundTruth
-        | Callable[[list[FeedRecord], PredictionRecord | None], dict[str, Any] | None]
-    ) = default_resolve_ground_truth
+    resolve_ground_truth: ResolveGroundTruth = default_resolve_ground_truth
     max_ground_truth_staleness_fraction: float = Field(
         default=0.2,
         ge=0.0,
@@ -614,10 +703,8 @@ class CrunchConfig(BaseModel):
             "be within the last 20% of the horizon window. Set to 0 to disable."
         ),
     )
-    aggregate_snapshot: Callable[[list[dict[str, Any]]], dict[str, Any]] = (
-        default_aggregate_snapshot
-    )
-    build_emission: Callable[..., EmissionCheckpoint] = default_build_emission
+    aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
+    build_emission: BuildEmission = default_build_emission
 
     def get_ground_truth_type(self) -> type[BaseModel]:
         """Return the effective ground truth type.
