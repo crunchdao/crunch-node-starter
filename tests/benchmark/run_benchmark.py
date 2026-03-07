@@ -205,14 +205,21 @@ def _clone_webapp(workspace: str) -> None:
 
 
 def _fix_local_coordinator_pyproject(workspace: str) -> None:
-    """Ensure crunch_node_local pyproject.toml doesn't reference missing directories.
+    """Ensure crunch_node_local can be pip-installed in Docker.
 
-    The repo pyproject.toml may have package discovery paths (scaffold/, packs/)
-    that don't exist in the benchmark workspace. Create empty marker dirs.
+    The repo pyproject.toml references README.md and has package discovery
+    paths (scaffold/, packs/) that don't exist in the benchmark workspace.
+    Create stubs for all of them.
     """
     local_dir = os.path.join(workspace, "crunch_node_local")
     if not os.path.isdir(local_dir):
         return
+
+    # Create README.md (referenced by pyproject.toml readme field)
+    readme = os.path.join(local_dir, "README.md")
+    if not os.path.exists(readme):
+        with open(readme, "w") as f:
+            f.write("# crunch-node (benchmark local)\n")
 
     toml_path = os.path.join(local_dir, "pyproject.toml")
     if not os.path.isfile(toml_path):
