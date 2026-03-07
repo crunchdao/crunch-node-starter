@@ -41,31 +41,47 @@ def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict | None:
-    """Return raw candle data from entry and resolved feed records."""
-    if len(feed_records) < 1:
+    """Compute price return from entry and resolved feed records.
+
+    Each feed record has flat OHLCV values (open, high, low, close,
+    volume) — NOT nested candles_1m.
+    """
+    if not feed_records:
         return None
     entry = feed_records[0]
     resolved = feed_records[-1]
+    entry_vals = entry.values or {}
+    resolved_vals = resolved.values or {}
+    if len(feed_records) == 1:
+        entry_price = float(entry_vals.get("open") or entry_vals.get("price") or 0)
+        resolved_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+    else:
+        entry_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+        resolved_price = float(resolved_vals.get("close") or resolved_vals.get("price") or 0)
+    if entry_price == 0:
+        return None
+    profit = (resolved_price - entry_price) / abs(entry_price)
     return {
         "symbol": resolved.subject,
         "asof_ts": int(resolved.ts_event.timestamp() * 1000),
-        "entry_candles_1m": entry.values.get("candles_1m", []),
-        "resolved_candles_1m": resolved.values.get("candles_1m", []),
+        "entry_price": entry_price,
+        "resolved_price": resolved_price,
+        "profit": profit,
+        "direction_up": resolved_price > entry_price,
     }
 ```
 
-To compute derived fields (profit, direction, etc.), override `resolve_ground_truth` in your CrunchConfig:
+To customize ground truth (VWAP, cross-venue, labels, etc.), override `resolve_ground_truth` in your CrunchConfig:
 
 ```python
 def my_resolve_ground_truth(feed_records, prediction=None):
-    if len(feed_records) < 2:
+    if not feed_records:
         return None
-    entry_candles = feed_records[0].values.get("candles_1m", [])
-    resolved_candles = feed_records[-1].values.get("candles_1m", [])
-    if not entry_candles or not resolved_candles:
-        return None
-    entry_price = entry_candles[-1]["close"]
-    resolved_price = resolved_candles[-1]["close"]
+    entry = feed_records[0]
+    resolved = feed_records[-1]
+    # Each record has flat values: {open, high, low, close, volume}
+    entry_price = float(entry.values.get("close", 0))
+    resolved_price = float(resolved.values.get("close", 0))
     if entry_price == 0:
         return None
     return {

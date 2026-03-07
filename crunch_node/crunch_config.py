@@ -386,10 +386,16 @@ def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
-    """Default resolver: return candle data from entry and resolved feed records.
+    """Default resolver: compute price return from entry and resolved feed records.
 
-    Returns both entry (first record) and resolved (last record) candles
-    so the scorer can compute price return.
+    Each feed record's ``values`` dict contains flat OHLCV fields
+    (``open``, ``high``, ``low``, ``close``, ``volume``) — not a nested
+    ``candles_1m`` list.  The normalizer aggregates multiple records into
+    ``candles_1m`` for model input, but ``resolve_ground_truth`` works
+    with raw ``FeedRecord`` objects.
+
+    For single-record windows (common with short horizons), uses the
+    record's open as entry and close as resolved price.
 
     Args:
         feed_records: All feed records in the resolution window (any subject).
@@ -398,17 +404,39 @@ def default_resolve_ground_truth(
 
     Override for custom ground truth (VWAP, cross-venue, labels, etc.).
     """
-    if len(feed_records) < 1:
+    if not feed_records:
         return None
 
     entry = feed_records[0]
     resolved = feed_records[-1]
 
+    # Extract prices — each record has flat OHLCV in values
+    entry_vals = entry.values or {}
+    resolved_vals = resolved.values or {}
+
+    if len(feed_records) == 1:
+        # Single record: use open → close of same candle
+        entry_price = float(entry_vals.get("open") or entry_vals.get("price") or 0)
+        resolved_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+    else:
+        # Multiple records: use close of first → close of last
+        entry_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+        resolved_price = float(
+            resolved_vals.get("close") or resolved_vals.get("price") or 0
+        )
+
+    if entry_price == 0:
+        return None
+
+    profit = (resolved_price - entry_price) / abs(entry_price)
+
     return {
         "symbol": resolved.subject,
         "asof_ts": int(resolved.ts_event.timestamp() * 1000),
-        "entry_candles_1m": entry.values.get("candles_1m", []),
-        "resolved_candles_1m": resolved.values.get("candles_1m", []),
+        "entry_price": entry_price,
+        "resolved_price": resolved_price,
+        "profit": profit,
+        "direction_up": resolved_price > entry_price,
     }
 
 

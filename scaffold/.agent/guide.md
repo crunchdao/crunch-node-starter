@@ -58,12 +58,13 @@ dry-runs the scoring function at startup using `GroundTruth()` and
 a `ValidationError` and the worker crashes on boot.
 
 **GroundTruth should match what `resolve_ground_truth` returns.** The
-default resolver returns raw candle data from the first and last feed
-records in the window:
-`{symbol, asof_ts, entry_candles_1m, resolved_candles_1m}`. If your
-scoring needs derived fields (profit, direction), either override
-`resolve_ground_truth` to compute them, or compute them inside the
-scoring function from the candle data.
+default resolver computes price return from the first and last feed
+records in the window and returns:
+`{symbol, asof_ts, entry_price, resolved_price, profit, direction_up}`.
+Each feed record has flat OHLCV values (`open`, `high`, `low`, `close`,
+`volume`) — NOT nested `candles_1m`. The normalizer aggregates records
+into `candles_1m` for model input, but `resolve_ground_truth` works with
+raw `FeedRecord` objects.
 
 The types to override:
 - `output_type` — what models return (this is the core design decision)
@@ -119,12 +120,14 @@ Edit `node/.local.env`: `FEED_SOURCE`, `FEED_SUBJECTS`, `FEED_KIND`, `FEED_GRANU
 
 How "what actually happened" is derived from feed data. If this returns None or zero, all scores are zero regardless of model quality.
 
-- Default: returns raw candle data from first/last feed records → `{symbol, asof_ts, entry_candles_1m, resolved_candles_1m}`
-- Override: set `CrunchConfig.resolve_ground_truth` to compute derived fields (profit, direction, VWAP, etc.)
+- Default: computes price return from first/last feed records → `{symbol, asof_ts, entry_price, resolved_price, profit, direction_up}`
+- Override: set `CrunchConfig.resolve_ground_truth` to compute custom fields (VWAP, cross-venue, labels, etc.)
 - Signature: `resolve_ground_truth(feed_records, prediction)` — receives all feed records in the window plus the prediction being scored. Use `prediction.scope` to filter records in multi-asset competitions.
 - Returns a dict or Pydantic model. If a Pydantic model, the score service calls `.model_dump()` automatically.
 
-**IMPORTANT:** With kline feeds, a 60s horizon window may only contain 1-2 feed records. Your `resolve_ground_truth` **must handle single-record windows** (e.g. use open vs close of the same candle). Do NOT require `len(feed_records) >= 2` — that will silently skip scoring for most predictions.
+**Feed record values are flat OHLCV** (`open`, `high`, `low`, `close`, `volume`), not nested under `candles_1m`. The normalizer aggregates records into `candles_1m` for model input, but `resolve_ground_truth` works with raw `FeedRecord` objects.
+
+**IMPORTANT:** With short horizons, the resolution window may only contain 1-2 feed records. The default resolver handles single-record windows (uses open vs close of the same candle). If you override, make sure your implementation doesn't require `len(feed_records) >= 2`.
 
 ## 5. Scoring Function
 
