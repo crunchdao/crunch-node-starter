@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from crunch_node.crunch_config import CrunchConfig
+from crunch_node.crunch_config import CrunchConfig, ScoringFunction
 from crunch_node.db.repositories import (
     DBCheckpointRepository,
     DBInputRepository,
@@ -36,7 +36,7 @@ class ScoreService:
     def __init__(
         self,
         checkpoint_interval_seconds: int,
-        scoring_function: Callable,
+        scoring_function: ScoringFunction | Callable,
         feed_reader: FeedReader | None = None,
         input_repository: DBInputRepository | None = None,
         prediction_repository: DBPredictionRepository | None = None,
@@ -107,7 +107,7 @@ class ScoreService:
 
     @staticmethod
     def detect_scoring_stub(
-        scoring_function: Callable,
+        scoring_function: ScoringFunction | Callable,
     ) -> tuple[bool, str]:
         """Probe the scoring function with varied inputs to detect stubs.
 
