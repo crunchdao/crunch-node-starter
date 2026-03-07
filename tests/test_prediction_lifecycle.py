@@ -315,11 +315,9 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
         )
 
     @staticmethod
-    def _score_fn(
-        prediction: dict[str, Any], ground_truth: dict[str, Any]
-    ) -> dict[str, Any]:
-        pred_val = prediction.get("value", 0)
-        actual_return = ground_truth.get("profit", 0)
+    def _score_fn(prediction, ground_truth):
+        pred_val = getattr(prediction, "value", 0)
+        actual_return = getattr(ground_truth, "profit", 0)
         error = abs(pred_val - actual_return)
         return {
             "value": round(1.0 / (1.0 + error), 4),

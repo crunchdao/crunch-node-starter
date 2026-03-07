@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -99,6 +99,59 @@ class ScoreResult(BaseModel):
         default=None,
         description="Human-readable reason when success=False.",
     )
+
+
+# ── Callable protocols ──────────────────────────────────────────────
+
+
+@runtime_checkable
+class ScoringFunction(Protocol):
+    """Score a single prediction against ground truth.
+
+    Packs should define a narrower Protocol with their concrete types::
+
+        class TradingScoringFunction(Protocol):
+            def __call__(
+                self, prediction: InferenceOutput, ground_truth: GroundTruth
+            ) -> ScoreResult: ...
+
+    The engine coerces raw dicts into typed objects before calling.
+    """
+
+    def __call__(self, prediction: BaseModel, ground_truth: BaseModel) -> BaseModel: ...
+
+
+@runtime_checkable
+class ResolveGroundTruth(Protocol):
+    """Resolve ground truth from feed records for a prediction.
+
+    Args:
+        feed_records: Feed records in the resolution window.
+        prediction: The prediction being scored (use scope to filter).
+
+    Returns:
+        Typed ground truth object, or None if not yet available.
+    """
+
+    def __call__(
+        self,
+        feed_records: list[FeedRecord],
+        prediction: PredictionRecord | None = ...,
+    ) -> BaseModel | None: ...
+
+
+@runtime_checkable
+class AggregateSnapshot(Protocol):
+    """Aggregate a list of score results into a snapshot summary.
+
+    Args:
+        score_results: List of ScoreResult dicts from a scoring period.
+
+    Returns:
+        Summary dict for the snapshot's result_summary field.
+    """
+
+    def __call__(self, score_results: list[dict[str, Any]]) -> dict[str, Any]: ...
 
 
 class PredictionScope(BaseModel):
@@ -535,20 +588,21 @@ class CrunchConfig(BaseModel):
         description="Performance monitoring and instrumentation configuration",
     )
 
-    # Callables
-    scoring_function: (
-        Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None
-    ) = Field(
+    # Callables — use Protocol types for clear contracts.
+    # Packs can narrow these with their own typed Protocols.
+    scoring_function: ScoringFunction | None = Field(
         default=None,
         description=(
-            "Scoring callable: (prediction_dict, ground_truth_dict) → score_dict. "
-            "If set, takes precedence over the SCORING_FUNCTION env var. "
-            "Use for stateful scoring (e.g. PositionManager-backed trading)."
+            "Scoring callable: (prediction, ground_truth) → score_result. "
+            "Receives typed Pydantic objects (output_type, ground_truth_type). "
+            "Must return an object matching score_type. "
+            "If set, takes precedence over the SCORING_FUNCTION env var."
         ),
     )
-    resolve_ground_truth: Callable[
-        [list[FeedRecord], PredictionRecord | None], dict[str, Any] | None
-    ] = default_resolve_ground_truth
+    resolve_ground_truth: (
+        ResolveGroundTruth
+        | Callable[[list[FeedRecord], PredictionRecord | None], dict[str, Any] | None]
+    ) = default_resolve_ground_truth
     max_ground_truth_staleness_fraction: float = Field(
         default=0.2,
         ge=0.0,
