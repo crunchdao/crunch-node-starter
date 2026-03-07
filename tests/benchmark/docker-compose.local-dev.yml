@@ -6,6 +6,7 @@
 #
 # The benchmark script copies this automatically to the workspace.
 services:
+
   feed-data-worker:
     build:
       context: ..

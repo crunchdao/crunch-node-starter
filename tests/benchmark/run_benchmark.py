@@ -104,8 +104,14 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
     # Copy local crunch-node source so Docker builds use it
     _copy_local_coordinator(repo_root, workspace)
 
+    # Fix crunch_node_local pyproject.toml references to missing dirs
+    _fix_local_coordinator_pyproject(workspace)
+
     # Copy docker-compose override for local development
     _copy_compose_override(repo_root, workspace)
+
+    # Clone webapp (same as scaffold CLI does during `crunch-node init`)
+    _clone_webapp(workspace)
 
     # Patch CRUNCH_ID to a unique value so Docker containers don't clash
     # with other benchmark runs or the real scaffold
@@ -167,6 +173,61 @@ def _copy_compose_override(repo_root: str, workspace: str) -> None:
         f.write(content)
 
     print("[benchmark] Copied docker-compose override into workspace (paths adjusted)")
+
+
+_WEBAPP_REPO_URL = "https://github.com/crunchdao/coordinator-webapp.git"
+
+
+def _clone_webapp(workspace: str) -> None:
+    """Clone coordinator-webapp into workspace/webapp (same as scaffold CLI).
+
+    The scaffold CLI clones this repo during ``crunch-node init``.  The
+    benchmark must do the same so ``report-ui`` can build.
+    """
+    webapp_dir = os.path.join(workspace, "webapp")
+    if os.path.isdir(webapp_dir):
+        return
+
+    print("[benchmark] Cloning coordinator-webapp...")
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", _WEBAPP_REPO_URL, "webapp"],
+            cwd=workspace,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        print("[benchmark] Cloned coordinator-webapp into workspace/webapp")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        print(f"[benchmark] Warning: failed to clone webapp: {exc}")
+        print("[benchmark] report-ui service will fail to build")
+
+
+def _fix_local_coordinator_pyproject(workspace: str) -> None:
+    """Ensure crunch_node_local pyproject.toml doesn't reference missing directories.
+
+    The repo pyproject.toml may have package discovery paths (scaffold/, packs/)
+    that don't exist in the benchmark workspace. Create empty marker dirs.
+    """
+    local_dir = os.path.join(workspace, "crunch_node_local")
+    if not os.path.isdir(local_dir):
+        return
+
+    toml_path = os.path.join(local_dir, "pyproject.toml")
+    if not os.path.isfile(toml_path):
+        return
+
+    with open(toml_path) as f:
+        content = f.read()
+
+    for dirname in ("scaffold", "packs"):
+        if dirname in content:
+            target = os.path.join(local_dir, dirname)
+            if not os.path.exists(target):
+                os.makedirs(target, exist_ok=True)
+                with open(os.path.join(target, ".gitkeep"), "w") as f:
+                    pass
 
 
 _LOCAL_COORDINATOR_DOCKERFILE_LINES = (
