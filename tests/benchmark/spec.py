@@ -44,19 +44,50 @@ Set ground_truth_type = BtcGroundTruth (or whatever you name it) in CrunchConfig
 ## Scoring (edit challenge/starter_challenge/scoring.py)
 
 score_prediction(prediction, ground_truth) -> dict:
-- If prediction["direction"] matches ground truth direction:
-    score = +prediction["confidence"] * abs(ground_truth["profit"])
+- The scoring function receives typed Pydantic objects, not dicts.
+  Use attribute access: prediction.direction, ground_truth.profit, etc.
+- If prediction.direction matches ground truth direction:
+    score = +prediction.confidence * abs(ground_truth.profit)
 - If wrong:
-    score = -prediction["confidence"] * abs(ground_truth["profit"])
-- Ground truth has keys: "profit" (float), "direction_up" (bool)
-- prediction["direction"] == "up" should be compared to ground_truth["direction_up"]
+    score = -prediction.confidence * abs(ground_truth.profit)
+- Ground truth has attributes: profit (float), direction_up (bool)
+- prediction.direction == "up" should be compared to ground_truth.direction_up
 - Always return {"value": score, "success": True, "failed_reason": None}
 
 ## Ground Truth
 
-Use the default resolve_ground_truth (close price comparison).
-Do NOT implement a custom one — the default already returns
-{"entry_price", "resolved_price", "profit", "direction_up"}.
+The default resolve_ground_truth returns raw candle data:
+{"symbol", "asof_ts", "entry_candles_1m", "resolved_candles_1m"}.
+You MUST override resolve_ground_truth in CrunchConfig to compute
+the fields your scoring function needs (profit, direction_up).
+
+Example resolve_ground_truth:
+```python
+def resolve_ground_truth(feed_records, prediction=None):
+    if len(feed_records) < 2:
+        return None
+    entry = feed_records[0]
+    resolved = feed_records[-1]
+    entry_candles = entry.values.get("candles_1m", [])
+    resolved_candles = resolved.values.get("candles_1m", [])
+    if not entry_candles or not resolved_candles:
+        return None
+    entry_price = entry_candles[-1].get("close", 0.0)
+    resolved_price = resolved_candles[-1].get("close", 0.0)
+    if entry_price == 0:
+        return None
+    profit = (resolved_price - entry_price) / abs(entry_price)
+    return {
+        "profit": profit,
+        "direction_up": resolved_price > entry_price,
+    }
+```
+
+Set it in CrunchConfig:
+```python
+class CrunchConfig(BaseCrunchConfig):
+    resolve_ground_truth = resolve_ground_truth
+```
 
 ## Examples (edit challenge/starter_challenge/examples/)
 

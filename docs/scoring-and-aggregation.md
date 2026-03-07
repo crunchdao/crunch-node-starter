@@ -37,13 +37,38 @@ Ground truth comes directly from `InputRecord.raw_data`. Used for live trading w
 The score worker waits until `resolvable_at`, then fetches feed records from the time window and passes them to `resolve_ground_truth()`:
 
 ```python
-def default_resolve_ground_truth(feed_records: list[FeedRecord]) -> dict | None:
-    """Compare first and last record's price in the window."""
-    entry_price = feed_records[0].values["close"]
-    resolved_price = feed_records[-1].values["close"]
+def default_resolve_ground_truth(
+    feed_records: list[FeedRecord],
+    prediction: PredictionRecord | None = None,
+) -> dict | None:
+    """Return raw candle data from entry and resolved feed records."""
+    if len(feed_records) < 1:
+        return None
+    entry = feed_records[0]
+    resolved = feed_records[-1]
     return {
-        "entry_price": entry_price,
-        "resolved_price": resolved_price,
+        "symbol": resolved.subject,
+        "asof_ts": int(resolved.ts_event.timestamp() * 1000),
+        "entry_candles_1m": entry.values.get("candles_1m", []),
+        "resolved_candles_1m": resolved.values.get("candles_1m", []),
+    }
+```
+
+To compute derived fields (profit, direction, etc.), override `resolve_ground_truth` in your CrunchConfig:
+
+```python
+def my_resolve_ground_truth(feed_records, prediction=None):
+    if len(feed_records) < 2:
+        return None
+    entry_candles = feed_records[0].values.get("candles_1m", [])
+    resolved_candles = feed_records[-1].values.get("candles_1m", [])
+    if not entry_candles or not resolved_candles:
+        return None
+    entry_price = entry_candles[-1]["close"]
+    resolved_price = resolved_candles[-1]["close"]
+    if entry_price == 0:
+        return None
+    return {
         "profit": (resolved_price - entry_price) / abs(entry_price),
         "direction_up": resolved_price > entry_price,
     }
@@ -51,22 +76,22 @@ def default_resolve_ground_truth(feed_records: list[FeedRecord]) -> dict | None:
 
 ## Scoring Function
 
-The scoring function receives the prediction output and ground truth as dicts, and returns a dict matching `score_type`:
+The scoring function receives typed Pydantic objects (not dicts) and returns a dict or Pydantic model matching `score_type`. Access fields via attributes:
 
 ```python
-def my_scorer(prediction: dict, ground_truth: dict) -> dict:
-    pred_value = prediction["value"]
-    actual_return = ground_truth["profit"]
+def my_scorer(prediction: BaseModel, ground_truth: BaseModel) -> dict:
+    pred_value = prediction.value
+    actual_return = ground_truth.profit
     pnl = pred_value * actual_return
     return {
         "value": pnl,
         "actual_return": actual_return,
-        "direction_correct": (pred_value > 0) == ground_truth["direction_up"],
+        "direction_correct": (pred_value > 0) == ground_truth.direction_up,
         "success": True,
     }
 ```
 
-**Stateful scoring** is supported — set `CrunchConfig.scoring_function` to a callable that maintains state (e.g. a `PositionManager` instance). The score worker injects `model_id` and `prediction_id` into the prediction dict before calling.
+**Stateful scoring** is supported — set `CrunchConfig.scoring_function` to a callable that maintains state (e.g. a `PositionManager` instance). The score worker injects `model_id` and `prediction_id` as extra attributes on the prediction model before calling.
 
 ### Stub Detection
 

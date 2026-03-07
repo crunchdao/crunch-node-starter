@@ -15,7 +15,7 @@ C4Dynamic
 
   Rel(feedWorker, realtime, "1. Notify new feed data", "pg NOTIFY")
   Rel(realtime, base, "2. Run prediction cycle", "in-process")
-  Rel(base, kernel, "3. Encode + dispatch tick/predict calls", "in-process")
+  Rel(base, kernel, "3. Encode + dispatch feed_update/predict calls", "in-process")
   Rel(kernel, modelOrch, "4. Execute model methods", "gRPC")
   Rel(base, factory, "5. Build PredictionRecord(s)", "in-process")
   Rel(base, postgres, "6. Persist predictions (critical path)", "SQL")

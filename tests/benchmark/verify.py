@@ -26,6 +26,7 @@ import sys
 import types
 import urllib.error
 import urllib.request
+from types import SimpleNamespace
 
 from tests.benchmark.spec import (
     EXPECTED_EXAMPLES,
@@ -215,13 +216,29 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
 
     results = []
     for prediction, ground_truth, expected_sign in SCORING_TEST_CASES:
+        # Wrap dicts in SimpleNamespace to support both attribute and dict access,
+        # matching how the score service coerces to Pydantic objects in production.
+        pred_obj = SimpleNamespace(**prediction)
+        gt_obj = SimpleNamespace(**ground_truth)
         try:
-            result = score_fn(prediction, ground_truth)
+            result = score_fn(pred_obj, gt_obj)
+        except (AttributeError, TypeError):
+            # Fallback: try with raw dicts (backward compat for dict-access scoring)
+            try:
+                result = score_fn(prediction, ground_truth)
+            except Exception as e:
+                return False, f"score_prediction raised: {e}"
         except Exception as e:
             return False, f"score_prediction raised: {e}"
 
         if not isinstance(result, dict):
-            return False, f"score_prediction returned {type(result)}, expected dict"
+            # Handle Pydantic model returns
+            if hasattr(result, "model_dump"):
+                result = result.model_dump()
+            elif hasattr(result, "__dict__"):
+                result = vars(result)
+            else:
+                return False, f"score_prediction returned {type(result)}, expected dict"
 
         value = result.get("value")
         if value is None:
