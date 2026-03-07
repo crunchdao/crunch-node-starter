@@ -123,11 +123,12 @@ Use _get_data(subject) to access latest tick data, extract closes from candles_1
 
 ## Schedule & Feed (edit node/config/crunch_config.py scheduled_predictions)
 
-IMPORTANT: Change these from the scaffold defaults:
-- subject: BTCUSDT (keep default)
-- prediction_interval_seconds: 15  (keep default)
-- resolve_horizon_seconds: 60  (keep default)
-- Feed: binance, kline, 1s granularity (keep defaults from .local.env)
+Keep the scaffold defaults — do NOT change .local.env feed settings:
+- subject: BTCUSDT
+- prediction_interval_seconds: 15
+- resolve_horizon_seconds: 60
+- Feed settings in .local.env are already correct (binance, 1s granularity)
+- Do NOT change FEED_KIND in .local.env — leave it as is
 
 ## Tests
 
