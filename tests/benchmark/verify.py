@@ -26,6 +26,7 @@ import sys
 import types
 import urllib.error
 import urllib.request
+
 from tests.benchmark.spec import (
     EXPECTED_EXAMPLES,
     EXPECTED_GROUND_TRUTH_FIELDS,
@@ -216,17 +217,17 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
     # This ensures the coerced objects have the exact fields the test expects
     try:
         from pydantic import BaseModel, ConfigDict
-        
+
         class TestInferenceOutput(BaseModel):
             model_config = ConfigDict(extra="allow")
             direction: str = "hold"
             confidence: float = 0.0
-        
+
         class TestGroundTruth(BaseModel):
-            model_config = ConfigDict(extra="allow") 
+            model_config = ConfigDict(extra="allow")
             profit: float = 0.0
             direction_up: bool = True
-            
+
         output_type = TestInferenceOutput
         ground_truth_type = TestGroundTruth
     except Exception as e:
@@ -259,7 +260,7 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
         # Use the same Pydantic model coercion that production uses
         pred_obj = coerce_output(prediction)
         gt_obj = coerce_ground_truth(ground_truth)
-        
+
         try:
             result = score_fn(pred_obj, gt_obj)
         except Exception as e:
