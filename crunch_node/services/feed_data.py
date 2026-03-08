@@ -211,7 +211,10 @@ class _CompositeSink:
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 self._logger.error(
-                    "sink %s failed: %s", type(self._sinks[i]).__name__, result
+                    "sink %s failed: %s",
+                    type(self._sinks[i]).__name__,
+                    result,
+                    exc_info=result,
                 )
 
 

@@ -359,6 +359,7 @@ class ScoreService:
             start=prediction.performed_at,
             end=prediction.resolvable_at,
             source=scope.get("source"),
+            subject=scope.get("subject"),
             kind=scope.get("kind"),
             granularity=scope.get("granularity"),
         )

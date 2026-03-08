@@ -61,11 +61,17 @@ def resolve_ground_truth(
     entry = feed_records[0]
     resolved = feed_records[-1]
 
+    def _extract_tick(record: FeedRecord) -> list[dict]:
+        price = record.values.get("close") or record.values.get("price")
+        if price is None:
+            return []
+        return [{"ts": int(record.ts_event.timestamp() * 1000), "price": float(price)}]
+
     return {
         "symbol": resolved.subject,
         "asof_ts": int(resolved.ts_event.timestamp() * 1000),
-        "entry_ticks": entry.values.get("ticks", []),
-        "resolved_ticks": resolved.values.get("ticks", []),
+        "entry_ticks": _extract_tick(entry),
+        "resolved_ticks": _extract_tick(resolved),
     }
 
 
