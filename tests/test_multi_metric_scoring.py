@@ -256,7 +256,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
 
         service = ScoreService(
             checkpoint_interval_seconds=60,
-            scoring_function=lambda p, g: {"value": p.get("value", 0) * 0.1},
+            scoring_function=lambda p, g: {"value": getattr(p, "value", 0) * 0.1},
             input_repository=input_repo,
             prediction_repository=pred_repo,
             score_repository=score_repo,

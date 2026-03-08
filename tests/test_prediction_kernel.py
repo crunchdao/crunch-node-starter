@@ -75,11 +75,11 @@ class TestPredictionKernel(unittest.IsolatedAsyncioTestCase):
 
         await kernel.shutdown()
 
-    def test_encode_tick_in_raw_mode(self):
+    def test_encode_feed_update_in_raw_mode(self):
         kernel = PredictionKernel(runner=_Runner(), proto_available=False)
         payload = {"symbol": "BTC"}
 
-        args = kernel.encode_tick(payload)
+        args = kernel.encode_feed_update(payload)
 
         self.assertEqual(args, (payload,))
 

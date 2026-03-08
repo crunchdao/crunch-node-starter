@@ -37,13 +37,54 @@ Ground truth comes directly from `InputRecord.raw_data`. Used for live trading w
 The score worker waits until `resolvable_at`, then fetches feed records from the time window and passes them to `resolve_ground_truth()`:
 
 ```python
-def default_resolve_ground_truth(feed_records: list[FeedRecord]) -> dict | None:
-    """Compare first and last record's price in the window."""
-    entry_price = feed_records[0].values["close"]
-    resolved_price = feed_records[-1].values["close"]
+def default_resolve_ground_truth(
+    feed_records: list[FeedRecord],
+    prediction: PredictionRecord | None = None,
+) -> dict | None:
+    """Compute price return from entry and resolved feed records.
+
+    Each feed record has flat OHLCV values (open, high, low, close,
+    volume) — NOT nested candles_1m.
+    """
+    if not feed_records:
+        return None
+    entry = feed_records[0]
+    resolved = feed_records[-1]
+    entry_vals = entry.values or {}
+    resolved_vals = resolved.values or {}
+    if len(feed_records) == 1:
+        entry_price = float(entry_vals.get("open") or entry_vals.get("price") or 0)
+        resolved_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+    else:
+        entry_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+        resolved_price = float(resolved_vals.get("close") or resolved_vals.get("price") or 0)
+    if entry_price == 0:
+        return None
+    profit = (resolved_price - entry_price) / abs(entry_price)
     return {
+        "symbol": resolved.subject,
+        "asof_ts": int(resolved.ts_event.timestamp() * 1000),
         "entry_price": entry_price,
         "resolved_price": resolved_price,
+        "profit": profit,
+        "direction_up": resolved_price > entry_price,
+    }
+```
+
+To customize ground truth (VWAP, cross-venue, labels, etc.), override `resolve_ground_truth` in your CrunchConfig:
+
+```python
+def my_resolve_ground_truth(feed_records, prediction=None):
+    if not feed_records:
+        return None
+    entry = feed_records[0]
+    resolved = feed_records[-1]
+    # Each record has flat values: {open, high, low, close, volume}
+    entry_price = float(entry.values.get("close", 0))
+    resolved_price = float(resolved.values.get("close", 0))
+    if entry_price == 0:
+        return None
+    return {
         "profit": (resolved_price - entry_price) / abs(entry_price),
         "direction_up": resolved_price > entry_price,
     }
@@ -51,22 +92,22 @@ def default_resolve_ground_truth(feed_records: list[FeedRecord]) -> dict | None:
 
 ## Scoring Function
 
-The scoring function receives the prediction output and ground truth as dicts, and returns a dict matching `score_type`:
+The scoring function receives typed Pydantic objects (not dicts) and returns a dict or Pydantic model matching `score_type`. Access fields via attributes:
 
 ```python
-def my_scorer(prediction: dict, ground_truth: dict) -> dict:
-    pred_value = prediction["value"]
-    actual_return = ground_truth["profit"]
+def my_scorer(prediction: BaseModel, ground_truth: BaseModel) -> dict:
+    pred_value = prediction.value
+    actual_return = ground_truth.profit
     pnl = pred_value * actual_return
     return {
         "value": pnl,
         "actual_return": actual_return,
-        "direction_correct": (pred_value > 0) == ground_truth["direction_up"],
+        "direction_correct": (pred_value > 0) == ground_truth.direction_up,
         "success": True,
     }
 ```
 
-**Stateful scoring** is supported — set `CrunchConfig.scoring_function` to a callable that maintains state (e.g. a `PositionManager` instance). The score worker injects `model_id` and `prediction_id` into the prediction dict before calling.
+**Stateful scoring** is supported — set `CrunchConfig.scoring_function` to a callable that maintains state (e.g. a `PositionManager` instance). The score worker injects `model_id` and `prediction_id` as extra attributes on the prediction model before calling.
 
 ### Stub Detection
 

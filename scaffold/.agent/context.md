@@ -38,8 +38,8 @@ Loaded via `crunch_node.config_loader.load_config()`.
 
 ## Scoring → Leaderboard Flow
 
-1. `resolve_ground_truth(feed_records, prediction)` → ground truth dict
-2. `scoring_function(prediction, ground_truth)` → dict matching `score_type`
+1. `resolve_ground_truth(feed_records, prediction)` → ground truth dict (or Pydantic model)
+2. `scoring_function(prediction, ground_truth)` → Pydantic model or dict matching `score_type` (receives typed Pydantic objects, not dicts)
 3. `aggregate_snapshot([results])` → `SnapshotRecord.result_summary`
 4. Window aggregation → averages `value_field` per window → leaderboard `metrics`
 5. `auto_report_schema()` → introspects `score_type` → auto-generates UI columns
@@ -124,14 +124,17 @@ Next.js rewrites run server-side inside Docker. `localhost` = the container itse
 `REPORT_UI_BUILD_CONTEXT` points to `../webapp`. If `webapp/` is missing or not a
 valid `coordinator-webapp` clone, `report-ui` fails during docker build.
 
-### InferenceOutput key mismatches are caught at startup
-The score worker dry-runs the scoring function against default `InferenceOutput` and `GroundTruth` values on startup. A `KeyError` (scoring reads a field not in `InferenceOutput`) raises a hard `RuntimeError`. The predict worker also validates every model output against `InferenceOutput` and logs `INFERENCE_OUTPUT_VALIDATION_ERROR` if no keys match.
+### InferenceOutput field mismatches are caught at startup
+The score worker dry-runs the scoring function against default `InferenceOutput()` and `GroundTruth()` instances on startup. An `AttributeError` (scoring reads a field not defined on the type) or `KeyError` raises a hard `RuntimeError`. The predict worker also validates every model output against `InferenceOutput` and logs `INFERENCE_OUTPUT_VALIDATION_ERROR` if no keys match.
 
-### score_prediction receives injected fields
-Score worker adds `model_id` and `prediction_id` to the output dict before calling the scoring function.
+### score_prediction receives typed Pydantic objects
+The score worker coerces raw dicts into typed `output_type` and `ground_truth_type` Pydantic instances before calling the scoring function. Use attribute access (e.g. `prediction.direction`) not dict access (`prediction["direction"]`). The `model_id` and `prediction_id` are injected as extra attributes on the output model.
 
-### All scores zero?
-Scoring stub not replaced, or `resolve_horizon_seconds` ≤ feed interval, or `resolve_ground_truth` returns zeroed data.
+### All scores zero (or no scores at all)?
+- Scoring stub not replaced
+- `resolve_horizon_seconds` ≤ feed interval
+- `resolve_ground_truth` returns zeroed data or `None`
+- `resolve_ground_truth` requires 2+ feed records but the window only has 1. With kline feeds, a 60s window often has only 1-2 records. Handle single-record windows (e.g. open vs close of same candle).
 
 ### Leaderboard rankings all zero?
 `aggregation.value_field` doesn't match any field in `score_type`.

@@ -167,9 +167,11 @@ class TestGroundTruthResolution:
             granularity="1m",
             ts_event=ts,
             values={
-                "candles_1m": [
-                    {"open": price, "high": price, "low": price, "close": price}
-                ]
+                "open": price,
+                "high": price,
+                "low": price,
+                "close": price,
+                "volume": 1.0,
             },
         )
 
@@ -192,29 +194,37 @@ class TestGroundTruthResolution:
             self._make_feed_record("BTC", 40100.0, now),
         ]
         result = crunch_config.resolve_ground_truth(records)
-        # Default resolver produces entry and resolved candles
-        for key in ("symbol", "asof_ts", "entry_candles_1m", "resolved_candles_1m"):
+        # Default resolver produces price return fields
+        for key in (
+            "symbol",
+            "asof_ts",
+            "entry_price",
+            "resolved_price",
+            "profit",
+            "direction_up",
+        ):
             assert key in result, (
                 f"resolve_ground_truth missing key '{key}'. "
                 f"Scoring function may KeyError at runtime."
             )
 
-    def test_result_has_candle_data(self, crunch_config):
+    def test_result_has_price_data(self, crunch_config):
         now = datetime.now(UTC)
         records = [
             self._make_feed_record("BTC", 40000.0, now),
             self._make_feed_record("BTC", 40100.0, now),
         ]
         result = crunch_config.resolve_ground_truth(records)
-        entry_candles = result.get("entry_candles_1m", [])
-        resolved_candles = result.get("resolved_candles_1m", [])
-        assert len(entry_candles) > 0, (
-            "resolve_ground_truth returned empty entry candles. "
+        assert result["entry_price"] > 0, (
+            "resolve_ground_truth returned zero entry_price. "
             "Scoring function cannot compute returns."
         )
-        assert len(resolved_candles) > 0, (
-            "resolve_ground_truth returned empty resolved candles. "
+        assert result["resolved_price"] > 0, (
+            "resolve_ground_truth returned zero resolved_price. "
             "Scoring function cannot compute returns."
+        )
+        assert result["profit"] != 0, (
+            "resolve_ground_truth returned zero profit for different prices."
         )
 
     def test_returns_none_for_empty_records(self, crunch_config):
@@ -391,7 +401,7 @@ class TestTrackerOutputMatchesInferenceOutput:
                 {"ts": 1700000000 + i * 60, "close": 40000 + i * 10} for i in range(10)
             ],
         }
-        example_tracker.tick(tick_data)
+        example_tracker.feed_update(tick_data)
 
         scope = crunch_config.scope.model_dump()
         resolve = crunch_config.scheduled_predictions[0].resolve_horizon_seconds
@@ -421,7 +431,7 @@ class TestTrackerOutputMatchesInferenceOutput:
                 {"ts": 1700000000 + i * 60, "close": 40000 + i * 10} for i in range(10)
             ],
         }
-        example_tracker.tick(tick_data)
+        example_tracker.feed_update(tick_data)
 
         scope = crunch_config.scope.model_dump()
         resolve = crunch_config.scheduled_predictions[0].resolve_horizon_seconds

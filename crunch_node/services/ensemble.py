@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
+from crunch_node.crunch_config import EnsembleModelFilter
 from crunch_node.entities.prediction import PredictionRecord, PredictionStatus
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ def equal_weight(
 # ── Built-in model filters ──
 
 
-def top_n(n: int) -> Callable[[str, dict[str, float]], bool]:
+def top_n(n: int) -> EnsembleModelFilter:
     """Factory for a filter that keeps the top N models by ranking metric.
 
     Usage: model_filter=top_n(5)
@@ -95,7 +96,7 @@ def top_n(n: int) -> Callable[[str, dict[str, float]], bool]:
     return _filter
 
 
-def min_metric(name: str, threshold: float) -> Callable[[str, dict[str, float]], bool]:
+def min_metric(name: str, threshold: float) -> EnsembleModelFilter:
     """Factory for a filter that keeps models above a metric threshold."""
 
     def _filter(model_id: str, metrics: dict[str, float]) -> bool:
@@ -105,7 +106,7 @@ def min_metric(name: str, threshold: float) -> Callable[[str, dict[str, float]],
 
 
 def apply_model_filter(
-    model_filter: Callable | None,
+    model_filter: EnsembleModelFilter | Callable | None,
     model_metrics: dict[str, dict[str, float]],
     predictions: dict[str, list[dict[str, Any]]],
 ) -> dict[str, list[dict[str, Any]]]:

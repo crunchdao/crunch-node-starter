@@ -44,19 +44,26 @@ Set ground_truth_type = BtcGroundTruth (or whatever you name it) in CrunchConfig
 ## Scoring (edit challenge/starter_challenge/scoring.py)
 
 score_prediction(prediction, ground_truth) -> dict:
-- If prediction["direction"] matches ground truth direction:
-    score = +prediction["confidence"] * abs(ground_truth["profit"])
+- The scoring function receives typed Pydantic objects, not dicts.
+  Use attribute access: prediction.direction, ground_truth.profit, etc.
+- If prediction.direction matches ground truth direction:
+    score = +prediction.confidence * abs(ground_truth.profit)
 - If wrong:
-    score = -prediction["confidence"] * abs(ground_truth["profit"])
-- Ground truth has keys: "profit" (float), "direction_up" (bool)
-- prediction["direction"] == "up" should be compared to ground_truth["direction_up"]
+    score = -prediction.confidence * abs(ground_truth.profit)
+- Ground truth has attributes: profit (float), direction_up (bool)
+- prediction.direction == "up" should be compared to ground_truth.direction_up
 - Always return {"value": score, "success": True, "failed_reason": None}
 
 ## Ground Truth
 
-Use the default resolve_ground_truth (close price comparison).
-Do NOT implement a custom one — the default already returns
-{"entry_price", "resolved_price", "profit", "direction_up"}.
+The default resolve_ground_truth already computes profit and direction_up
+from feed records. It returns:
+{"symbol", "asof_ts", "entry_price", "resolved_price", "profit", "direction_up"}.
+This matches what the scoring function needs — you do NOT need to override it.
+
+Feed records have flat OHLCV values (open, high, low, close, volume) — NOT
+nested candles_1m. The normalizer aggregates records into candles_1m for model
+input, but resolve_ground_truth works with raw FeedRecord objects.
 
 ## Examples (edit challenge/starter_challenge/examples/)
 
@@ -79,11 +86,12 @@ Use _get_data(subject) to access latest tick data, extract closes from candles_1
 
 ## Schedule & Feed (edit node/config/crunch_config.py scheduled_predictions)
 
-IMPORTANT: Change these from the scaffold defaults:
-- subject: BTCUSDT (keep default)
-- prediction_interval_seconds: 15  (keep default)
-- resolve_horizon_seconds: 60  (keep default)
-- Feed: binance, kline, 1s granularity (keep defaults from .local.env)
+Keep the scaffold defaults — do NOT change .local.env feed settings:
+- subject: BTCUSDT
+- prediction_interval_seconds: 15
+- resolve_horizon_seconds: 60
+- Feed settings in .local.env are already correct (binance, 1s granularity)
+- Do NOT change FEED_KIND in .local.env — leave it as is
 
 ## Tests
 

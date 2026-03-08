@@ -8,7 +8,7 @@ from starter_challenge.examples.feature_momentum_tracker import FeatureMomentumT
 from starter_challenge.examples.linear_combo_tracker import LinearComboTracker
 
 
-def _make_feature_tick(subject: str, features: dict[str, float]) -> dict:
+def _make_feature_data(subject: str, features: dict[str, float]) -> dict:
     return {
         "symbol": subject,
         "asof_ts": 1700000000,
@@ -17,7 +17,7 @@ def _make_feature_tick(subject: str, features: dict[str, float]) -> dict:
     }
 
 
-def _make_candle_tick(subject: str, closes: list[float]) -> dict:
+def _make_candle_data(subject: str, closes: list[float]) -> dict:
     return {
         "symbol": subject,
         "asof_ts": 1700000000 + len(closes) * 60,
@@ -57,28 +57,32 @@ class TestExampleContract:
     """Every example must satisfy the tournament prediction contract."""
 
     def test_returns_dict_with_prediction(self, tracker):
-        tracker.tick(_make_feature_tick("BTC", SAMPLE_FEATURES))
+        tracker.feed_update(_make_feature_data("BTC", SAMPLE_FEATURES))
         result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
         assert isinstance(result, dict)
         assert "prediction" in result
         assert isinstance(result["prediction"], (int, float))
 
     def test_empty_features_returns_zero(self, tracker):
-        tracker.tick(_make_feature_tick("BTC", EMPTY_FEATURES))
+        tracker.feed_update(_make_feature_data("BTC", EMPTY_FEATURES))
         result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
         assert result["prediction"] == 0.0
 
-    def test_no_tick_returns_zero(self, tracker):
+    def test_no_data_returns_zero(self, tracker):
         result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
         assert result["prediction"] == 0.0
 
 
 class TestMultiSubjectIsolation:
-    """tick() data must be isolated per subject."""
+    """feed_update() data must be isolated per subject."""
 
     def test_different_subjects_isolated(self, tracker):
-        tracker.tick(_make_feature_tick("BTC", {"momentum": 0.05, "trend": 0.03}))
-        tracker.tick(_make_feature_tick("ETH", {"momentum": -0.05, "trend": -0.03}))
+        tracker.feed_update(
+            _make_feature_data("BTC", {"momentum": 0.05, "trend": 0.03})
+        )
+        tracker.feed_update(
+            _make_feature_data("ETH", {"momentum": -0.05, "trend": -0.03})
+        )
 
         btc_pred = tracker.predict("BTC", 3600, 300)
         eth_pred = tracker.predict("ETH", 3600, 300)
@@ -90,6 +94,6 @@ class TestMultiSubjectIsolation:
         )
 
     def test_unknown_subject_returns_zero(self, tracker):
-        tracker.tick(_make_feature_tick("BTC", SAMPLE_FEATURES))
+        tracker.feed_update(_make_feature_data("BTC", SAMPLE_FEATURES))
         result = tracker.predict("SOL", 3600, 300)
         assert result["prediction"] == 0.0

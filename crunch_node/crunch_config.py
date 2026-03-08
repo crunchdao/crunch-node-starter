@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -99,6 +98,140 @@ class ScoreResult(BaseModel):
         default=None,
         description="Human-readable reason when success=False.",
     )
+
+
+# ── Callable protocols ──────────────────────────────────────────────
+
+
+@runtime_checkable
+class ScoringFunction(Protocol):
+    """Score a single prediction against ground truth.
+
+    Packs should define a narrower Protocol with their concrete types::
+
+        class TradingScoringFunction(Protocol):
+            def __call__(
+                self, prediction: InferenceOutput, ground_truth: GroundTruth
+            ) -> ScoreResult: ...
+
+    The engine coerces raw dicts into typed objects before calling.
+    """
+
+    def __call__(self, prediction: BaseModel, ground_truth: BaseModel) -> BaseModel: ...
+
+
+@runtime_checkable
+class ResolveGroundTruth(Protocol):
+    """Resolve ground truth from feed records for a prediction.
+
+    Args:
+        feed_records: Feed records in the resolution window.
+        prediction: The prediction being scored (use scope to filter).
+
+    Returns:
+        Typed ground truth object, or None if not yet available.
+    """
+
+    def __call__(
+        self,
+        feed_records: list[FeedRecord],
+        prediction: PredictionRecord | None = ...,
+    ) -> BaseModel | None: ...
+
+
+@runtime_checkable
+class AggregateSnapshot(Protocol):
+    """Aggregate a list of score results into a snapshot summary.
+
+    Args:
+        score_results: List of ScoreResult dicts from a scoring period.
+
+    Returns:
+        Summary dict for the snapshot's result_summary field.
+    """
+
+    def __call__(self, score_results: list[dict[str, Any]]) -> dict[str, Any]: ...
+
+
+@runtime_checkable
+class BuildEmission(Protocol):
+    """Build an EmissionCheckpoint from ranked leaderboard entries.
+
+    Args:
+        ranked_entries: Leaderboard entries sorted by rank, each a dict
+            with at least 'rank', 'model_id', and score fields.
+        crunch_pubkey: On-chain crunch account public key.
+        compute_provider: Compute provider wallet pubkey (optional).
+        data_provider: Data provider wallet pubkey (optional).
+
+    Returns:
+        EmissionCheckpoint with reward distributions.
+    """
+
+    def __call__(
+        self,
+        ranked_entries: list[dict[str, Any]],
+        crunch_pubkey: str,
+        compute_provider: str | None = ...,
+        data_provider: str | None = ...,
+    ) -> EmissionCheckpoint: ...
+
+
+@runtime_checkable
+class ComputeMetrics(Protocol):
+    """Compute named metrics from predictions and scores.
+
+    Args:
+        metrics: List of metric names to compute (e.g. ["ic", "hit_rate"]).
+        predictions: List of prediction dicts with inference_output, scope, etc.
+        scores: List of score result dicts.
+        context: MetricsContext with model_id, time window, cross-model data.
+
+    Returns:
+        Dict mapping metric name to float value.
+    """
+
+    def __call__(
+        self,
+        metrics: list[str],
+        predictions: list[dict[str, Any]],
+        scores: list[dict[str, Any]],
+        context: Any,
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class EnsembleStrategy(Protocol):
+    """Compute per-model weights for an ensemble.
+
+    Args:
+        model_metrics: Per-model metric dicts (e.g. {"model_1": {"value": 0.5}}).
+        predictions: Per-model prediction lists.
+
+    Returns:
+        Dict mapping model_id to weight (will be normalized).
+    """
+
+    def __call__(
+        self,
+        model_metrics: dict[str, dict[str, float]],
+        predictions: dict[str, list[dict[str, Any]]],
+    ) -> dict[str, float]: ...
+
+
+@runtime_checkable
+class EnsembleModelFilter(Protocol):
+    """Filter which models participate in an ensemble.
+
+    Args:
+        model_id: The model being evaluated.
+        metrics: That model's metric dict.
+
+    Returns:
+        True to include, False to exclude.
+    """
+
+    def __call__(self, model_id: str, metrics: dict[str, float]) -> bool: ...
 
 
 class PredictionScope(BaseModel):
@@ -206,13 +339,25 @@ class Aggregation(BaseModel):
 
 
 class EnsembleConfig(BaseModel):
-    """Configuration for a named ensemble (virtual meta-model)."""
+    """Configuration for a named ensemble (virtual meta-model).
+
+    strategy: Callable that computes per-model weights.
+        Signature: (model_metrics, predictions) → {model_id: weight}
+    model_filter: Optional callable to select which models participate.
+        Signature: (model_id, metrics) → bool
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     name: str
-    strategy: Callable = Field(default=None)  # weight function, set below
-    model_filter: Callable | None = Field(default=None)
+    strategy: EnsembleStrategy | None = Field(
+        default=None,
+        description="Weight function: (model_metrics, predictions) → {model_id: weight}",
+    )
+    model_filter: EnsembleModelFilter | None = Field(
+        default=None,
+        description="Filter: (model_id, metrics) → bool. Use top_n(5) or min_metric(...).",
+    )
     enabled: bool = True
 
 
@@ -241,10 +386,16 @@ def default_resolve_ground_truth(
     feed_records: list[FeedRecord],
     prediction: PredictionRecord | None = None,
 ) -> dict[str, Any] | None:
-    """Default resolver: return candle data from entry and resolved feed records.
+    """Default resolver: compute price return from entry and resolved feed records.
 
-    Returns both entry (first record) and resolved (last record) candles
-    so the scorer can compute price return.
+    Each feed record's ``values`` dict contains flat OHLCV fields
+    (``open``, ``high``, ``low``, ``close``, ``volume``) — not a nested
+    ``candles_1m`` list.  The normalizer aggregates multiple records into
+    ``candles_1m`` for model input, but ``resolve_ground_truth`` works
+    with raw ``FeedRecord`` objects.
+
+    For single-record windows (common with short horizons), uses the
+    record's open as entry and close as resolved price.
 
     Args:
         feed_records: All feed records in the resolution window (any subject).
@@ -253,17 +404,39 @@ def default_resolve_ground_truth(
 
     Override for custom ground truth (VWAP, cross-venue, labels, etc.).
     """
-    if len(feed_records) < 1:
+    if not feed_records:
         return None
 
     entry = feed_records[0]
     resolved = feed_records[-1]
 
+    # Extract prices — each record has flat OHLCV in values
+    entry_vals = entry.values or {}
+    resolved_vals = resolved.values or {}
+
+    if len(feed_records) == 1:
+        # Single record: use open → close of same candle
+        entry_price = float(entry_vals.get("open") or entry_vals.get("price") or 0)
+        resolved_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+    else:
+        # Multiple records: use close of first → close of last
+        entry_price = float(entry_vals.get("close") or entry_vals.get("price") or 0)
+        resolved_price = float(
+            resolved_vals.get("close") or resolved_vals.get("price") or 0
+        )
+
+    if entry_price == 0:
+        return None
+
+    profit = (resolved_price - entry_price) / abs(entry_price)
+
     return {
         "symbol": resolved.subject,
         "asof_ts": int(resolved.ts_event.timestamp() * 1000),
-        "entry_candles_1m": entry.values.get("candles_1m", []),
-        "resolved_candles_1m": resolved.values.get("candles_1m", []),
+        "entry_price": entry_price,
+        "resolved_price": resolved_price,
+        "profit": profit,
+        "direction_up": resolved_price > entry_price,
     }
 
 
@@ -501,7 +674,7 @@ class CrunchConfig(BaseModel):
             "model_correlation",
         ]
     )
-    compute_metrics: Callable = default_compute_metrics
+    compute_metrics: ComputeMetrics = default_compute_metrics
 
     # Ensembles
     ensembles: list[EnsembleConfig] = Field(default_factory=list)
@@ -535,41 +708,18 @@ class CrunchConfig(BaseModel):
         description="Performance monitoring and instrumentation configuration",
     )
 
-    # Callables
-    scoring_function: (
-        Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None
-    ) = Field(
+    # Callables — use Protocol types for clear contracts.
+    # Packs can narrow these with their own typed Protocols.
+    scoring_function: ScoringFunction | None = Field(
         default=None,
         description=(
-            "Scoring callable: (prediction_dict, ground_truth_dict) → score_dict. "
-            "If set, takes precedence over the SCORING_FUNCTION env var. "
-            "Use for stateful scoring (e.g. PositionManager-backed trading)."
+            "Scoring callable: (prediction, ground_truth) → score_result. "
+            "Receives typed Pydantic objects (output_type, ground_truth_type). "
+            "Must return an object matching score_type. "
+            "If set, takes precedence over the SCORING_FUNCTION env var."
         ),
     )
-    pre_predict_hook: (
-        Callable[[dict[str, Any], datetime], dict[str, Any] | None] | None
-    ) = Field(
-        default=None,
-        description=(
-            "Hook called before models receive data. Receives (raw_data, now) "
-            "and returns the (possibly transformed) data dict for models. "
-            "Return None to skip prediction for this tick."
-        ),
-    )
-    post_predict_hook: (
-        Callable[[list[PredictionRecord], InputRecord, Any], list[PredictionRecord]]
-        | None
-    ) = Field(
-        default=None,
-        description=(
-            "Hook called after models produce outputs but before predictions "
-            "are saved to the database. Receives (predictions, input_record, now) "
-            "and returns the (possibly modified) list of PredictionRecords."
-        ),
-    )
-    resolve_ground_truth: Callable[
-        [list[FeedRecord], PredictionRecord | None], dict[str, Any] | None
-    ] = default_resolve_ground_truth
+    resolve_ground_truth: ResolveGroundTruth = default_resolve_ground_truth
     max_ground_truth_staleness_fraction: float = Field(
         default=0.2,
         ge=0.0,
@@ -581,10 +731,8 @@ class CrunchConfig(BaseModel):
             "be within the last 20% of the horizon window. Set to 0 to disable."
         ),
     )
-    aggregate_snapshot: Callable[[list[dict[str, Any]]], dict[str, Any]] = (
-        default_aggregate_snapshot
-    )
-    build_emission: Callable[..., EmissionCheckpoint] = default_build_emission
+    aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
+    build_emission: BuildEmission = default_build_emission
 
     def get_ground_truth_type(self) -> type[BaseModel]:
         """Return the effective ground truth type.

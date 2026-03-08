@@ -145,10 +145,10 @@ class PredictService:
         )
         return await self._kernel.call(method, args)
 
-    async def _tick_models(self, inference_input: dict[str, Any]) -> None:
+    async def _feed_update_models(self, inference_input: dict[str, Any]) -> None:
         """Send latest data to all models."""
         responses = await self._kernel.call(
-            "tick", self._kernel.encode_tick(inference_input)
+            "feed_update", self._kernel.encode_feed_update(inference_input)
         )
         for model_run, _ in responses.items():
             self.register_model(self._to_model(model_run))
@@ -316,8 +316,8 @@ class PredictService:
 
     # ── proto encoding compatibility wrappers ──
 
-    def _encode_tick(self, inference_input: dict[str, Any]) -> tuple:
-        return self._kernel.encode_tick(inference_input)
+    def _encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
+        return self._kernel.encode_feed_update(inference_input)
 
     @classmethod
     def _get_variant_type(cls, type_name: str) -> Any:

@@ -13,7 +13,7 @@ C4Component
 
     Component(base, "PredictService", "Shared base facade", "Shared helpers + contracts used by concrete orchestrators")
 
-    Component(kernel, "PredictionKernel", "Kernel", "Runner lifecycle, call transport, predict/tick argument encoding")
+    Component(kernel, "PredictionKernel", "Kernel", "Runner lifecycle, call transport, predict/feed_update argument encoding")
     Component(registry, "ModelRegistry", "Component", "Tracks known models; deferred non-critical metadata persistence")
     Component(validator, "OutputValidator", "Component", "Output schema validation and normalization")
     Component(factory, "PredictionRecordFactory", "Component", "Stable PredictionRecord ID/status/meta construction")
@@ -35,7 +35,7 @@ C4Component
   Rel(base, predRepo, "Writes predictions (critical path)")
   Rel(base, modelRepo, "Writes model metadata (non-critical deferred flush)")
 
-  Rel(kernel, modelOrch, "tick/predict calls", "gRPC")
+  Rel(kernel, modelOrch, "feed_update/predict calls", "gRPC")
   Rel(inputRepo, postgres, "SQL")
   Rel(predRepo, postgres, "SQL")
   Rel(modelRepo, postgres, "SQL")
