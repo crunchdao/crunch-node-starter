@@ -85,7 +85,7 @@ class DummyTracker:
         self.predict_count = 0
         self._latest_data = None
 
-    def tick(self, data: dict) -> None:
+    def feed_update(self, data: dict) -> None:
         self._latest_data = data
         self.tick_count += 1
 

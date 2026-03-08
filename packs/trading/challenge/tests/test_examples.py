@@ -22,7 +22,7 @@ def _make_candles(closes: list[float], base_ts: int = 1700000000) -> list[dict]:
     ]
 
 
-def _make_tick(subject: str, closes: list[float]) -> dict:
+def _make_feed_data(subject: str, closes: list[float]) -> dict:
     return {
         "symbol": subject,
         "asof_ts": 1700000000 + len(closes) * 60,
@@ -51,44 +51,44 @@ class TestExampleContract:
     """Every example must satisfy the trading signal contract."""
 
     def test_returns_dict_with_signal(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", UPTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("BTCUSDT", UPTREND_CLOSES))
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert isinstance(result, dict)
         assert "signal" in result
         assert isinstance(result["signal"], (int, float))
 
     def test_signal_in_valid_range(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", UPTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("BTCUSDT", UPTREND_CLOSES))
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert -1.0 <= result["signal"] <= 1.0
 
     def test_empty_data_returns_zero(self, tracker):
-        tracker.tick(EMPTY_TICK)
+        tracker.feed_update(EMPTY_TICK)
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert result["signal"] == 0.0
 
-    def test_no_tick_returns_zero(self, tracker):
+    def test_no_data_returns_zero(self, tracker):
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert result["signal"] == 0.0
 
     def test_sparse_candles_does_not_crash(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", [40000, 40010]))
+        tracker.feed_update(_make_feed_data("BTCUSDT", [40000, 40010]))
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert isinstance(result["signal"], (int, float))
         assert result["signal"] == 0.0
 
     def test_single_candle(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", [40000]))
+        tracker.feed_update(_make_feed_data("BTCUSDT", [40000]))
         result = tracker.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
         assert result["signal"] == 0.0
 
 
 class TestMultiSubjectIsolation:
-    """tick() data must be isolated per subject."""
+    """feed_update() data must be isolated per subject."""
 
     def test_btc_and_eth_produce_different_predictions(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", UPTREND_CLOSES))
-        tracker.tick(_make_tick("ETHUSDT", DOWNTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("BTCUSDT", UPTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("ETHUSDT", DOWNTREND_CLOSES))
 
         btc_pred = tracker.predict("BTCUSDT", 60, 15)
         eth_pred = tracker.predict("ETHUSDT", 60, 15)
@@ -97,16 +97,16 @@ class TestMultiSubjectIsolation:
             f"BTC and ETH signals should differ but both are {btc_pred['signal']}"
         )
 
-    def test_ticking_eth_does_not_change_btc(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", UPTREND_CLOSES))
+    def test_updating_eth_does_not_change_btc(self, tracker):
+        tracker.feed_update(_make_feed_data("BTCUSDT", UPTREND_CLOSES))
         btc_before = tracker.predict("BTCUSDT", 60, 15)["signal"]
 
-        tracker.tick(_make_tick("ETHUSDT", DOWNTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("ETHUSDT", DOWNTREND_CLOSES))
         btc_after = tracker.predict("BTCUSDT", 60, 15)["signal"]
 
         assert btc_before == btc_after
 
     def test_unknown_subject_returns_zero(self, tracker):
-        tracker.tick(_make_tick("BTCUSDT", UPTREND_CLOSES))
+        tracker.feed_update(_make_feed_data("BTCUSDT", UPTREND_CLOSES))
         result = tracker.predict("SOLUSDT", 60, 15)
         assert result["signal"] == 0.0

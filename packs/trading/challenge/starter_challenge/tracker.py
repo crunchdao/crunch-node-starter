@@ -1,6 +1,6 @@
 """Base tracker for trading signal competitions.
 
-Models receive multi-timeframe candle data via ``tick()`` and must return
+Models receive multi-timeframe candle data via ``feed_update()`` and must return
 a directional signal in [-1, 1] from ``predict()``.
 
 The ``predict()`` return value must match ``InferenceOutput``::
@@ -19,13 +19,13 @@ class TrackerBase:
     """Base class for trading signal models.
 
     Subclass this and implement ``predict()`` to compete.
-    Use ``tick()`` to maintain internal state (indicators, history, etc.).
+    Use ``feed_update()`` to maintain internal state (indicators, history, etc.).
     """
 
     def __init__(self) -> None:
         self._latest_data_by_subject: dict[str, dict[str, Any]] = {}
 
-    def tick(self, data: dict[str, Any]) -> None:
+    def feed_update(self, data: dict[str, Any]) -> None:
         """Receive latest market data. Override to maintain state.
 
         Args:
@@ -38,7 +38,7 @@ class TrackerBase:
         self._latest_data_by_subject[subject_key] = data
 
     def _get_data(self, subject: str) -> dict[str, Any] | None:
-        """Return the latest tick data for *subject*."""
+        """Return the latest feed data for *subject*."""
         return self._latest_data_by_subject.get(
             subject,
             self._latest_data_by_subject.get("_default"),

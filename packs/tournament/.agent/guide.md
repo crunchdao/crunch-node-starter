@@ -97,14 +97,17 @@ Define `GroundTruth` fields to match what your competition provides as actuals.
 
 ## 4. Scoring Function
 
-Signature: `score_prediction(prediction: dict, ground_truth: dict) -> dict`
+Signature: `score_prediction(prediction: BaseModel, ground_truth: BaseModel) -> dict`
+
+The scoring function receives typed Pydantic objects. Use attribute access
+(e.g. `prediction.value`, `ground_truth.target`), not dict access.
 
 The tournament service calls this **per sample** — each entry in `predictions`
 is scored against the corresponding entry in the ground truth list. Results
 are averaged across all samples.
 
-**Receives:** `prediction` (one entry from `predictions` list), `ground_truth` (one GT dict)
-**Returns:** dict matching `ScoreResult` — at minimum `{"value": float, "success": bool}`
+**Receives:** `prediction` (typed `output_type` Pydantic instance), `ground_truth` (typed `ground_truth_type` Pydantic instance)
+**Returns:** dict or Pydantic model matching `ScoreResult` — at minimum `{"value": float, "success": bool}`
 
 ## 5. Tournament API
 

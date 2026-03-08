@@ -375,14 +375,14 @@ def main() -> int:
             if not models:
                 raise RuntimeError("no models registered yet")
 
-            # Check for scored predictions + leaderboard
-            model_id = models[0]["model_id"]
+            # Check for scored predictions + leaderboard across ALL models
             now = datetime.now(UTC)
+            all_model_ids = ",".join(m["model_id"] for m in models)
             predictions = _get_json(
                 base_url,
                 "/reports/predictions",
                 params={
-                    "projectIds": model_id,
+                    "projectIds": all_model_ids,
                     "start": _iso(since),
                     "end": _iso(now),
                 },
@@ -395,7 +395,8 @@ def main() -> int:
                 if row.get("score_value") is not None
                 and row.get("score_failed") is False
             ]
-            if scored and leaderboard:
+            # Need ≥2 scored predictions to check score diversity
+            if len(scored) >= 2 and leaderboard:
                 quality_ok, quality_reason = check_score_quality(scored)
 
                 print(

@@ -311,25 +311,31 @@ class TestScoreServiceRunLoop(unittest.IsolatedAsyncioTestCase):
 
 
 class TestCoerceOutput(unittest.TestCase):
-    """ScoreService._coerce_output should parse raw dicts through output_type."""
+    """ScoreService._coerce_output should parse raw dicts into typed models."""
 
     def test_default_output_fills_missing_fields(self):
         """If model returns {} the default InferenceOutput(value=0.0) fills it."""
         service = _build_service()
         result = service._coerce_output({})
-        self.assertEqual(result, {"value": 0.0})
+        self.assertAlmostEqual(result.value, 0.0)
 
     def test_coercion_preserves_model_values(self):
         service = _build_service()
         result = service._coerce_output({"value": 1.23})
-        self.assertAlmostEqual(result["value"], 1.23)
+        self.assertAlmostEqual(result.value, 1.23)
 
     def test_coercion_preserves_extra_keys(self):
-        """Extra keys from the model (not in InferenceOutput) are kept."""
-        service = _build_service()
+        """Extra keys handled via model_construct fallback."""
+        from pydantic import BaseModel, ConfigDict
+
+        class FlexOutput(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            value: float = 0.0
+
+        contract = CrunchConfig(output_type=FlexOutput)
+        service = _build_service(config=contract)
         result = service._coerce_output({"value": 0.5, "confidence": 0.9})
-        self.assertAlmostEqual(result["value"], 0.5)
-        self.assertAlmostEqual(result["confidence"], 0.9)
+        self.assertAlmostEqual(result.value, 0.5)
 
     def test_coercion_with_custom_output_type(self):
         from pydantic import BaseModel, Field
@@ -343,14 +349,14 @@ class TestCoerceOutput(unittest.TestCase):
 
         # Model returns partial output — defaults should fill in
         result = service._coerce_output({"order_type": "LONG"})
-        self.assertEqual(result["order_type"], "LONG")
-        self.assertEqual(result["leverage"], 1.0)
+        self.assertEqual(result.order_type, "LONG")
+        self.assertEqual(result.leverage, 1.0)
 
     def test_coercion_type_coerces_values(self):
         """String '0.5' should be coerced to float 0.5."""
         service = _build_service()
         result = service._coerce_output({"value": "0.5"})
-        self.assertAlmostEqual(result["value"], 0.5)
+        self.assertAlmostEqual(result.value, 0.5)
 
     def test_coercion_falls_back_on_validation_error(self):
         from pydantic import BaseModel, Field
@@ -361,16 +367,16 @@ class TestCoerceOutput(unittest.TestCase):
         contract = CrunchConfig(output_type=StrictOutput)
         service = _build_service(config=contract)
 
-        # value=999 violates ge/le constraint — should fall back to raw dict
+        # value=999 violates ge/le constraint — should fall back to model_construct
         with self.assertLogs("crunch_node.services.score", level="WARNING"):
             result = service._coerce_output({"value": 999})
-        self.assertEqual(result["value"], 999)
+        self.assertEqual(result.value, 999)
 
 
 class TestScoringReceivesTypedOutput(unittest.TestCase):
-    """The scoring function should receive a coerced dict, not raw model output."""
+    """The scoring function should receive typed Pydantic models."""
 
-    def test_scorer_receives_typed_dict_with_defaults(self):
+    def test_scorer_receives_typed_model_with_defaults(self):
         from pydantic import BaseModel
 
         class CustomOutput(BaseModel):
@@ -380,7 +386,8 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
         captured = {}
 
         def capturing_scorer(prediction, ground_truth):
-            captured.update(prediction)
+            captured["direction"] = prediction.direction
+            captured["confidence"] = prediction.confidence
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         contract = CrunchConfig(output_type=CustomOutput)
@@ -416,7 +423,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
 
         service.score_and_snapshot()
 
-        # Scorer should have received the coerced dict with defaults
+        # Scorer should have received the typed model with defaults
         self.assertEqual(captured["direction"], "LONG")
         self.assertEqual(captured["confidence"], 0.5)
 
@@ -438,8 +445,8 @@ class TestValidateScoringIO(unittest.TestCase):
             leverage: float = 1.0
 
         def trade_scorer(prediction, ground_truth):
-            ot = prediction["order_type"]  # noqa: F841
-            lev = prediction["leverage"]  # noqa: F841
+            ot = prediction.order_type  # noqa: F841
+            lev = prediction.leverage  # noqa: F841
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         service = ScoreService(
@@ -462,7 +469,7 @@ class TestValidateScoringIO(unittest.TestCase):
         """Scorer reads 'order_type' but InferenceOutput only has 'value'."""
 
         def bad_scorer(prediction, ground_truth):
-            return {"value": prediction["order_type"]}  # KeyError!
+            return {"value": prediction.order_type}  # AttributeError!
 
         service = ScoreService(
             checkpoint_interval_seconds=60,
@@ -479,7 +486,7 @@ class TestValidateScoringIO(unittest.TestCase):
         with self.assertRaises(RuntimeError) as ctx:
             service.validate_scoring_io()
 
-        self.assertIn("KeyError", str(ctx.exception))
+        self.assertIn("AttributeError", str(ctx.exception))
         self.assertIn("order_type", str(ctx.exception))
 
     def test_catches_bad_score_result(self):
@@ -523,7 +530,7 @@ class TestValidateScoringIO(unittest.TestCase):
         def scorer_needs_real_data(prediction, ground_truth):
             # This scorer needs real prices that defaults don't provide
             # entry_price defaults to 0.0, causing ZeroDivisionError
-            return {"value": prediction["value"] / ground_truth["entry_price"]}
+            return {"value": prediction.value / ground_truth.entry_price}
 
         config = CrunchConfig(ground_truth_type=GroundTruthWithPrice)
         service = ScoreService(
@@ -555,7 +562,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
-            captured.append(dict(prediction))
+            captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         service = ScoreService(
@@ -597,7 +604,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
-            captured.append(dict(prediction))
+            captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         service = ScoreService(
@@ -624,7 +631,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
-            captured.append(prediction.get("model_id"))
+            captured.append(getattr(prediction, "model_id", None))
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         inp = _make_input()
@@ -667,7 +674,7 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
-            captured.append(dict(prediction))
+            captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         service = ScoreService(

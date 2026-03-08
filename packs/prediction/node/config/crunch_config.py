@@ -69,54 +69,6 @@ def resolve_ground_truth(
     }
 
 
-def score_prediction(
-    prediction: dict[str, Any],
-    ground_truth: dict[str, Any],
-) -> dict[str, Any]:
-    """Score a prediction against tick-based ground truth.
-
-    Computes directional accuracy: did the model predict the right direction?
-    Score = sign(prediction) * sign(actual_return) * |prediction|
-    """
-    entry_ticks = ground_truth.get("entry_ticks", [])
-    resolved_ticks = ground_truth.get("resolved_ticks", [])
-
-    if not entry_ticks or not resolved_ticks:
-        return {
-            "value": 0.0,
-            "actual_return": 0.0,
-            "direction_correct": False,
-            "success": False,
-            "failed_reason": "missing entry or resolved ticks",
-        }
-
-    entry_price = entry_ticks[-1].get("price", 0.0)
-    resolved_price = resolved_ticks[-1].get("price", 0.0)
-
-    if entry_price == 0:
-        return {
-            "value": 0.0,
-            "actual_return": 0.0,
-            "direction_correct": False,
-            "success": False,
-            "failed_reason": "entry price is zero",
-        }
-
-    actual_return = (resolved_price - entry_price) / entry_price
-    pred_value = prediction.get("value", 0.0)
-
-    direction_correct = (pred_value > 0) == (actual_return > 0)
-    score = abs(pred_value) if direction_correct else -abs(pred_value)
-
-    return {
-        "value": score,
-        "actual_return": actual_return,
-        "direction_correct": direction_correct,
-        "success": True,
-        "failed_reason": None,
-    }
-
-
 class InferenceOutput(BaseModel):
     """What models must return: a directional prediction.
 
@@ -142,6 +94,41 @@ class ScoreResult(BaseModel):
     direction_correct: bool = False
     success: bool = True
     failed_reason: str | None = None
+
+
+def score_prediction(
+    prediction: InferenceOutput,
+    ground_truth: GroundTruth,
+) -> ScoreResult:
+    """Score a prediction against tick-based ground truth.
+
+    Computes directional accuracy: did the model predict the right direction?
+    Score = sign(prediction) * sign(actual_return) * |prediction|
+    """
+    if not ground_truth.entry_ticks or not ground_truth.resolved_ticks:
+        return ScoreResult(
+            success=False,
+            failed_reason="missing entry or resolved ticks",
+        )
+
+    entry_price = ground_truth.entry_ticks[-1].get("price", 0.0)
+    resolved_price = ground_truth.resolved_ticks[-1].get("price", 0.0)
+
+    if entry_price == 0:
+        return ScoreResult(
+            success=False,
+            failed_reason="entry price is zero",
+        )
+
+    actual_return = (resolved_price - entry_price) / entry_price
+    direction_correct = (prediction.value > 0) == (actual_return > 0)
+    score = abs(prediction.value) if direction_correct else -abs(prediction.value)
+
+    return ScoreResult(
+        value=score,
+        actual_return=actual_return,
+        direction_correct=direction_correct,
+    )
 
 
 # ── CrunchConfig ────────────────────────────────────────────────────

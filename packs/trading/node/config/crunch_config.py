@@ -10,7 +10,7 @@ Scoring: pnl = signal * actual_return - |signal| * spread_fee
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -47,64 +47,6 @@ class GroundTruth(BaseModel):
     resolved_candles_1m: list[dict] = Field(default_factory=list)
 
 
-def score_prediction(
-    prediction: dict[str, Any],
-    ground_truth: dict[str, Any],
-) -> dict[str, Any]:
-    """Score a trading signal against candle-based ground truth.
-
-    PnL = signal * actual_return - |signal| * spread_fee
-    """
-    entry_candles = ground_truth.get("entry_candles_1m", [])
-    resolved_candles = ground_truth.get("resolved_candles_1m", [])
-
-    if not entry_candles or not resolved_candles:
-        return {
-            "value": 0.0,
-            "pnl": 0.0,
-            "spread_cost": 0.0,
-            "actual_return": 0.0,
-            "signal_clamped": 0.0,
-            "direction_correct": False,
-            "success": False,
-            "failed_reason": "missing entry or resolved candles",
-        }
-
-    entry_price = entry_candles[-1].get("close", 0.0)
-    resolved_price = resolved_candles[-1].get("close", 0.0)
-
-    if entry_price == 0:
-        return {
-            "value": 0.0,
-            "pnl": 0.0,
-            "spread_cost": 0.0,
-            "actual_return": 0.0,
-            "signal_clamped": 0.0,
-            "direction_correct": False,
-            "success": False,
-            "failed_reason": "entry price is zero",
-        }
-
-    actual_return = (resolved_price - entry_price) / entry_price
-    signal = prediction.get("signal", 0.0)
-    signal_clamped = max(-1.0, min(1.0, signal))
-
-    spread_cost = abs(signal_clamped) * SPREAD_FEE
-    pnl = signal_clamped * actual_return - spread_cost
-    direction_correct = (signal_clamped > 0) == (actual_return > 0)
-
-    return {
-        "value": pnl,
-        "pnl": pnl,
-        "spread_cost": spread_cost,
-        "actual_return": actual_return,
-        "signal_clamped": signal_clamped,
-        "direction_correct": direction_correct,
-        "success": True,
-        "failed_reason": None,
-    }
-
-
 class InferenceOutput(BaseModel):
     """What models must return: a directional trading signal.
 
@@ -133,6 +75,66 @@ class ScoreResult(BaseModel):
     failed_reason: str | None = None
 
 
+def score_prediction(
+    prediction: InferenceOutput,
+    ground_truth: GroundTruth,
+) -> ScoreResult:
+    """Score a trading signal against candle-based ground truth.
+
+    PnL = signal * actual_return - |signal| * spread_fee
+    """
+    if not prediction.signal and prediction.signal != 0.0:
+        return ScoreResult(
+            success=False,
+            failed_reason=f"Invalid signal: {prediction.signal!r}",
+        )
+
+    if not ground_truth.entry_candles_1m or not ground_truth.resolved_candles_1m:
+        return ScoreResult(
+            success=False,
+            failed_reason="missing entry or resolved candles",
+        )
+
+    entry_price = ground_truth.entry_candles_1m[-1].get("close", 0.0)
+    resolved_price = ground_truth.resolved_candles_1m[-1].get("close", 0.0)
+
+    if entry_price == 0:
+        return ScoreResult(
+            success=False,
+            failed_reason="entry price is zero",
+        )
+
+    actual_return = (resolved_price - entry_price) / entry_price
+    signal_clamped = max(-1.0, min(1.0, prediction.signal))
+
+    spread_cost = abs(signal_clamped) * SPREAD_FEE
+    pnl = signal_clamped * actual_return - spread_cost
+    direction_correct = (signal_clamped > 0) == (actual_return > 0)
+
+    return ScoreResult(
+        value=pnl,
+        pnl=pnl,
+        spread_cost=spread_cost,
+        actual_return=actual_return,
+        signal_clamped=signal_clamped,
+        direction_correct=direction_correct,
+    )
+
+
+# ── Typed scoring protocol ──────────────────────────────────────────
+
+
+class TradingScoringFunction(Protocol):
+    """Typed scoring contract for trading competitions.
+
+    Scoring functions must accept the pack's concrete types.
+    """
+
+    def __call__(
+        self, prediction: InferenceOutput, ground_truth: GroundTruth
+    ) -> ScoreResult: ...
+
+
 # ── CrunchConfig ────────────────────────────────────────────────────
 
 
@@ -155,7 +157,7 @@ class CrunchConfig(BaseCrunchConfig):
         default_factory=RealtimeServiceConfig
     )
 
-    scoring_function: Any = score_prediction
+    scoring_function: TradingScoringFunction = score_prediction  # type: ignore[assignment]
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(

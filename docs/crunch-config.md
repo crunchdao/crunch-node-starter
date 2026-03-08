@@ -77,7 +77,7 @@ class CrunchConfig(BaseModel):
     data_provider: str | None = None
 
     # ── Callables ──
-    scoring_function: Callable | None = None         # (prediction, ground_truth) → score_dict
+    scoring_function: ScoringFunction | None = None   # (prediction: BaseModel, ground_truth: BaseModel) → BaseModel | dict
     resolve_ground_truth: Callable = default_resolve_ground_truth
     aggregate_snapshot: Callable = default_aggregate_snapshot
     build_emission: Callable = default_build_emission
