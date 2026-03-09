@@ -86,8 +86,10 @@ class SimulatorSink:
                 prediction_count=len(snapshot_data.get("positions", [])),
                 result_summary={
                     "net_pnl": snapshot_data["net_pnl"],
-                    "total_unrealized_pnl": snapshot_data["total_unrealized_pnl"],
+                    "unrealized_pnl": snapshot_data["total_unrealized_pnl"],
+                    "realized_pnl": snapshot_data["total_realized_pnl"],
                     "total_fees": snapshot_data["total_fees"],
+                    "open_position_count": snapshot_data["open_position_count"],
                 },
             )
             self._snapshot_repository.save(snapshot)

@@ -137,13 +137,18 @@ class TradingSimulator:
             pos for key, pos in self._positions.items() if key[0] == model_id
         ]
         total_unrealized = sum(p.unrealized_pnl for p in positions)
+        total_realized = sum(
+            t.realized_pnl for t in self._trades.get(model_id, []) if t.realized_pnl is not None
+        )
         total_fees = self._portfolio_fees.get(model_id, 0.0)
 
         return {
             "model_id": model_id,
             "timestamp": timestamp,
             "positions": positions,
+            "open_position_count": len(positions),
             "total_unrealized_pnl": total_unrealized,
+            "total_realized_pnl": total_realized,
             "total_fees": total_fees,
-            "net_pnl": total_unrealized - total_fees,
+            "net_pnl": total_unrealized + total_realized - total_fees,
         }
