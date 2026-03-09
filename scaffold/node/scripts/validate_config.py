@@ -381,12 +381,13 @@ def check_crunch_config():
         cfg = CrunchConfig()
         check("CrunchConfig instantiates", True)
 
-        # Aggregation ranking key must exist in windows
+        # Aggregation ranking key must exist in windows or score_type fields
         agg = cfg.aggregation
+        valid_keys = set(agg.windows.keys()) | set(cfg.score_type.model_fields.keys())
         check(
-            f"ranking_key '{agg.ranking_key}' in aggregation windows",
-            agg.ranking_key in agg.windows,
-            f"available: {set(agg.windows.keys())}",
+            f"ranking_key '{agg.ranking_key}' in aggregation windows or score fields",
+            agg.ranking_key in valid_keys,
+            f"available: {valid_keys}",
         )
 
         # Callables must be callable

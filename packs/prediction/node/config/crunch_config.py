@@ -26,10 +26,11 @@ from starter_challenge.scoring import (
 )
 
 from crunch_node.crunch_config import (
-    CrunchConfig as BaseCrunchConfig,
+    Aggregation,
+    ScheduledPrediction,
 )
 from crunch_node.crunch_config import (
-    ScheduledPrediction,
+    CrunchConfig as BaseCrunchConfig,
 )
 from crunch_node.services.realtime_predict import RealtimePredictService
 
@@ -64,9 +65,14 @@ class CrunchConfig(BaseCrunchConfig):
     # No custom resolve_ground_truth — default handles candle feeds correctly.
     scoring_function: type = score_prediction
 
-    # Simple prediction pack — disable cross-model metrics (IC, hit_rate, etc.)
-    # that require multi-round / multi-model correlation data.
+    # Simple prediction pack — no rolling windows, just rank by raw score value.
+    # Disable cross-model metrics (IC, hit_rate, etc.) that need multi-round data.
     metrics: list[str] = Field(default_factory=list)
+    aggregation: Aggregation = Aggregation(
+        windows={},
+        value_field="value",
+        ranking_key="value",
+    )
 
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
