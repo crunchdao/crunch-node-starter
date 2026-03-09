@@ -13,6 +13,8 @@ class TradingSimulator:
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, list[Trade]] = {}
         self._portfolio_fees: dict[str, float] = {}
+        self._last_mark_at: dict[tuple[str, str], datetime] = {}
+        self._closed_carry: dict[str, float] = {}
 
     def apply_order(
         self,
@@ -45,6 +47,7 @@ class TradingSimulator:
                 opened_at=timestamp,
                 current_price=price,
             )
+            self._last_mark_at[key] = timestamp
             return
 
         if existing.direction == direction:
@@ -82,6 +85,10 @@ class TradingSimulator:
                 realized_pnl=partial_pnl,
             )
             self._trades.setdefault(model_id, []).append(trade)
+            partial_ratio = leverage / existing.leverage
+            partial_carry = existing.accrued_carry * partial_ratio
+            self._closed_carry[model_id] = self._closed_carry.get(model_id, 0.0) + partial_carry
+            existing.accrued_carry -= partial_carry
             existing.leverage -= leverage
             return
 
@@ -99,8 +106,10 @@ class TradingSimulator:
         )
         self._trades.setdefault(model_id, []).append(trade)
 
+        self._closed_carry[model_id] = self._closed_carry.get(model_id, 0.0) + existing.accrued_carry
         remainder = leverage - existing.leverage
         del self._positions[key]
+        self._last_mark_at.pop(key, None)
 
         if remainder > 0:
             self._positions[key] = Position(
@@ -112,6 +121,7 @@ class TradingSimulator:
                 opened_at=timestamp,
                 current_price=price,
             )
+            self._last_mark_at[key] = timestamp
 
     def _compute_realized_pnl(self, position: Position, exit_price: float) -> float:
         if position.entry_price == 0.0:
@@ -124,6 +134,10 @@ class TradingSimulator:
     def mark_to_market(self, subject: str, price: float, timestamp: datetime) -> None:
         for key, position in self._positions.items():
             if key[1] == subject:
+                last_mark = self._last_mark_at.get(key, position.opened_at)
+                elapsed = (timestamp - last_mark).total_seconds()
+                position.accrued_carry += self._cost_model.carry_cost(position.leverage, elapsed)
+                self._last_mark_at[key] = timestamp
                 position.current_price = price
 
     def get_position(self, model_id: str, subject: str) -> Position | None:
@@ -141,6 +155,10 @@ class TradingSimulator:
             t.realized_pnl for t in self._trades.get(model_id, []) if t.realized_pnl is not None
         )
         total_fees = self._portfolio_fees.get(model_id, 0.0)
+        total_carry = (
+            sum(p.accrued_carry for p in positions)
+            + self._closed_carry.get(model_id, 0.0)
+        )
 
         return {
             "model_id": model_id,
@@ -150,5 +168,6 @@ class TradingSimulator:
             "total_unrealized_pnl": total_unrealized,
             "total_realized_pnl": total_realized,
             "total_fees": total_fees,
-            "net_pnl": total_unrealized + total_realized - total_fees,
+            "total_carry_costs": total_carry,
+            "net_pnl": total_unrealized + total_realized - total_fees - total_carry,
         }
