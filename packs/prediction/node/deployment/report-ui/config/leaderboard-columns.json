@@ -1,0 +1,25 @@
+[
+  {
+    "id": 1,
+    "type": "MODEL",
+    "property": "model_id",
+    "format": null,
+    "displayName": "Model",
+    "tooltip": null,
+    "nativeConfiguration": {
+      "type": "model",
+      "statusProperty": "status"
+    },
+    "order": 0
+  },
+  {
+    "id": 2,
+    "type": "VALUE",
+    "property": "value",
+    "format": "decimal-4",
+    "displayName": "Score",
+    "tooltip": "Latest prediction score (direction × magnitude vs realized return)",
+    "nativeConfiguration": null,
+    "order": 10
+  }
+]
