@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/crunch-node)](https://pypi.org/project/crunch-node/)
 
-Runtime engine for Crunch coordinator nodes. Powers the full competition pipeline — from data ingestion through scoring to on-chain emission checkpoints.
+Runtime engine for Crunch nodes. Powers the full competition pipeline — from data ingestion through scoring to on-chain emission checkpoints.
 
 ```bash
 pip install crunch-node
@@ -36,7 +36,7 @@ my-challenge/
 Clone this repo to work on the `crunch_node` package directly:
 
 ```bash
-git clone https://github.com/crunchdao/coordinator-node-starter.git
+git clone https://github.com/crunchdao/crunch-node-starter.git
 cd crunch-node-starter
 uv sync
 make deploy    # uses local crunch_node/ via COPY in Dockerfile
@@ -73,10 +73,8 @@ Detailed C4 + refactor documentation:
 
 | Worker | Purpose |
 |---|---|
-| `feed-data-worker` | Ingests feed data (Pyth, Binance, etc.) via polling + backfill |
-| `predict-worker` | Gets latest data → ticks models → collects predictions |
-| `score-worker` | Resolves actuals → scores predictions → writes snapshots → rebuilds leaderboard |
-| `checkpoint-worker` | Aggregates snapshots → builds EmissionCheckpoint for on-chain submission |
+| `predict-worker` | Ingests feed data (Pyth, Binance, etc.), ticks models, collects predictions |
+| `score-worker` | Resolves actuals → scores predictions → writes snapshots → rebuilds leaderboard → creates checkpoints |
 | `report-worker` | FastAPI server: leaderboard, predictions, feeds, snapshots, checkpoints |
 
 ### Feed Dimensions

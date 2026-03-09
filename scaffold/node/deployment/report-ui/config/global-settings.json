@@ -4,10 +4,8 @@
   },
   "logs": {
     "containerNames": [
-      "crunch-node-starter-challenge-feed-data-worker",
       "crunch-node-starter-challenge-predict-worker",
       "crunch-node-starter-challenge-score-worker",
-      "crunch-node-starter-challenge-checkpoint-worker",
       "crunch-node-starter-challenge-report-worker",
       "crunch-node-starter-challenge-model-orchestrator"
     ]

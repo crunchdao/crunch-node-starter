@@ -182,7 +182,7 @@ crunch_node/entities/prediction.py     # Added _timing to InputRecord & Predicti
 crunch_node/services/feed_data.py      # Feed timing instrumentation
 crunch_node/services/predict.py        # Updated _build_record for timing
 crunch_node/services/realtime_predict.py  # Predict pipeline timing + collection point
-crunch_node/workers/feed_data_worker.py   # Timing collector configuration (implicit)
+crunch_node/workers/predict_worker.py     # Feed ingestion + timing collector configuration
 crunch_node/workers/predict_worker.py     # Timing collector configuration
 crunch_node/workers/report_worker.py      # HTTP endpoint + timing collector config
 ```
@@ -219,7 +219,7 @@ With instrumentation complete, the data will guide optimization efforts:
 - ✅ **Stage breakdown**: Can identify which stage is the bottleneck  
 - ✅ **Configurable**: Can enable/disable without code changes
 - ✅ **Low overhead**: <5x performance impact when enabled, zero when disabled
-- ✅ **Production ready**: Safe to run in live coordinator nodes
+- ✅ **Production ready**: Safe to run in live crunch nodes
 - ✅ **Comprehensive testing**: 25 tests covering all functionality
 - ✅ **Code quality**: All code formatted with ruff, follows project standards
 

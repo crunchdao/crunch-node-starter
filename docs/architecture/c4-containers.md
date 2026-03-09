@@ -2,18 +2,17 @@
 
 ```mermaid
 C4Container
-  title Container Diagram - Crunch Coordinator Node
+  title Container Diagram - Crunch Node
 
-  Person(operator, "Coordinator Operator", "Runs and configures the node")
+  Person(operator, "Node Operator", "Runs and configures the node")
   Person(cruncher, "Cruncher", "Builds model logic")
 
   System_Ext(feed, "Market Data Providers", "Pyth/Binance/MongoDB")
   System_Ext(protocol, "Crunch Protocol", "On-chain rewards/checkpoints")
 
-  Container_Boundary(node, "Crunch Coordinator Node") {
-    Container(feedWorker, "feed-data-worker", "Python asyncio worker", "Ingests and normalizes feed data")
-    Container(predictWorker, "predict-worker", "Python asyncio worker", "Runs realtime/tournament prediction orchestration")
-    Container(scoreWorker, "score-worker", "Python asyncio worker", "Resolves ground truth and scores predictions")
+  Container_Boundary(node, "Crunch Node") {
+    Container(predictWorker, "predict-worker", "Python asyncio worker", "Ingests feed data, runs realtime/tournament prediction orchestration")
+    Container(scoreWorker, "score-worker", "Python asyncio worker", "Resolves ground truth, scores predictions, creates checkpoints")
     Container(reportWorker, "report-worker", "FastAPI", "Reports, admin APIs, timing metrics")
     ContainerDb(postgres, "PostgreSQL", "SQLModel/JSONB", "Inputs, predictions, scores, snapshots, leaderboard, checkpoints")
     Container(modelOrch, "model-orchestrator", "model-orchestrator", "Runs competitor model containers")
@@ -23,16 +22,14 @@ C4Container
   Rel(operator, reportUI, "Uses", "Browser/HTTP")
   Rel(reportUI, reportWorker, "Reads reports and health", "HTTP/JSON")
 
-  Rel(feedWorker, feed, "Reads feed data", "HTTP/WebSocket/Polling")
-  Rel(feedWorker, postgres, "Stores feed records", "SQL")
-
-  Rel(predictWorker, postgres, "Reads configs and writes predictions", "SQL")
+  Rel(predictWorker, feed, "Reads feed data", "HTTP/WebSocket/Polling")
+  Rel(predictWorker, postgres, "Stores feed records, reads configs and writes predictions", "SQL")
   Rel(predictWorker, modelOrch, "Tick + predict model calls", "gRPC")
 
-  Rel(scoreWorker, postgres, "Reads predictions and writes scores/snapshots", "SQL")
+  Rel(scoreWorker, postgres, "Reads predictions and writes scores/snapshots/checkpoints", "SQL")
   Rel(reportWorker, postgres, "Serves report/query endpoints", "SQL")
 
-  Rel(reportWorker, protocol, "Publishes/records checkpoint state", "HTTP/JSON")
+  Rel(scoreWorker, protocol, "Publishes/records checkpoint state", "HTTP/JSON")
   Rel(cruncher, modelOrch, "Deploys models", "CLI/API")
 ```
 

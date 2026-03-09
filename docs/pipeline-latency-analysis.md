@@ -4,24 +4,24 @@ Analysis of the prediction pipeline latency, architectural tradeoffs, and optimi
 
 ## Current Architecture
 
+The predict-worker handles both feed ingestion and prediction in a single process:
+
 ```
-feed-data-worker                    predict-worker
-      |                                   |
-  [receive feed]                          |
-      |                                   |
-  [normalize]                             |
-      |                                   |
-  [persist to DB] ----NOTIFY----> [receive notify]
-                                          |
-                                    [load from DB]
-                                          |
-                                    [gRPC tick models]
-                                          |
-                                    [gRPC predict]
-                                          |
-                                    [callback]
-                                          |
-                                    [persist prediction]
+predict-worker
+      |
+  [receive feed]
+      |
+  [normalize]
+      |
+  [persist to DB]
+      |
+  [gRPC tick models]
+      |
+  [gRPC predict]
+      |
+  [callback]
+      |
+  [persist prediction]
 ```
 
 ## Current Performance Breakdown

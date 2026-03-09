@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "crunch-node"
-version = "0.1.86"
-description = "Runtime engine for Crunch coordinator nodes"
+version = "0.1.88"
+description = "Runtime engine for Crunch nodes"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -29,8 +29,8 @@ parquet = ["pyarrow>=15.0,<19"]
 crunch-node = "crunch_node.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/crunchdao/coordinator-node-starter"
-Repository = "https://github.com/crunchdao/coordinator-node-starter"
+Homepage = "https://github.com/crunchdao/crunch-node-starter"
+Repository = "https://github.com/crunchdao/crunch-node-starter"
 
 [tool.hatch.metadata]
 allow-direct-references = true

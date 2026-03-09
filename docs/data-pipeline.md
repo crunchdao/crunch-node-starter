@@ -1,25 +1,19 @@
 # Data Pipeline
 
-The coordinator node runs a continuous pipeline that transforms live market data into ranked leaderboard entries and on-chain checkpoints.
+The crunch node runs a continuous pipeline that transforms live market data into ranked leaderboard entries and on-chain checkpoints.
 
 ## End-to-End Flow
 
 ```mermaid
 sequenceDiagram
     participant Feed as Data Feed<br/>(Pyth/Binance)
-    participant FDW as feed-data-worker
     participant DB as PostgreSQL
     participant PW as predict-worker
     participant MO as Model Orchestrator
     participant SW as score-worker
-    participant CW as checkpoint-worker
 
-    Feed->>FDW: WebSocket / REST data
-    FDW->>DB: INSERT feed_records
-    FDW->>DB: pg_notify('feed_data')
-    DB-->>PW: LISTEN notification
-
-    PW->>DB: READ latest feed data
+    Feed->>PW: WebSocket / REST data
+    PW->>DB: INSERT feed_records
     PW->>MO: gRPC predict(subject, horizon, step)
     MO-->>PW: inference_output dict
     PW->>DB: INSERT input (dumb log)
@@ -44,28 +38,28 @@ sequenceDiagram
     SW->>SW: Build Merkle tree over cycle snapshots
     SW->>DB: Rebuild leaderboard (windowed averages)
 
-    Note over CW: Runs every checkpoint_interval_seconds
+    Note over SW: Runs every checkpoint_interval_seconds
 
-    CW->>DB: READ snapshots since last checkpoint
-    CW->>CW: Rank models, build_emission()
-    CW->>CW: Build Merkle root over cycle roots
-    CW->>DB: INSERT checkpoint (PENDING)
-    CW->>CW: Submit to chain
-    CW->>DB: UPDATE checkpoint → SUBMITTED
+    SW->>DB: READ snapshots since last checkpoint
+    SW->>SW: Rank models, build_emission()
+    SW->>SW: Build Merkle root over cycle roots
+    SW->>DB: INSERT checkpoint (PENDING)
+    SW->>SW: Submit to chain
+    SW->>DB: UPDATE checkpoint → SUBMITTED
 ```
 
 ## Pipeline Stages
 
-### Stage 1: Feed Ingestion
+### Stage 1: Feed Ingestion & Prediction
 
-The **feed-data-worker** connects to external data sources and writes normalized records:
+The **predict-worker** connects to external data sources, writes normalized records, and dispatches predictions:
 
 ```mermaid
 graph LR
     A["Pyth Network<br/>WebSocket"] --> N["Normalize to<br/>FeedDataRecord"]
     B["Binance<br/>WebSocket"] --> N
     N --> DB["feed_records table<br/>(source, subject, kind,<br/>granularity, ts_event, values)"]
-    DB --> NOTIFY["pg_notify<br/>→ predict-worker"]
+    DB --> PREDICT["predict-worker<br/>dispatches to models"]
 ```
 
 Feed records have four generic dimensions:
@@ -74,9 +68,7 @@ Feed records have four generic dimensions:
 - **kind** — `tick`, `candle`, `depth`, `funding`
 - **granularity** — `1s`, `1m`, `5m`, `1h`
 
-### Stage 2: Prediction
-
-The **predict-worker** reacts to feed events and dispatches predictions:
+The predict-worker:
 
 1. Reads latest feed data from the database
 2. Calls each registered model via gRPC through the model orchestrator
@@ -87,7 +79,7 @@ The **predict-worker** reacts to feed events and dispatches predictions:
    - `resolvable_at` — when ground truth can be resolved
    - `inference_output_jsonb` — the model's raw output
 
-### Stage 3: Scoring
+### Stage 2: Scoring
 
 The **score-worker** resolves predictions and computes scores:
 
@@ -106,9 +98,9 @@ graph TD
     I --> K["Rebuild Leaderboard<br/>(windowed averages)"]
 ```
 
-### Stage 4: Checkpointing
+### Stage 3: Checkpointing
 
-The **checkpoint-worker** periodically aggregates snapshots into on-chain checkpoints:
+The **score-worker** also periodically aggregates snapshots into on-chain checkpoints:
 
 1. Reads all snapshots since the last checkpoint
 2. Ranks models using the leaderboard's `ranking_key`
