@@ -194,3 +194,60 @@ class TradingSimulator:
             "total_carry_costs": total_carry,
             "net_pnl": total_unrealized + total_realized - total_fees - total_carry,
         }
+
+    def get_full_state(self, model_id: str) -> dict[str, Any]:
+        return {
+            "positions": self.get_all_positions(model_id),
+            "trades": self.get_trades(model_id),
+            "portfolio_fees": self._portfolio_fees.get(model_id, 0.0),
+            "closed_carry": self._closed_carry.get(model_id, 0.0),
+        }
+
+    def load_state(self, model_id: str, state: dict[str, Any]) -> None:
+        for pos_data in state.get("positions", []):
+            if isinstance(pos_data, Position):
+                pos = pos_data
+            else:
+                opened_at = pos_data["opened_at"]
+                if isinstance(opened_at, str):
+                    opened_at = datetime.fromisoformat(opened_at)
+                pos = Position(
+                    model_id=model_id,
+                    subject=pos_data["subject"],
+                    direction=pos_data["direction"],
+                    leverage=pos_data["leverage"],
+                    entry_price=pos_data["entry_price"],
+                    opened_at=opened_at,
+                    current_price=pos_data.get("current_price", 0.0),
+                    accrued_carry=pos_data.get("accrued_carry", 0.0),
+                )
+            key = (model_id, pos.subject)
+            self._positions[key] = pos
+            self._last_mark_at[key] = pos.opened_at
+
+        for trade_data in state.get("trades", []):
+            if isinstance(trade_data, Trade):
+                trade = trade_data
+            else:
+                opened_at = trade_data["opened_at"]
+                if isinstance(opened_at, str):
+                    opened_at = datetime.fromisoformat(opened_at)
+                closed_at = trade_data.get("closed_at")
+                if isinstance(closed_at, str):
+                    closed_at = datetime.fromisoformat(closed_at)
+                trade = Trade(
+                    model_id=model_id,
+                    subject=trade_data["subject"],
+                    direction=trade_data["direction"],
+                    leverage=trade_data["leverage"],
+                    entry_price=trade_data["entry_price"],
+                    opened_at=opened_at,
+                    exit_price=trade_data.get("exit_price"),
+                    closed_at=closed_at,
+                    realized_pnl=trade_data.get("realized_pnl"),
+                    fees_paid=trade_data.get("fees_paid", 0.0),
+                )
+            self._trades.setdefault(model_id, []).append(trade)
+
+        self._portfolio_fees[model_id] = state.get("portfolio_fees", 0.0)
+        self._closed_carry[model_id] = state.get("closed_carry", 0.0)
