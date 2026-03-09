@@ -173,10 +173,10 @@ Tamper evidence. Each score cycle produces a mini Merkle tree over its snapshots
 
 | Column | Pydantic Type | Set By |
 |--------|--------------|--------|
-| `inputs.raw_data_jsonb` | `RawInput` | feed-data-worker |
+| `inputs.raw_data_jsonb` | `RawInput` | predict-worker |
 | `predictions.scope_jsonb` | `PredictionScope` | predict-worker |
 | `predictions.inference_output_jsonb` | `InferenceOutput` | predict-worker |
 | `scores.result_jsonb` | `ScoreResult` | score-worker |
 | `snapshots.result_summary_jsonb` | `dict` (from `aggregate_snapshot`) | score-worker |
 | `leaderboards.entries_jsonb` | `list[dict]` (ranked entries) | score-worker |
-| `checkpoints.entries_jsonb` | `list[dict]` (emission entries) | checkpoint-worker |
+| `checkpoints.entries_jsonb` | `list[dict]` (emission entries) | score-worker |

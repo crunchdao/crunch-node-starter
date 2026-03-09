@@ -1,6 +1,6 @@
 # Coordinator Node — Agent Instructions
 
-Base template for Crunch coordinator nodes. Provides the engine (`crunch-node` on PyPI) plus a customizable workspace with challenge package and node config.
+Base template for Crunch nodes. Provides the engine (`crunch-node` on PyPI) plus a customizable workspace with challenge package and node config.
 
 ## Code Formatting (MANDATORY)
 

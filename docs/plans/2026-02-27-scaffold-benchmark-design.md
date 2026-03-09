@@ -1,6 +1,6 @@
 # Scaffold Benchmark — Design
 
-Deterministic benchmark that measures how well an AI agent builds a coordinator node from the scaffold given a fixed spec.
+Deterministic benchmark that measures how well an AI agent builds a crunch node from the scaffold given a fixed spec.
 
 ## Purpose
 

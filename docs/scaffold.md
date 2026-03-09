@@ -1,6 +1,6 @@
 # Scaffold Template
 
-The `scaffold/` directory is the template used by `crunch-cli init-workspace` to create new competition workspaces. It contains everything needed to run a coordinator node without touching engine code.
+The `scaffold/` directory is the template used by `crunch-cli init-workspace` to create new competition workspaces. It contains everything needed to run a crunch node without touching engine code.
 
 ## What Gets Scaffolded
 

@@ -100,10 +100,8 @@ if ! command -v docker &>/dev/null; then
 else
     containers=(
         "init-db"
-        "feed-data-worker"
         "predict-worker"
         "score-worker"
-        "checkpoint-worker"
         "report-worker"
         "model-orchestrator"
         "report-ui"
@@ -241,7 +239,7 @@ echo ""
 echo "═══ 7. Docker Logs (errors) ═══"
 
 if command -v docker &>/dev/null; then
-    workers=("score-worker" "predict-worker" "feed-data-worker" "report-worker" "checkpoint-worker")
+    workers=("score-worker" "predict-worker" "report-worker")
     for worker in "${workers[@]}"; do
         container=$(docker ps --filter "name=$worker" --format '{{.Names}}' 2>/dev/null | head -1)
         if [[ -z "$container" ]]; then

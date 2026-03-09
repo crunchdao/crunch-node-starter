@@ -10,7 +10,7 @@ Add timing instrumentation to the existing Crunch coordinator pipeline without c
 
 ## Background
 
-Current pipeline: `Feed Sources → feed-data-worker → PostgreSQL → pg_notify → predict-worker → models → post_predict_hook → PostgreSQL`
+Current pipeline: `Feed Sources → predict-worker (feed ingestion) → PostgreSQL → models → post_predict_hook → PostgreSQL`
 
 Target: Sub-second end-to-end latency (feed ingestion to callback execution)
 
@@ -72,7 +72,7 @@ Single collection in `RealtimePredictService._save()` after post_predict_hook ex
 Timing metadata travels with data structures:
 
 ```python
-# feed-data-worker
+# predict-worker (feed ingestion)
 feed_record._timing = {
     "feed_received_us": time.perf_counter_ns() // 1000,
     "feed_normalized_us": ...,
@@ -154,7 +154,7 @@ async def get_timing_metrics():
 - Test with simple end-to-end timing
 
 ### Phase 1.2: Feed Worker Instrumentation  
-- Add timing to feed-data-worker
+- Add timing to predict-worker feed ingestion
 - Instrument FeedDataRecord with _timing field
 - Test feed ingestion stages
 
@@ -176,7 +176,7 @@ async def get_timing_metrics():
 2. **Stage breakdown**: Can identify which stage is the bottleneck
 3. **Configurable**: Can enable/disable without code changes
 4. **Low overhead**: < 1% performance impact when enabled
-5. **Production ready**: Safe to run in live coordinator nodes
+5. **Production ready**: Safe to run in live crunch nodes
 
 ## Future Phases
 
