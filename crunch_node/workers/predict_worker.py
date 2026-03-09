@@ -33,15 +33,15 @@ logger = logging.getLogger(__name__)
 
 
 def _maybe_build_simulator_sink(config, session):
-    cost_model = getattr(config, "cost_model", None)
-    if cost_model is None:
+    trading = getattr(config, "trading", None)
+    if trading is None:
         return None
 
     from crunch_node.db.trading_state_repository import TradingStateRepository
     from crunch_node.services.trading.simulator import TradingEngine
     from crunch_node.services.trading.sink import SimulatorSink
 
-    simulator = TradingEngine(cost_model=cost_model)
+    simulator = TradingEngine(cost_model=trading.cost_model)
     state_repo = TradingStateRepository(session)
 
     model_ids = state_repo.get_all_model_ids()
@@ -55,8 +55,9 @@ def _maybe_build_simulator_sink(config, session):
         simulator=simulator,
         state_repository=state_repo,
         model_ids=model_ids,
+        signal_mode=trading.signal_mode,
     )
-    logger.info("Trading simulator enabled with cost_model: %s", cost_model)
+    logger.info("Trading engine enabled: %s", trading)
     return sink
 
 

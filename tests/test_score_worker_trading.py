@@ -10,7 +10,7 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.resolve_callable")
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
-    def test_trading_state_repo_wired_when_cost_model_present(
+    def test_trading_state_repo_wired_when_trading_config_present(
         self,
         mock_runtime,
         mock_ext,
@@ -19,10 +19,10 @@ class TestScoreWorkerTrading:
         mock_session,
         mock_config,
     ):
-        from crunch_node.services.trading.costs import CostModel
+        from crunch_node.services.trading.config import TradingConfig
 
         config = MagicMock()
-        config.cost_model = CostModel()
+        config.trading = TradingConfig()
         config.scoring_function = None
         mock_config.return_value = config
         mock_session.return_value = MagicMock()
@@ -45,7 +45,7 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.resolve_callable")
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
-    def test_no_trading_state_repo_when_no_cost_model(
+    def test_no_trading_state_repo_when_no_trading_config(
         self,
         mock_runtime,
         mock_ext,

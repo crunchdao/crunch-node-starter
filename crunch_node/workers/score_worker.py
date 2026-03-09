@@ -48,7 +48,7 @@ def build_service() -> ScoreService:
     session = create_session()
 
     trading_state_repo = None
-    if getattr(config, "cost_model", None) is not None:
+    if getattr(config, "trading", None) is not None:
         from crunch_node.db.trading_state_repository import TradingStateRepository
 
         trading_state_repo = TradingStateRepository(session)

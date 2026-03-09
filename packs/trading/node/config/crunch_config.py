@@ -24,7 +24,7 @@ from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
 from crunch_node.services.realtime_predict import RealtimeServiceConfig
-from crunch_node.services.trading.costs import CostModel
+from crunch_node.services.trading.config import TradingConfig
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
@@ -161,7 +161,7 @@ class CrunchConfig(BaseCrunchConfig):
 
     scoring_function: Callable[..., Any] = score_prediction  # type: ignore[assignment]
 
-    cost_model: CostModel = Field(default_factory=CostModel)
+    trading: TradingConfig = Field(default_factory=TradingConfig)
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(

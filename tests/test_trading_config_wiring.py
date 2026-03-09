@@ -1,21 +1,30 @@
 from __future__ import annotations
 
+from crunch_node.services.trading.config import TradingConfig
+from crunch_node.services.trading.costs import CostModel
 from packs.trading.node.config.crunch_config import CrunchConfig
 
 
 class TestTradingConfigWiring:
-    def test_trading_config_has_cost_model(self):
+    def test_trading_config_present(self):
         config = CrunchConfig()
-        assert hasattr(config, "cost_model")
-        assert config.cost_model.trading_fee_pct > 0
+        assert hasattr(config, "trading")
+        assert isinstance(config.trading, TradingConfig)
+        assert config.trading.cost_model.trading_fee_pct > 0
 
     def test_trading_config_aggregation_uses_net_pnl(self):
         config = CrunchConfig()
         assert config.aggregation.value_field == "net_pnl"
 
-    def test_cost_model_customizable(self):
-        from crunch_node.services.trading.costs import CostModel
+    def test_trading_config_customizable(self):
+        custom = TradingConfig(
+            cost_model=CostModel(trading_fee_pct=0.002),
+            signal_mode="delta",
+        )
+        config = CrunchConfig(trading=custom)
+        assert config.trading.cost_model.trading_fee_pct == 0.002
+        assert config.trading.signal_mode == "delta"
 
-        custom = CostModel(trading_fee_pct=0.002)
-        config = CrunchConfig(cost_model=custom)
-        assert config.cost_model.trading_fee_pct == 0.002
+    def test_default_signal_mode_is_target(self):
+        config = CrunchConfig()
+        assert config.trading.signal_mode == "target"
