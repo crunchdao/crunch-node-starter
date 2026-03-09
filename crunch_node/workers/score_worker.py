@@ -47,6 +47,11 @@ def build_service() -> ScoreService:
 
     session = create_session()
 
+    trading_state_repo = None
+    if getattr(config, "cost_model", None) is not None:
+        from crunch_node.db.trading_state_repository import TradingStateRepository
+        trading_state_repo = TradingStateRepository(session)
+
     return ScoreService(
         checkpoint_interval_seconds=runtime_settings.checkpoint_interval_seconds,
         score_interval_seconds=runtime_settings.score_interval_seconds,
@@ -62,6 +67,7 @@ def build_service() -> ScoreService:
         merkle_cycle_repository=DBMerkleCycleRepository(session),
         merkle_node_repository=DBMerkleNodeRepository(session),
         config=config,
+        trading_state_repository=trading_state_repo,
     )
 
 
