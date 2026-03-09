@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from crunch_node.entities.prediction import InputRecord, PredictionRecord
 from crunch_node.feeds.contracts import FeedDataRecord
@@ -18,10 +18,12 @@ class SimulatorSink:
         simulator: TradingSimulator,
         snapshot_repository: Any,
         model_ids: list[str] | None = None,
+        signal_mode: Literal["delta", "target"] = "delta",
     ) -> None:
         self._simulator = simulator
         self._snapshot_repository = snapshot_repository
         self._model_ids = model_ids or []
+        self._signal_mode = signal_mode
 
     async def on_record(self, record: FeedDataRecord) -> None:
         price = self.extract_price(record)
@@ -60,18 +62,79 @@ class SimulatorSink:
             subject = pred.scope.get("subject")
             if not subject:
                 continue
-            output = pred.inference_output
-            direction = output.get("direction")
-            leverage = output.get("leverage")
-            if direction and leverage:
-                self._simulator.apply_order(
-                    pred.model_id, subject, direction, float(leverage),
-                    price=price, timestamp=ts,
-                )
-                if pred.model_id not in self._model_ids:
-                    self._model_ids.append(pred.model_id)
+            self.apply_signal(
+                pred.model_id, subject, pred.inference_output,
+                price=price, timestamp=ts,
+            )
+            if pred.model_id not in self._model_ids:
+                self._model_ids.append(pred.model_id)
 
         return predictions
+
+    def apply_signal(
+        self,
+        model_id: str,
+        subject: str,
+        inference_output: dict[str, Any],
+        *,
+        price: float,
+        timestamp: datetime,
+    ) -> None:
+        if self._signal_mode == "delta":
+            direction = inference_output.get("direction")
+            leverage = inference_output.get("leverage")
+            if direction and leverage:
+                self._simulator.apply_order(
+                    model_id, subject, direction, float(leverage),
+                    price=price, timestamp=timestamp,
+                )
+            return
+
+        signal = inference_output.get("signal")
+        if signal is None:
+            return
+        signal = float(signal)
+
+        target_direction = "long" if signal > 0 else "short"
+        target_leverage = abs(signal)
+
+        current = self._simulator.get_position(model_id, subject)
+
+        if current is None:
+            if target_leverage > 0:
+                self._simulator.apply_order(
+                    model_id, subject, target_direction, target_leverage,
+                    price=price, timestamp=timestamp,
+                )
+            return
+
+        if signal == 0:
+            opposite = "short" if current.direction == "long" else "long"
+            self._simulator.apply_order(
+                model_id, subject, opposite, current.leverage,
+                price=price, timestamp=timestamp,
+            )
+            return
+
+        if current.direction == target_direction:
+            delta = target_leverage - current.leverage
+            if delta > 0:
+                self._simulator.apply_order(
+                    model_id, subject, target_direction, delta,
+                    price=price, timestamp=timestamp,
+                )
+            elif delta < 0:
+                opposite = "short" if target_direction == "long" else "long"
+                self._simulator.apply_order(
+                    model_id, subject, opposite, abs(delta),
+                    price=price, timestamp=timestamp,
+                )
+        else:
+            self._simulator.apply_order(
+                model_id, subject, target_direction,
+                current.leverage + target_leverage,
+                price=price, timestamp=timestamp,
+            )
 
     def _write_snapshots(self, timestamp: datetime) -> None:
         from crunch_node.entities.prediction import SnapshotRecord
