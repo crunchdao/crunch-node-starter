@@ -17,60 +17,79 @@ The current trading pack works around this by chopping continuous trading into i
 
 ### Overview
 
-A `TradingSimulator` lives in the merged feed-predict worker as another sink on `FeedDataService`. It receives two inputs:
+A `TradingSimulator` receives two inputs:
 
-- **Feed ticks** — to mark-to-market all open positions
-- **Signals from models** — to open, close, or adjust positions
+- **Feed ticks** — via feed sink interface (`on_record`) to mark-to-market all open positions
+- **Orders from models** — via `post_predict_hook` on `RealtimePredictService`
 
-The score worker stays stateless and periodic — it reads portfolio snapshots the simulator writes and computes leaderboard metrics.
+The simulator writes portfolio snapshots into the existing `SnapshotRecord` table. The score worker reads these snapshots to compute leaderboard metrics — unchanged from today.
 
 ### Data Flow
 
 ```
 Feed tick arrives (FeedDataService)
-  → RepositorySink        — persist feed record to DB
-  → PredictSink           — feed models, collect signals, save predictions
-  → SimulatorSink.on_tick(subject, price, timestamp)
-      → mark-to-market all open positions for that subject
-      → apply carry costs if interval elapsed
-      → write PortfolioSnapshot per model
+  → RepositorySink              — persist feed record to DB (log)
+  → PredictSink                 — feed models, collect signals, save predictions (log)
+  → SimulatorSink.on_record()   — extract price, mark-to-market all open positions
 
 When a model produces a signal:
-  PredictSink saves PredictionRecord
-  → SimulatorSink.on_signal(model_id, subject, signal, price, timestamp)
-      → open/close/adjust position
-      → record Trade (immutable log)
-      → apply trading fees + spread
+  RealtimePredictService.process_tick()
+    → calls model.predict() → gets signal
+    → saves PredictionRecord (log)
+    → post_predict_hook → SimulatorSink.on_signal(model_id, subject, signal, price)
+        → open/close/adjust position
+        → apply trading fees + spread
+
+SimulatorSink writes SnapshotRecord per model (on tick or configurable interval):
+  → result_summary = {net_pnl, realized_pnl, unrealized_pnl, fees, carry, drawdown, ...}
 
 Score worker (polls on interval, unchanged):
-  → reads PortfolioSnapshots
-  → computes metrics: Sharpe, max drawdown, total return, win rate on closed trades
-  → writes SnapshotRecord → leaderboard → checkpoint
+  → reads SnapshotRecords
+  → windowed aggregation (24h, 72h, 168h) on value_field="net_pnl"
+  → rebuilds leaderboard → checkpoint → emission
 ```
+
+### Hookup
+
+Two existing extension points, no new plumbing:
+
+1. **Ticks**: `SimulatorSink` is added as a sink on `FeedDataService` in `predict_worker.py`, alongside `RepositorySink` and `PredictSink`. Extracts price from `record.values` (`close` or `price` field — same logic as existing normalizers).
+
+2. **Orders**: wired via `RealtimeServiceConfig.post_predict_hook` in `CrunchConfig`. The predict service calls the simulator after models respond. No changes to `PredictSink` or `process_tick()`.
+
+### What Becomes Logs
+
+In the simulator setup, these repositories are write-only (audit trail + backtesting):
+
+- **InputRepository** — the simulator has the price from the tick
+- **PredictionRepository** — the simulator receives signals via hook, not DB query
+- **FeedRecordRepository** — the simulator gets prices from ticks, not by querying feed_records
+- **ScoreRepository** — no per-prediction scores; P&L is portfolio-level
 
 ### State Model
 
-**Position** (mutable, one per model per subject):
+**Position** (mutable, one per model per subject, in-memory):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | model_id | str | Which model holds this position |
 | subject | str | Trading pair (e.g. "BTCUSDT") |
 | direction | str | "long" or "short" |
-| size | float | Position size from signal magnitude (0.0–1.0) |
+| leverage | float | Position leverage (e.g. 0.5x) |
 | entry_price | float | Price when position was opened |
 | opened_at | datetime | When position was opened |
 | current_price | float | Latest mark-to-market price |
 | unrealized_pnl | float | Current unrealized P&L |
 | accrued_carry | float | Accumulated carry costs |
 
-**Trade** (immutable log, one per position open/close):
+**Trade** (immutable log):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | model_id | str | Which model made this trade |
 | subject | str | Trading pair |
 | direction | str | "long" or "short" |
+| leverage | float | Order leverage |
 | entry_price | float | Price at entry |
 | exit_price | float | Price at exit (null if still open) |
 | opened_at | datetime | When opened |
@@ -78,30 +97,26 @@ Score worker (polls on interval, unchanged):
 | realized_pnl | float | P&L after close (null if still open) |
 | fees_paid | float | Trading fees + spread on entry/exit |
 
-**PortfolioSnapshot** (written on each tick or at configurable intervals):
+**Output**: `SnapshotRecord` (existing table, written by simulator):
 
-| Field | Type | Description |
-|-------|------|-------------|
-| model_id | str | Which model's portfolio |
-| timestamp | datetime | Snapshot time |
-| total_realized_pnl | float | Sum of all closed trade P&L |
-| total_unrealized_pnl | float | Sum of all open position P&L |
+| result_summary field | Type | Description |
+|---------------------|------|-------------|
+| net_pnl | float | realized + unrealized - fees - carry |
+| realized_pnl | float | Sum of all closed trade P&L |
+| unrealized_pnl | float | Sum of all open position P&L |
 | total_fees | float | All trading fees paid |
 | total_carry_costs | float | All carry costs accrued |
-| net_pnl | float | realized + unrealized - fees - carry |
 | open_position_count | int | Number of open positions |
 | peak_value | float | Highest net_pnl seen (for drawdown) |
 | drawdown | float | Current drawdown from peak |
 
 ### Cost Model
 
-Three configurable cost layers, set by the competition operator:
+Three configurable cost layers, expressed as percentages that scale with leverage:
 
-1. **Trading fees** — applied on position open and close (e.g. 1-10 bps per trade)
-2. **Spread** — applied on entry and exit (e.g. 1 bps)
-3. **Carry cost** — accrues continuously while a position is open (e.g. annual rate / 365 / ticks-per-day). Covers funding rates (crypto perps), borrow costs (short selling), margin interest.
-
-All costs are deducted from P&L. Models never see these costs — they emit signals, the simulator applies costs when computing P&L.
+1. **Trading fees** — on position open and close, scaled by leverage (e.g. 0.1% × leverage)
+2. **Spread** — on entry and exit, scaled by leverage
+3. **Carry cost** — annual rate accrued while position is held, scaled by leverage (e.g. 10.95% / year for crypto at 1x). Covers funding rates, borrow costs, margin interest.
 
 ### Signal Interpretation
 
@@ -121,31 +136,23 @@ The simulator supports two signal modes, configurable per competition:
 - `signal = -0.5` → target 50% short
 - `signal = 0.0` → close all positions for this subject
 
-Order mode is the default — it maps directly to how traders think and matches industry-standard prop trading evaluation platforms. Target mode is a convenience for simpler competitions where models just output a directional conviction.
-
-### Integration with Existing Pipeline
-
-The `TradingSimulator` is a new sink on `FeedDataService`, alongside `RepositorySink` and `PredictSink`. It plugs into the existing merged feed-predict worker.
-
-The score worker reads `PortfolioSnapshot` instead of resolving ground truth from feed records. For trading competitions:
-- `resolve_horizon_seconds` is not used (positions are scored continuously)
-- The scoring function computes metrics from portfolio snapshot history
-- Aggregation windows (24h, 72h, 168h) apply to portfolio P&L curves, not individual prediction scores
+Order mode is the default — it maps directly to how traders think and matches industry-standard prop trading evaluation platforms.
 
 ### What Stays the Same
 
 - Feed ingestion (FeedDataService, providers, normalizers)
 - Model interface (feed_update + predict via gRPC)
-- PredictionRecord storage (signals are still saved as predictions)
-- Leaderboard ranking and display
+- PredictionRecord storage (as log)
+- SnapshotRecord table (simulator writes to it)
+- Leaderboard ranking (reads from SnapshotRecord)
 - Checkpoint / emission pipeline
 - Merkle tamper evidence
 - Report API / UI
 
 ### What Changes
 
-- New `SimulatorSink` class (implements the same sink interface as PredictSink)
-- New DB tables: positions, trades, portfolio_snapshots
-- Trading pack's `CrunchConfig` wires the simulator sink instead of using horizon-based scoring
-- Score worker gets an alternative scoring path that reads portfolio snapshots
-- New cost model configuration on `CrunchConfig`
+- New `TradingSimulator` class with position tracking, mark-to-market, cost model
+- New `SimulatorSink` (feed sink + post_predict_hook receiver)
+- Trading pack's `CrunchConfig` wires the simulator via `post_predict_hook` and adds `SimulatorSink` to feed sinks
+- Score worker skips prediction-based scoring when simulator snapshots are present
+- New cost model and leverage config on `CrunchConfig`
