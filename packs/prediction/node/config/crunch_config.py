@@ -64,6 +64,10 @@ class CrunchConfig(BaseCrunchConfig):
     # No custom resolve_ground_truth — default handles candle feeds correctly.
     scoring_function: type = score_prediction
 
+    # Simple prediction pack — disable cross-model metrics (IC, hit_rate, etc.)
+    # that require multi-round / multi-model correlation data.
+    metrics: list[str] = Field(default_factory=list)
+
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
