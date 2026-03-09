@@ -8,7 +8,7 @@ import pytest
 
 from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
@@ -66,7 +66,7 @@ class TestPersistToScoreFlow:
 
         state_repo = InMemoryTradingStateRepository()
 
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
             simulator=sim,
             state_repository=state_repo,
@@ -115,7 +115,7 @@ class TestPersistToScoreFlow:
     def test_crash_recovery_then_score(self):
         state_repo = InMemoryTradingStateRepository()
 
-        sim1 = TradingSimulator(cost_model=ZERO_COST)
+        sim1 = TradingEngine(cost_model=ZERO_COST)
         sink1 = SimulatorSink(
             simulator=sim1,
             state_repository=state_repo,
@@ -134,7 +134,7 @@ class TestPersistToScoreFlow:
         )
         asyncio.run(sink1.on_record(record))
 
-        sim2 = TradingSimulator(cost_model=ZERO_COST)
+        sim2 = TradingEngine(cost_model=ZERO_COST)
         state = state_repo.load_state("model_1")
         sim2.load_state("model_1", state)
 

@@ -38,10 +38,10 @@ def _maybe_build_simulator_sink(config, session):
         return None
 
     from crunch_node.db.trading_state_repository import TradingStateRepository
-    from crunch_node.services.trading.simulator import TradingSimulator
+    from crunch_node.services.trading.simulator import TradingEngine
     from crunch_node.services.trading.sink import SimulatorSink
 
-    simulator = TradingSimulator(cost_model=cost_model)
+    simulator = TradingEngine(cost_model=cost_model)
     state_repo = TradingStateRepository(session)
 
     model_ids = state_repo.get_all_model_ids()

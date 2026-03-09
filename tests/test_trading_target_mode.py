@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
@@ -14,7 +14,7 @@ ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 class TestTargetMode:
     def test_opens_long_from_flat(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": 0.7}, price=50000.0, timestamp=now)
@@ -23,7 +23,7 @@ class TestTargetMode:
         assert pos.leverage == pytest.approx(0.7)
 
     def test_opens_short_from_flat(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": -0.5}, price=50000.0, timestamp=now)
@@ -32,7 +32,7 @@ class TestTargetMode:
         assert pos.leverage == pytest.approx(0.5)
 
     def test_reduces_long(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": 0.7}, price=50000.0, timestamp=now)
@@ -42,7 +42,7 @@ class TestTargetMode:
         assert pos.leverage == pytest.approx(0.3)
 
     def test_zero_signal_closes(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": 0.7}, price=50000.0, timestamp=now)
@@ -50,7 +50,7 @@ class TestTargetMode:
         assert sim.get_position("model_1", "BTCUSDT") is None
 
     def test_flips_long_to_short(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": 0.5}, price=50000.0, timestamp=now)
@@ -60,7 +60,7 @@ class TestTargetMode:
         assert pos.leverage == pytest.approx(0.3)
 
     def test_increases_long(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock(), signal_mode="target")
         now = datetime.now(UTC)
         sink.apply_signal("model_1", "BTCUSDT", {"signal": 0.3}, price=50000.0, timestamp=now)

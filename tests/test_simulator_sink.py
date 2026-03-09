@@ -8,7 +8,7 @@ import pytest
 
 from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
@@ -39,7 +39,7 @@ class TestExtractPrice:
 
 class TestOnRecord:
     def test_on_record_marks_to_market(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
@@ -56,7 +56,7 @@ class TestOnRecord:
         assert pos.current_price == 51000.0
 
     def test_on_record_persists_state(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
@@ -72,7 +72,7 @@ class TestOnRecord:
         state_repo.save_state.assert_called_once()
 
     def test_on_record_skips_when_no_price(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 

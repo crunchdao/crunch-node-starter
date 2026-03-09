@@ -5,14 +5,14 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 
 CARRY_ONLY = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.1095)
 
 
 class TestCarryCost:
     def test_carry_accrues_on_mark_to_market(self):
-        sim = TradingSimulator(cost_model=CARRY_ONLY)
+        sim = TradingEngine(cost_model=CARRY_ONLY)
         t0 = datetime(2026, 1, 1, tzinfo=UTC)
         t1 = t0 + timedelta(days=1)
 
@@ -24,7 +24,7 @@ class TestCarryCost:
         assert pos.accrued_carry == pytest.approx(expected_carry, abs=1e-6)
 
     def test_carry_in_portfolio_snapshot(self):
-        sim = TradingSimulator(cost_model=CARRY_ONLY)
+        sim = TradingEngine(cost_model=CARRY_ONLY)
         t0 = datetime(2026, 1, 1, tzinfo=UTC)
         t1 = t0 + timedelta(days=1)
 
@@ -36,7 +36,7 @@ class TestCarryCost:
         assert snapshot["net_pnl"] < 0  # carry cost reduces net P&L
 
     def test_carry_accumulates_across_ticks(self):
-        sim = TradingSimulator(cost_model=CARRY_ONLY)
+        sim = TradingEngine(cost_model=CARRY_ONLY)
         t0 = datetime(2026, 1, 1, tzinfo=UTC)
 
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=t0)
@@ -49,7 +49,7 @@ class TestCarryCost:
 
     def test_no_carry_when_zero_rate(self):
         zero_carry = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
-        sim = TradingSimulator(cost_model=zero_carry)
+        sim = TradingEngine(cost_model=zero_carry)
         t0 = datetime(2026, 1, 1, tzinfo=UTC)
 
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=t0)

@@ -8,7 +8,7 @@ import pytest
 
 from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
@@ -16,7 +16,7 @@ ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 class TestFullFlow:
     def test_order_tick_snapshot_close(self):
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
@@ -56,7 +56,7 @@ class TestFullFlow:
     def test_hook_to_tick_flow(self):
         from crunch_node.entities.prediction import InputRecord, PredictionRecord, PredictionStatus
 
-        sim = TradingSimulator(cost_model=ZERO_COST)
+        sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(simulator=sim, state_repository=state_repo)
 

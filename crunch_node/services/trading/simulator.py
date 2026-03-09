@@ -7,7 +7,7 @@ from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.models import Direction, Position, Trade
 
 
-class TradingSimulator:
+class TradingEngine:
     def __init__(
         self,
         cost_model: CostModel,

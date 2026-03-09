@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from crunch_node.entities.prediction import InputRecord, PredictionRecord
 from crunch_node.feeds.contracts import FeedDataRecord
-from crunch_node.services.trading.simulator import TradingSimulator
+from crunch_node.services.trading.simulator import TradingEngine
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class SimulatorSink:
     def __init__(
         self,
-        simulator: TradingSimulator,
+        simulator: TradingEngine,
         state_repository: Any,
         model_ids: list[str] | None = None,
         signal_mode: Literal["delta", "target"] = "delta",
