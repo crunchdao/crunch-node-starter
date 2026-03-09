@@ -10,7 +10,7 @@ Scoring: pnl = signal * actual_return - |signal| * spread_fee
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,6 +23,7 @@ from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
 from crunch_node.services.realtime_predict import RealtimeServiceConfig
+from crunch_node.services.trading.costs import CostModel
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
@@ -157,7 +158,9 @@ class CrunchConfig(BaseCrunchConfig):
         default_factory=RealtimeServiceConfig
     )
 
-    scoring_function: TradingScoringFunction = score_prediction  # type: ignore[assignment]
+    scoring_function: Callable[..., Any] = score_prediction  # type: ignore[assignment]
+
+    cost_model: CostModel = Field(default_factory=CostModel)
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(
@@ -166,7 +169,7 @@ class CrunchConfig(BaseCrunchConfig):
                 "score_steady": AggregationWindow(hours=72),
                 "score_anchor": AggregationWindow(hours=168),
             },
-            value_field="pnl",
+            value_field="net_pnl",
             ranking_key="score_recent",
             ranking_direction="desc",
         )
