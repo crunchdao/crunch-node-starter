@@ -436,6 +436,25 @@ class ScoreService:
                 scored_at=now,
             )
 
+            # Per-prediction scoring detail
+            model_name = getattr(prediction, "model_name", prediction.model_id)
+            output_summary = (
+                typed_output.model_dump()
+                if isinstance(typed_output, BaseModel)
+                else typed_output
+            )
+            gt_summary = (
+                typed_gt.model_dump() if isinstance(typed_gt, BaseModel) else typed_gt
+            )
+            self.logger.info(
+                "  scored model=%s prediction=%s output=%s gt=%s → score=%s",
+                model_name,
+                prediction.id,
+                output_summary,
+                gt_summary,
+                validated.model_dump(),
+            )
+
             if self.score_repository is not None:
                 self.score_repository.save(score)
 
@@ -537,6 +556,13 @@ class ScoreService:
             )
             self.snapshot_repository.save(snapshot)
             written_snapshots.append(snapshot)
+
+            self.logger.info(
+                "  snapshot model=%s predictions=%d summary=%s",
+                model_id,
+                len(results),
+                summary,
+            )
 
         self.logger.info("Wrote %d snapshots", len(by_model_scores))
 
