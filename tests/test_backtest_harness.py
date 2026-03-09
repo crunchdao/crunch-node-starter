@@ -85,7 +85,7 @@ class DummyTracker:
         self.predict_count = 0
         self._latest_data = None
 
-    def tick(self, data: dict) -> None:
+    def feed_update(self, data: dict) -> None:
         self._latest_data = data
         self.tick_count += 1
 
@@ -356,11 +356,11 @@ class TestBacktestRunner(unittest.TestCase):
             self.assertEqual(scored[0]["score"], 42.0)
 
     def test_model_code_unchanged(self):
-        """The same model class works in both backtest and 'production' (tick/predict loop)."""
+        """The same model class works in both backtest and 'production' (feed_update/predict loop)."""
         model = DummyTracker()
 
-        # Simulate production: direct tick/predict
-        model.tick(
+        # Simulate production: direct feed_update/predict
+        model.feed_update(
             {
                 "symbol": "BTC",
                 "asof_ts": 1000,

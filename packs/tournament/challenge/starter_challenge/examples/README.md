@@ -15,7 +15,7 @@ Each returns `{"prediction": float}`.
 from starter_challenge.examples import LinearComboTracker
 
 model = LinearComboTracker()
-model.tick(feature_data)
+model.feed_update(feature_data)
 pred = model.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
 # {"prediction": 0.00234}
 ```

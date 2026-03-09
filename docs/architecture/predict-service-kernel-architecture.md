@@ -35,7 +35,7 @@ improving readability, testability, and extension safety.
   - shared runner-result mapping logic
 - `PredictionKernel`
   - runner init/shutdown
-  - tick/predict argument encoding
+  - feed_update/predict argument encoding
   - model call transport
 - `OutputValidator`
   - output schema matching + normalization

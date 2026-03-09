@@ -18,7 +18,11 @@ from crunch_node.db import (
     DBPredictionRepository,
     create_session,
 )
-from crunch_node.services.feed_data import FeedDataService, FeedDataSettings
+from crunch_node.services.feed_data import (
+    FeedDataService,
+    FeedDataSettings,
+    RepositorySink,
+)
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.feed_window import FeedWindow
 from crunch_node.services.predict import PredictService
@@ -92,8 +96,12 @@ def build_predict_service(session, config, runtime_settings) -> PredictService:
         kwargs["checkpoint_interval_seconds"] = (
             runtime_settings.checkpoint_interval_seconds
         )
-        if config.post_predict_hook is not None:
-            kwargs["post_predict_hook"] = config.post_predict_hook
+        realtime_cfg = getattr(config, "realtime_service", None)
+        if realtime_cfg is not None:
+            if getattr(realtime_cfg, "pre_feed_update_hook", None) is not None:
+                kwargs["pre_feed_update_hook"] = realtime_cfg.pre_feed_update_hook
+            if getattr(realtime_cfg, "post_predict_hook", None) is not None:
+                kwargs["post_predict_hook"] = realtime_cfg.post_predict_hook
 
     return service_class(**kwargs)
 
@@ -114,7 +122,7 @@ async def main() -> None:
     )
 
     predict_service = build_predict_service(session, config, runtime_settings)
-    # init_runner() is called lazily by run_once() when first prediction happens
+    # init_runner() is called lazily by process_tick() when first prediction happens
 
     feed_settings = FeedDataSettings.from_env()
     feed_repository = DBFeedRecordRepository(session)
@@ -123,17 +131,16 @@ async def main() -> None:
     logger.info("Loading initial feed window from database")
     feed_window.load_from_db(feed_repository, feed_settings)
 
-    sink = PredictSink(
+    predict_sink = PredictSink(
         predict_service=predict_service,
-        feed_repository=feed_repository,
         feed_window=feed_window,
-        source=feed_settings.source,
     )
+    repo_sink = RepositorySink(feed_repository)
 
     feed_service = FeedDataService(
         settings=feed_settings,
         feed_record_repository=feed_repository,
-        sink=sink,
+        sinks=[repo_sink, predict_sink],
     )
 
     logger.info(
@@ -145,7 +152,6 @@ async def main() -> None:
     try:
         await feed_service.run()
     finally:
-        await sink.drain()
         await predict_service.shutdown()
 
 

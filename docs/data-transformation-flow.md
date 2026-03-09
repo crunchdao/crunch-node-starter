@@ -12,8 +12,8 @@ Data flows through **11 transformation stages** from external feed to stored pre
 4. **Raw dict** → FeedReader assembles candle windows
 5. **RawInput** → Pydantic validation of feed schema
 6. **InputRecord** → Snapshot of input for audit trail (stored in DB)
-7. **InferenceInput** → Same as RawInput, sent to models via `tick()`
-8. **Model.tick()** → Models update internal state
+7. **InferenceInput** → Same as RawInput, sent to models via `feed_update()`
+8. **Model.feed_update()** → Models update internal state
 9. **Model.predict()** → Models return prediction dict
 10. **InferenceOutput** → Pydantic validation of model output
 11. **PredictionRecord** → Final record with scope, timing, status (stored in DB)
@@ -132,20 +132,20 @@ Data flows through **11 transformation stages** from external feed to stored pre
 │  │  STAGE 7: InferenceInput (Pydantic model - what models see)                                      │    │
 │  │  crunch_node/crunch_config.py:36 (typically same as RawInput)                                    │    │
 │  │                                                                                                   │    │
-│  │  class InferenceInput(RawInput):         # tick() receives this as dict:                         │    │
+│  │  class InferenceInput(RawInput):         # feed_update() receives this as dict:                  │    │
 │  │      pass   # Same fields as RawInput    {"symbol": "BTC", "asof_ts": ..., "candles_1m": [...]}  │    │
 │  │                                                                                                   │    │
 │  └────────────────────────────────────────────────────────────────────────────────────────┬──────────┘    │
 │                                                                                            │               │
 │                                                        gRPC call via PredictionKernel     │               │
-│                                                  crunch_node/services/predict_components.py:304           │
-│                                                              encode_tick()                │               │
+│                                                  crunch_node/services/predict_components.py           │
+│                                                        encode_feed_update()              │               │
 │                                                                                            ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐    │
-│  │  STAGE 8: Model.tick(data) - State update                                                        │    │
-│  │  scaffold/challenge/starter_challenge/tracker.py:24                                              │    │
+│  │  STAGE 8: Model.feed_update(data) - State update                                                 │    │
+│  │  scaffold/challenge/starter_challenge/tracker.py                                                 │    │
 │  │                                                                                                   │    │
-│  │  def tick(self, data: dict[str, Any]) -> None:                                                   │    │
+│  │  def feed_update(self, data: dict[str, Any]) -> None:                                            │    │
 │  │      # data = {"symbol": "BTC", "asof_ts": ..., "candles_1m": [...]}                             │    │
 │  │      self._latest_data_by_subject[data.get("symbol", "_default")] = data                         │    │
 │  │                                                                                                   │    │
@@ -320,13 +320,13 @@ The current architecture has redundant Pydantic models and transforms data betwe
 │  │  {id, raw_data: dict, received_at}                                                   │    │
 │  └──────────────────────────────────────────────────────────────────────────┬──────────┘    │
 │                                                                              │               │
-│                                                      tick() receives dict    ▼               │
+│                                                feed_update() receives dict    ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐    │
 │  │  InferenceInput (crunch_config.py) — REDUNDANT                                       │    │
 │  │  class InferenceInput(RawInput): pass  <- just an alias                             │    │
 │  └──────────────────────────────────────────────────────────────────────────┬──────────┘    │
 │                                                                              │               │
-│                                                    Model.tick(data)          ▼               │
+│                                              Model.feed_update(data)          ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐    │
 │  │  Model receives: {"symbol": "BTC", "asof_ts": ..., "candles_1m": [...]}             │    │
 │  │                                                                                       │    │
@@ -401,7 +401,7 @@ The current architecture has redundant Pydantic models and transforms data betwe
 │  └──────────────────────────────────────────────────────────────────────────┬──────────┘    │
 │                                                                              │               │
 │                                                                              │               │
-│                                              Model.tick(data)                ▼               │
+│                                        Model.feed_update(data)                ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────┐    │
 │  │  Model receives normalizer.output_type as dict                                       │    │
 │  │                                                                                       │    │

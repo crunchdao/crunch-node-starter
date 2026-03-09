@@ -8,6 +8,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from pydantic import BaseModel, Field
+
 from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
@@ -17,10 +19,45 @@ from crunch_node.schemas import ScheduleEnvelope
 from crunch_node.services.predict import PredictService
 
 
+class RealtimeServiceConfig(BaseModel):
+    """RealtimePredictService-specific extension points.
+
+    Define this field on your CrunchConfig subclass to configure hooks::
+
+        from crunch_node.services.realtime_predict import RealtimeServiceConfig
+
+        class CrunchConfig(BaseCrunchConfig):
+            realtime_service: RealtimeServiceConfig = Field(
+                default_factory=RealtimeServiceConfig
+            )
+    """
+
+    pre_feed_update_hook: Callable[[InputRecord, Any], InputRecord] | None = Field(
+        default=None,
+        description=(
+            "Hook called before feed_update is dispatched to models. "
+            "Receives (input_record, now) and returns the (possibly modified) "
+            "InputRecord."
+        ),
+    )
+    post_predict_hook: (
+        Callable[[list[PredictionRecord], InputRecord, Any], list[PredictionRecord]]
+        | None
+    ) = Field(
+        default=None,
+        description=(
+            "Hook called after models produce outputs but before predictions "
+            "are saved to the database. Receives (predictions, input_record, now) "
+            "and returns the (possibly modified) list of PredictionRecords."
+        ),
+    )
+
+
 class RealtimePredictService(PredictService):
     def __init__(
         self,
         checkpoint_interval_seconds: int = 60 * 60,
+        pre_feed_update_hook: (Callable[[InputRecord, Any], InputRecord] | None) = None,
         post_predict_hook: (
             Callable[
                 [list[PredictionRecord], InputRecord, datetime],
@@ -32,6 +69,7 @@ class RealtimePredictService(PredictService):
     ) -> None:
         super().__init__(**kwargs)
         self.checkpoint_interval_seconds = checkpoint_interval_seconds
+        self.pre_feed_update_hook = pre_feed_update_hook
         self.post_predict_hook = post_predict_hook
         self._next_run: dict[str, datetime] = {}
 
@@ -89,7 +127,7 @@ class RealtimePredictService(PredictService):
                     except (ValueError, json.JSONDecodeError):
                         pass
 
-                await self.run_once(
+                await self.process_tick(
                     notify_received_us=notify_received_us,
                     feed_timing=feed_timing,
                 )
@@ -98,7 +136,7 @@ class RealtimePredictService(PredictService):
             except Exception as exc:
                 self.logger.exception("predict loop error: %s", exc)
 
-    async def run_once(
+    async def process_tick(
         self,
         raw_input: dict[str, Any] | None = None,
         now: datetime | None = None,
@@ -134,7 +172,10 @@ class RealtimePredictService(PredictService):
             inp._timing["notify_received_us"] = notify_received_us
         inp._timing["data_loaded_us"] = data_loaded_us
 
-        await self._tick_models(inp.raw_data)
+        if self.pre_feed_update_hook is not None:
+            inp = self.pre_feed_update_hook(inp, now)
+
+        await self._feed_update_models(inp.raw_data)
 
         # 2. run configs → build records → save
         predictions = await self._predict_all_configs(inp, now)

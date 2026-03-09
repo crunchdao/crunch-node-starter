@@ -213,15 +213,67 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
     if score_fn is None:
         return False, "score_prediction function not found in scoring.py"
 
+    # Create test-specific types that match the SCORING_TEST_CASES format
+    # This ensures the coerced objects have the exact fields the test expects
+    try:
+        from pydantic import BaseModel, ConfigDict
+
+        class TestInferenceOutput(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            direction: str = "hold"
+            confidence: float = 0.0
+
+        class TestGroundTruth(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            profit: float = 0.0
+            direction_up: bool = True
+
+        output_type = TestInferenceOutput
+        ground_truth_type = TestGroundTruth
+    except Exception as e:
+        return False, f"Failed to create test types: {e}"
+
+    # Use the same coercion logic that production ScoreService uses
+
+    def coerce_output(raw_dict):
+        """Same logic as ScoreService._coerce_output"""
+        try:
+            return output_type.model_validate(raw_dict)
+        except Exception:
+            try:
+                return output_type.model_construct(**raw_dict)
+            except Exception:
+                return output_type()
+
+    def coerce_ground_truth(raw_dict):
+        """Same logic as ScoreService._coerce_ground_truth"""
+        try:
+            return ground_truth_type.model_validate(raw_dict)
+        except Exception:
+            try:
+                return ground_truth_type.model_construct(**raw_dict)
+            except Exception:
+                return ground_truth_type()
+
     results = []
     for prediction, ground_truth, expected_sign in SCORING_TEST_CASES:
+        # Use the same Pydantic model coercion that production uses
+        pred_obj = coerce_output(prediction)
+        gt_obj = coerce_ground_truth(ground_truth)
+
         try:
-            result = score_fn(prediction, ground_truth)
+            result = score_fn(pred_obj, gt_obj)
         except Exception as e:
             return False, f"score_prediction raised: {e}"
 
         if not isinstance(result, dict):
-            return False, f"score_prediction returned {type(result)}, expected dict"
+            # Handle Pydantic model returns
+            if hasattr(result, "model_dump"):
+                result = result.model_dump()
+            elif hasattr(result, "__dict__"):
+                result = vars(result)
+            else:
+                return False, f"score_prediction returned {type(result)}, expected dict"
 
         value = result.get("value")
         if value is None:

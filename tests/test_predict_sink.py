@@ -2,7 +2,7 @@
 
 import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from crunch_node.feeds import FeedDataRecord
 from crunch_node.services.feed_window import FeedWindow
@@ -12,17 +12,13 @@ from crunch_node.services.predict_sink import PredictSink
 class TestPredictSink(unittest.TestCase):
     def setUp(self):
         self.predict_service = MagicMock()
-        self.predict_service.run_once = AsyncMock()
-
-        self.feed_repository = MagicMock()
+        self.predict_service.process_tick = AsyncMock()
 
         self.feed_window = FeedWindow(max_size=10)
 
         self.sink = PredictSink(
             predict_service=self.predict_service,
-            feed_repository=self.feed_repository,
             feed_window=self.feed_window,
-            source="pyth",
         )
 
     def test_on_record_updates_window(self):
@@ -68,9 +64,9 @@ class TestPredictSink(unittest.TestCase):
 
         asyncio.run(self.sink.on_record(record))
 
-        self.predict_service.run_once.assert_called_once()
+        self.predict_service.process_tick.assert_called_once()
 
-        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        call_kwargs = self.predict_service.process_tick.call_args.kwargs
         self.assertIn("raw_input", call_kwargs)
         self.assertEqual(call_kwargs["raw_input"]["symbol"], "BTC")
         self.assertIn("candles_1m", call_kwargs["raw_input"])
@@ -94,7 +90,7 @@ class TestPredictSink(unittest.TestCase):
 
         asyncio.run(self.sink.on_record(record))
 
-        call_kwargs = self.predict_service.run_once.call_args.kwargs
+        call_kwargs = self.predict_service.process_tick.call_args.kwargs
         self.assertIn("feed_timing", call_kwargs)
         self.assertIn("feed_received_us", call_kwargs["feed_timing"])
         self.assertIn("feed_normalized_us", call_kwargs["feed_timing"])
@@ -124,47 +120,6 @@ class TestPredictSink(unittest.TestCase):
         self.assertEqual(raw_input["asof_ts"], 1000)
         self.assertIsInstance(raw_input["candles_1m"], list)
         self.assertEqual(len(raw_input["candles_1m"]), 1)
-
-
-class TestPredictSinkPersistence(unittest.TestCase):
-    def test_persist_async_writes_to_repository(self):
-        predict_service = MagicMock()
-        predict_service.run_once = AsyncMock()
-
-        feed_repository = MagicMock()
-        feed_window = FeedWindow(max_size=10)
-
-        sink = PredictSink(
-            predict_service=predict_service,
-            feed_repository=feed_repository,
-            feed_window=feed_window,
-            source="pyth",
-        )
-
-        record = FeedDataRecord(
-            source="binance",
-            subject="BTC",
-            kind="candle",
-            granularity="1m",
-            ts_event=1000,
-            values={
-                "open": 49900,
-                "high": 50100,
-                "low": 49800,
-                "close": 50000,
-                "volume": 100,
-            },
-            metadata={},
-        )
-
-        async def run_test():
-            await sink.on_record(record)
-            await asyncio.sleep(0.05)
-
-        asyncio.run(run_test())
-
-        feed_repository.append_records.assert_called()
-        feed_repository.set_watermark.assert_called()
 
 
 if __name__ == "__main__":

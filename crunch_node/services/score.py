@@ -8,7 +8,9 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import CrunchConfig
+from pydantic import BaseModel
+
+from crunch_node.crunch_config import CrunchConfig, ScoringFunction
 from crunch_node.db.repositories import (
     DBCheckpointRepository,
     DBInputRepository,
@@ -34,7 +36,7 @@ class ScoreService:
     def __init__(
         self,
         checkpoint_interval_seconds: int,
-        scoring_function: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        scoring_function: ScoringFunction | Callable,
         feed_reader: FeedReader | None = None,
         input_repository: DBInputRepository | None = None,
         prediction_repository: DBPredictionRepository | None = None,
@@ -105,12 +107,13 @@ class ScoreService:
 
     @staticmethod
     def detect_scoring_stub(
-        scoring_function: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
+        scoring_function: ScoringFunction | Callable,
     ) -> tuple[bool, str]:
         """Probe the scoring function with varied inputs to detect stubs.
 
         Returns (is_stub, reason). A function that returns identical scores
         for significantly different inputs is likely a placeholder.
+        Uses raw dicts for probing since concrete types aren't known here.
         """
         test_cases = [
             (
@@ -146,7 +149,10 @@ class ScoreService:
         for pred, gt in test_cases:
             try:
                 result = scoring_function(pred, gt)
-                results.append(result.get("value", 0.0))
+                if isinstance(result, BaseModel):
+                    results.append(getattr(result, "value", 0.0))
+                else:
+                    results.append(result.get("value", 0.0))
             except Exception:
                 return False, "scoring function raised an exception during probe"
 
@@ -158,52 +164,65 @@ class ScoreService:
 
         return False, "ok"
 
-    # ── typed output coercion ──
+    # ── typed coercion ──
 
-    def _coerce_output(self, raw: dict[str, Any]) -> dict[str, Any]:
-        """Parse a raw inference_output dict through ``config.output_type``.
+    def _coerce_output(self, raw: dict[str, Any]) -> BaseModel:
+        """Parse a raw inference_output dict into a typed ``output_type`` instance.
 
-        This ensures the scoring function always receives a dict whose keys
-        exactly match the ``InferenceOutput`` fields (with defaults filled in
-        and types coerced).  Extra keys from the model that are not part of
-        ``InferenceOutput`` are preserved so no data is silently lost.
+        Returns a Pydantic model instance (not a dict). Extra keys from the
+        model that are not part of ``output_type`` are preserved via extra="allow"
+        or model_config on the type.
         """
         try:
-            typed = self.config.output_type.model_validate(raw)
-            result = typed.model_dump()
-            for key, value in raw.items():
-                if key not in result:
-                    result[key] = value
-            return result
+            return self.config.output_type.model_validate(raw)
         except Exception as exc:
             self.logger.warning(
-                "InferenceOutput coercion failed (%s), passing raw dict to scorer",
+                "output_type coercion failed (%s), wrapping raw dict",
                 exc,
             )
-            return raw
+            # Fallback: construct with extra fields allowed
+            try:
+                return self.config.output_type.model_construct(**raw)
+            except Exception:
+                return self.config.output_type()
+
+    def _coerce_ground_truth(self, raw: dict[str, Any]) -> BaseModel:
+        """Parse a raw ground truth dict into a typed ``ground_truth_type`` instance."""
+        gt_type = self.config.get_ground_truth_type()
+        try:
+            return gt_type.model_validate(raw)
+        except Exception as exc:
+            self.logger.warning(
+                "ground_truth_type coercion failed (%s), wrapping raw dict",
+                exc,
+            )
+            try:
+                return gt_type.model_construct(**raw)
+            except Exception:
+                return gt_type()
 
     def validate_scoring_io(self) -> None:
         """Dry-run the scoring function with default config types at startup.
 
-        Catches field-name mismatches (e.g. scoring reads ``prediction["order_type"]``
-        but ``InferenceOutput`` only defines ``value``) before any real predictions
+        Catches field-name mismatches (e.g. scoring reads ``prediction.order_type``
+        but ``output_type`` only defines ``value``) before any real predictions
         are scored.  Raises on hard errors; logs warnings on soft issues.
         """
         output_type = self.config.output_type
         ground_truth_type = self.config.get_ground_truth_type()
 
-        # Build a sample prediction dict from InferenceOutput defaults
+        # Build a sample prediction from output_type defaults
         try:
-            sample_output = output_type().model_dump()
+            sample_output = output_type()
         except Exception as exc:
             raise RuntimeError(
-                f"Cannot construct a default InferenceOutput ({output_type.__name__}): {exc}. "
+                f"Cannot construct a default {output_type.__name__}: {exc}. "
                 f"Ensure all fields have defaults or the model_config allows it."
             ) from exc
 
-        # Build a sample ground truth dict
+        # Build a sample ground truth
         try:
-            sample_gt = ground_truth_type().model_dump()
+            sample_gt = ground_truth_type()
         except Exception as exc:
             self.logger.warning(
                 "Cannot construct a default GroundTruth (%s): %s — "
@@ -213,39 +232,44 @@ class ScoreService:
             )
             return
 
-        # Dry-run the scoring function
+        # Dry-run the scoring function with typed objects
         try:
             result = self.scoring_function(sample_output, sample_gt)
         except KeyError as exc:
             raise RuntimeError(
                 f"Scoring function raised KeyError({exc}) when called with default "
-                f"InferenceOutput fields {set(sample_output.keys())} and default "
-                f"GroundTruth fields {set(sample_gt.keys())}. "
-                f"Ensure the scoring function only reads keys defined in InferenceOutput "
-                f"and GroundTruth."
+                f"{output_type.__name__} and default {ground_truth_type.__name__}. "
+                f"Ensure the scoring function reads attributes defined on these types."
+            ) from exc
+        except AttributeError as exc:
+            raise RuntimeError(
+                f"Scoring function raised AttributeError({exc}) — it may be "
+                f"using dict access (.get/[]) instead of attribute access. "
+                f"Scoring functions now receive typed Pydantic objects."
             ) from exc
         except Exception as exc:
             self.logger.warning(
                 "Scoring dry-run raised %s: %s — this may be OK if the function "
-                "requires real data, but check field names match InferenceOutput",
+                "requires real data, but check field names match output_type",
                 type(exc).__name__,
                 exc,
             )
             return
 
-        # Validate the result against ScoreResult
+        # Validate the result
+        result_dict = result.model_dump() if isinstance(result, BaseModel) else result
         try:
-            self.config.score_type.model_validate(result)
+            self.config.score_type.model_validate(result_dict)
         except Exception as exc:
             raise RuntimeError(
                 f"Scoring function returned {result!r} which does not match "
-                f"ScoreResult ({self.config.score_type.__name__}): {exc}"
+                f"{self.config.score_type.__name__}: {exc}"
             ) from exc
 
         self.logger.info(
-            "Scoring IO validation passed: InferenceOutput(%s) → scoring → ScoreResult(%s)",
-            list(sample_output.keys()),
-            list(result.keys()),
+            "Scoring IO validation passed: %s → scoring → %s",
+            output_type.__name__,
+            self.config.score_type.__name__,
         )
 
     async def run(self) -> None:
@@ -256,7 +280,7 @@ class ScoreService:
         )
         while not self.stop_event.is_set():
             try:
-                self.run_once()
+                self.score_and_snapshot()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -269,7 +293,7 @@ class ScoreService:
             except TimeoutError:
                 pass
 
-    def run_once(self) -> bool:
+    def score_and_snapshot(self) -> bool:
         now = datetime.now(UTC)
 
         # 1. score predictions past their resolve horizon
@@ -335,16 +359,44 @@ class ScoreService:
             start=prediction.performed_at,
             end=prediction.resolvable_at,
             source=scope.get("source"),
+            subject=scope.get("subject"),
             kind=scope.get("kind"),
             granularity=scope.get("granularity"),
         )
 
+        if not records:
+            return None
+
+        # Check that resolved data is near the horizon, not stale
+        staleness_fraction = self.config.max_ground_truth_staleness_fraction
+        if staleness_fraction > 0:
+            last_record = records[-1]
+            horizon_ts = prediction.resolvable_at.timestamp()
+            performed_ts = prediction.performed_at.timestamp()
+            resolved_ts = last_record.ts_event.timestamp()
+
+            horizon_seconds = horizon_ts - performed_ts
+            staleness_seconds = horizon_ts - resolved_ts
+            max_staleness = horizon_seconds * staleness_fraction
+
+            if staleness_seconds > max_staleness:
+                self.logger.warning(
+                    "Ground truth too stale for prediction %s: "
+                    "last record is %.1fs before horizon (max allowed: %.1fs = %.0f%% of horizon)",
+                    prediction.id,
+                    staleness_seconds,
+                    max_staleness,
+                    staleness_fraction * 100,
+                )
+                return None
+
         actuals = self.config.resolve_ground_truth(records, prediction)
         if actuals is None:
             return None
-        # Validate through ground_truth_type
-        parsed = self.config.get_ground_truth_type().model_validate(actuals)
-        return parsed.model_dump()
+        # Coerce to dict if resolve_ground_truth returned a BaseModel
+        if isinstance(actuals, BaseModel):
+            actuals = actuals.model_dump()
+        return actuals
 
     def _score_predictions(self, now: datetime) -> list[ScoreRecord]:
         predictions = self.prediction_repository.find(
@@ -356,19 +408,25 @@ class ScoreService:
 
         scored: list[ScoreRecord] = []
         for prediction in predictions:
-            actuals = self._resolve_actuals(prediction)
-            if actuals is None:
+            actuals_dict = self._resolve_actuals(prediction)
+            if actuals_dict is None:
                 continue  # ground truth not yet available
 
             typed_output = self._coerce_output(prediction.inference_output)
+            typed_gt = self._coerce_ground_truth(actuals_dict)
 
             # Inject prediction metadata so scoring functions can identify
             # the model (e.g. for stateful per-model position tracking).
-            typed_output["model_id"] = prediction.model_id
-            typed_output["prediction_id"] = prediction.id
+            if hasattr(typed_output, "model_config"):
+                # Set extra attrs on the model for scoring context
+                typed_output.__dict__["model_id"] = prediction.model_id
+                typed_output.__dict__["prediction_id"] = prediction.id
 
-            result = self.scoring_function(typed_output, actuals)
-            validated = self.config.score_type.model_validate(result)
+            result = self.scoring_function(typed_output, typed_gt)
+            result_dict = (
+                result.model_dump() if isinstance(result, BaseModel) else result
+            )
+            validated = self.config.score_type.model_validate(result_dict)
 
             score = ScoreRecord(
                 id=f"SCR_{prediction.id}",
@@ -585,11 +643,15 @@ class ScoreService:
             # Score ensemble predictions against actuals
             ens_scored: list[ScoreRecord] = []
             for ep in ens_preds:
-                actuals = self._resolve_actuals(ep)
-                if actuals is not None:
+                actuals_dict = self._resolve_actuals(ep)
+                if actuals_dict is not None:
                     typed_output = self._coerce_output(ep.inference_output)
-                    result = self.scoring_function(typed_output, actuals)
-                    validated = self.config.score_type.model_validate(result)
+                    typed_gt = self._coerce_ground_truth(actuals_dict)
+                    result = self.scoring_function(typed_output, typed_gt)
+                    result_dict = (
+                        result.model_dump() if isinstance(result, BaseModel) else result
+                    )
+                    validated = self.config.score_type.model_validate(result_dict)
                     score = ScoreRecord(
                         id=f"SCR_{ep.id}",
                         prediction_id=ep.id,

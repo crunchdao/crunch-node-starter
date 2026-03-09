@@ -8,42 +8,56 @@ Wrong direction with higher conviction = larger penalty.
 
 from __future__ import annotations
 
+from pydantic import BaseModel, ConfigDict, Field
 
-def score_prediction(prediction: dict, ground_truth: dict) -> dict:
+
+class PredictionOutput(BaseModel):
+    """Model output: directional prediction."""
+
+    value: float = Field(default=0.0)
+
+
+class PredictionGroundTruth(BaseModel):
+    """Ground truth: realized profit."""
+
+    model_config = ConfigDict(extra="allow")
+    profit: float = 0.0
+
+
+class PredictionScoreResult(BaseModel):
+    """Score output: directional accuracy."""
+
+    model_config = ConfigDict(extra="allow")
+    value: float = 0.0
+    actual_return: float = 0.0
+    direction_correct: bool = False
+    success: bool = True
+    failed_reason: str | None = None
+
+
+def score_prediction(
+    prediction: PredictionOutput, ground_truth: PredictionGroundTruth
+) -> PredictionScoreResult:
     """Score a directional prediction against realized return.
 
     Args:
-        prediction: Model output, expects ``{"value": float}``.
-        ground_truth: Resolved outcome, expects ``{"profit": float}``.
+        prediction: Model output with ``value`` field.
+        ground_truth: Resolved outcome with ``profit`` field.
 
     Returns:
-        Dict matching ScoreResult shape.
+        PredictionScoreResult with directional accuracy metrics.
     """
-    try:
-        pred_value = float(prediction.get("value", 0.0))
-    except (TypeError, ValueError):
-        return {
-            "value": 0.0,
-            "actual_return": 0.0,
-            "direction_correct": False,
-            "success": False,
-            "failed_reason": f"Invalid prediction: {prediction.get('value')!r}",
-        }
+    actual_return = ground_truth.profit
 
-    actual_return = float(ground_truth.get("profit", 0.0))
-
-    # Direction match
-    direction_correct = (pred_value > 0 and actual_return > 0) or (
-        pred_value < 0 and actual_return < 0
+    direction_correct = (prediction.value > 0 and actual_return > 0) or (
+        prediction.value < 0 and actual_return < 0
     )
 
     # Score: prediction * actual_return (positive when directions match)
-    value = pred_value * actual_return
+    value = prediction.value * actual_return
 
-    return {
-        "value": value,
-        "actual_return": actual_return,
-        "direction_correct": direction_correct,
-        "success": True,
-        "failed_reason": None,
-    }
+    return PredictionScoreResult(
+        value=value,
+        actual_return=actual_return,
+        direction_correct=direction_correct,
+    )

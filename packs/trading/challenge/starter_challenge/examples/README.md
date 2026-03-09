@@ -15,7 +15,7 @@ Each returns `{"signal": float}` in [-1, 1].
 from starter_challenge.examples import MomentumTracker
 
 model = MomentumTracker()
-model.tick(market_data)
+model.feed_update(market_data)
 signal = model.predict("BTCUSDT", resolve_horizon_seconds=60, step_seconds=15)
 # {"signal": 0.42}
 ```

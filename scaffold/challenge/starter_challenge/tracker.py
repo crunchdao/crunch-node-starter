@@ -7,7 +7,7 @@ class TrackerBase:
     """Base class for participant models.
 
     Subclass this and implement ``predict()`` to compete.
-    The ``tick()`` method receives market data on every feed update —
+    The ``feed_update()`` method receives market data on every feed update —
     use it to maintain internal state (indicators, history, etc.).
 
     The ``predict()`` signature must match the coordinator's
@@ -21,7 +21,7 @@ class TrackerBase:
     def __init__(self) -> None:
         self._latest_data_by_subject: dict[str, dict[str, Any]] = {}
 
-    def tick(self, data: dict[str, Any]) -> None:
+    def feed_update(self, data: dict[str, Any]) -> None:
         """Receive latest market data. Override to maintain state.
 
         Data is stored per-subject so multi-asset competitions work correctly.
@@ -37,7 +37,7 @@ class TrackerBase:
         self._latest_data_by_subject[subject_key] = data
 
     def _get_data(self, subject: str) -> dict[str, Any] | None:
-        """Return the latest tick data for *subject*.
+        """Return the latest feed data for *subject*.
 
         Falls back to ``"_default"`` when no exact match exists (single-asset
         competitions typically don't set ``symbol`` in the data dict).
