@@ -26,6 +26,7 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
+from crunch_node.services.tournament_predict import TournamentPredictService
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Tournament mode doesn't use feed normalizers — data comes via API.
@@ -126,6 +127,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     No feed, no scheduled predictions — rounds are API-driven.
     """
+
+    predict_service_class: type = TournamentPredictService
 
     input_type: type[BaseModel] = TournamentInput  # For API input validation
     ground_truth_type: type[BaseModel] = GroundTruth

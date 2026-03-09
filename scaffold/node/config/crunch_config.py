@@ -16,6 +16,7 @@ from crunch_node.crunch_config import (
     ScheduledPrediction,
     ScoreResult,
 )
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 # Input shape is defined by feed_normalizer (default: "candle").
 # See crunch_node.feeds.normalizers for available normalizers and their output types:
@@ -52,6 +53,8 @@ class CrunchConfig(BaseCrunchConfig):
     Customize score_type when your scoring produces additional metrics
     beyond the default 'value' field.
     """
+
+    predict_service_class: type = RealtimePredictService
 
     feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth

@@ -22,7 +22,10 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from crunch_node.services.realtime_predict import RealtimeServiceConfig
+from crunch_node.services.realtime_predict import (
+    RealtimePredictService,
+    RealtimeServiceConfig,
+)
 
 # ── Type contracts ──────────────────────────────────────────────────
 # Input shape is defined by feed_normalizer="candle" → CandleInput
@@ -146,6 +149,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
     """
+
+    predict_service_class: type = RealtimePredictService
 
     feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth

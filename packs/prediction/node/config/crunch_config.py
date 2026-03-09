@@ -31,6 +31,7 @@ from crunch_node.crunch_config import (
 from crunch_node.crunch_config import (
     ScheduledPrediction,
 )
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 # Input shape is defined by feed_normalizer="candle" → CandleInput
 # See crunch_node.feeds.normalizers.candle for the schema:
@@ -51,6 +52,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
     """
+
+    predict_service_class: type = RealtimePredictService
 
     feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
