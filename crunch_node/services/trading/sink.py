@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from crunch_node.entities.prediction import InputRecord, PredictionRecord
 from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.simulator import TradingSimulator
 
@@ -39,6 +40,38 @@ class SimulatorSink:
         if price is not None:
             return float(price)
         return None
+
+    def on_predictions(
+        self,
+        predictions: list[PredictionRecord],
+        input_record: InputRecord,
+        now: Any,
+    ) -> list[PredictionRecord]:
+        """post_predict_hook: forward model signals as orders to the simulator."""
+        price = input_record.raw_data.get("close") or input_record.raw_data.get("price")
+        if price is None:
+            logger.warning("No price in input_record, skipping order forwarding")
+            return predictions
+
+        price = float(price)
+        ts = now if isinstance(now, datetime) else datetime.now(UTC)
+
+        for pred in predictions:
+            subject = pred.scope.get("subject")
+            if not subject:
+                continue
+            output = pred.inference_output
+            direction = output.get("direction")
+            leverage = output.get("leverage")
+            if direction and leverage:
+                self._simulator.apply_order(
+                    pred.model_id, subject, direction, float(leverage),
+                    price=price, timestamp=ts,
+                )
+                if pred.model_id not in self._model_ids:
+                    self._model_ids.append(pred.model_id)
+
+        return predictions
 
     def _write_snapshots(self, timestamp: datetime) -> None:
         from crunch_node.entities.prediction import SnapshotRecord
