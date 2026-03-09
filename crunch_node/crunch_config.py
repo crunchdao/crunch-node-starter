@@ -240,9 +240,9 @@ class PredictionScope(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     subject: str = Field(
-        default="BTC",
+        default="BTCUSDT",
         description=(
-            "Asset or topic the model predicts. 'BTC' is an example — "
+            "Asset or topic the model predicts. 'BTCUSDT' is the default — "
             "replace with your competition's subject(s). For multi-asset, "
             "use separate prediction configs per subject."
         ),
@@ -580,8 +580,8 @@ class ScheduledPrediction(BaseModel):
 
         scheduled_predictions = [
             ScheduledPrediction(
-                scope_key="realtime-btc",
-                scope={"subject": "BTC"},
+                scope_key="realtime-btcusdt",
+                scope={"subject": "BTCUSDT"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),
@@ -655,8 +655,8 @@ class CrunchConfig(BaseModel):
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
-                scope_key="BTC-60",
-                scope={"subject": "BTC"},
+                scope_key="BTCUSDT-60",
+                scope={"subject": "BTCUSDT"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),

@@ -25,7 +25,7 @@ Packs only contain files that differ from `scaffold/`. Everything else inherits 
 prediction/
 ├── node/
 │   ├── config/crunch_config.py       ← value-based output, single asset
-│   └── .local.env.example            ← pyth feed, BTC, 1s ticks
+│   └── .local.env.example            ← binance feed, BTCUSDT, 1s candles
 └── challenge/
     └── starter_challenge/
         └── scoring.py                ← direction * magnitude scoring
@@ -61,7 +61,7 @@ tournament/
 ├── node/
 │   ├── config/crunch_config.py       ← prediction output, IC ranking, 1h horizon
 │   ├── config/callables.env
-│   ├── .local.env.example            ← pyth feed, BTC, 1m granularity
+│   ├── .local.env.example            ← binance feed, BTCUSDT, 1m granularity
 │   ├── scripts/
 │   │   ├── validate_config.py        ← tournament-aware (skips feed/timing checks)
 │   │   ├── check_models.py           ← shorter timeout, succeeds if orchestrator up

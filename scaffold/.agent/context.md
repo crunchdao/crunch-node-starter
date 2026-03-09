@@ -10,7 +10,7 @@ Feed → Input → Prediction → Score → Snapshot → Leaderboard → Checkpo
 
 | Worker | Role |
 |---|---|
-| `predict-worker` | Ingests feed data (Pyth, Binance), dispatches to models, collects predictions |
+| `predict-worker` | Ingests feed data (Binance), dispatches to models, collects predictions |
 | `score-worker` | Resolves ground truth → scores → snapshots → leaderboard → checkpoints |
 | `report-worker` | FastAPI server for all report endpoints |
 

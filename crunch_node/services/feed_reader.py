@@ -22,9 +22,9 @@ class FeedReader:
 
     def __init__(
         self,
-        source: str = "pyth",
+        source: str = "binance",
         subjects: list[str] | None = None,
-        kind: str = "tick",
+        kind: str = "candle",
         granularity: str = "1s",
         window_size: int = 120,
         *,
@@ -37,7 +37,7 @@ class FeedReader:
         elif subject:
             self.subjects = [subject]
         else:
-            self.subjects = ["BTC"]
+            self.subjects = ["BTCUSDT"]
         self.subject = self.subjects[0]  # backward compat — primary subject
         self.kind = kind
         self.granularity = granularity
@@ -46,14 +46,16 @@ class FeedReader:
 
     @classmethod
     def from_env(cls) -> FeedReader:
-        subjects_raw = os.getenv("FEED_SUBJECTS", os.getenv("FEED_ASSETS", "BTC"))
-        subjects = [p.strip() for p in subjects_raw.split(",") if p.strip()] or ["BTC"]
+        subjects_raw = os.getenv("FEED_SUBJECTS", os.getenv("FEED_ASSETS", "BTCUSDT"))
+        subjects = [p.strip() for p in subjects_raw.split(",") if p.strip()] or [
+            "BTCUSDT"
+        ]
         return cls(
-            source=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "pyth"))
+            source=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "binance"))
             .strip()
             .lower(),
             subjects=subjects,
-            kind=os.getenv("FEED_KIND", "tick").strip().lower(),
+            kind=os.getenv("FEED_KIND", "candle").strip().lower(),
             granularity=os.getenv("FEED_GRANULARITY", "1s").strip(),
             window_size=int(os.getenv("FEED_CANDLES_WINDOW", "120")),
         )

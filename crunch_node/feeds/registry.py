@@ -51,7 +51,7 @@ class DataFeedRegistry:
         self,
         environ: Mapping[str, str] | None = None,
         *,
-        default_provider: str = "pyth",
+        default_provider: str = "binance",
     ) -> DataFeed:
         env = dict(environ or os.environ)
         provider = _normalize_provider(env.get("FEED_PROVIDER", default_provider))

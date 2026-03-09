@@ -6,7 +6,7 @@ Scoring compares the prediction direction against realized price movement.
 This is the simplest competition format: predict a value every N seconds,
 get scored against the next observation after the resolution horizon.
 
-Feed: Binance/Pyth candle data (symbol, OHLCV, timestamp)
+Feed: Binance candle data (symbol, OHLCV, timestamp)
 Output: value float (positive=up, negative=down, magnitude=conviction)
 Scoring: direction * magnitude — rewards correct direction with conviction
 """
@@ -67,8 +67,8 @@ class CrunchConfig(BaseCrunchConfig):
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
-                scope_key="prediction-btc-60s",
-                scope={"subject": "BTC"},
+                scope_key="prediction-btcusdt-60s",
+                scope={"subject": "BTCUSDT"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),

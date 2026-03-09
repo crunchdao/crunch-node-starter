@@ -240,7 +240,9 @@ def check_scoring():
         return
 
     # Probe: build test inputs from CrunchConfig types when available,
-    # fall back to generic shapes otherwise
+    # fall back to generic shapes otherwise.
+    # The engine coerces to Pydantic models before calling scoring functions,
+    # so we pass typed objects here (not dicts).
     try:
         pred = None
         gt = None
@@ -249,32 +251,53 @@ def check_scoring():
             from config.crunch_config import CrunchConfig
 
             cc = CrunchConfig()
-            # Use default instances of the actual types
-            pred = cc.output_type().model_dump()
-            gt = cc.ground_truth_type().model_dump()
+            # Use default instances of the actual Pydantic types
+            pred = cc.output_type()
+            gt_type = cc.get_ground_truth_type()
+            gt = gt_type()
         except Exception:
             pass
 
         if pred is None:
-            pred = {"value": 105.0}
-            gt = {"value": 100.0}
+            from pydantic import BaseModel
+
+            class _FallbackPred(BaseModel):
+                value: float = 105.0
+
+            class _FallbackGT(BaseModel):
+                value: float = 100.0
+
+            pred = _FallbackPred()
+            gt = _FallbackGT()
 
         result = score_fn(pred, gt)
 
-        check(
-            "score_prediction returns dict",
-            isinstance(result, dict),
-            f"got {type(result)}",
-        )
-        if not isinstance(result, dict):
+        # Scoring functions may return Pydantic models or dicts
+        if hasattr(result, "model_dump"):
+            result_dict = result.model_dump()
+        elif isinstance(result, dict):
+            result_dict = result
+        else:
+            check(
+                "score_prediction returns dict or Pydantic model",
+                False,
+                f"got {type(result)}",
+            )
             return
 
         check(
-            "Result has 'value' key", "value" in result, f"keys: {list(result.keys())}"
+            "score_prediction returns dict or Pydantic model",
+            True,
         )
-        check("Result has 'success' key", "success" in result, "")
 
-        val = result.get("value", 0.0)
+        check(
+            "Result has 'value' key",
+            "value" in result_dict,
+            f"keys: {list(result_dict.keys())}",
+        )
+        check("Result has 'success' key", "success" in result_dict, "")
+
+        val = result_dict.get("value", 0.0)
         if val == 0.0:
             warn(
                 "Score is zero for default types",

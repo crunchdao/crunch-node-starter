@@ -36,7 +36,7 @@ class TrackerBase:
             data: Feed data dict with shape::
 
                 {
-                    "symbol": "BTC",
+                    "symbol": "BTCUSDT",
                     "asof_ts": 1700000000,
                     "candles_1m": [
                         {"ts": ..., "open": ..., "high": ...,
@@ -67,7 +67,7 @@ class TrackerBase:
         """Return a prediction for the given scope.
 
         Args:
-            subject: Asset being predicted (e.g. "BTC").
+            subject: Asset being predicted (e.g. "BTCUSDT").
             resolve_horizon_seconds: How far ahead ground truth is resolved (seconds).
             step_seconds: Time step between predictions (seconds).
 
