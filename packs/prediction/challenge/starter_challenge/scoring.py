@@ -1,9 +1,11 @@
 """Prediction scoring: directional accuracy with magnitude scaling.
 
-score = sign_match * |prediction| * |actual_return|
+score = sign_match * |prediction|
 
 Correct direction with higher conviction = higher score.
 Wrong direction with higher conviction = larger penalty.
+
+All inputs are Pydantic models — the engine coerces raw dicts before calling.
 """
 
 from __future__ import annotations
@@ -18,16 +20,21 @@ class PredictionOutput(BaseModel):
 
 
 class PredictionGroundTruth(BaseModel):
-    """Ground truth: realized profit."""
+    """Ground truth: realized price return."""
 
     model_config = ConfigDict(extra="allow")
+
     profit: float = 0.0
+    entry_price: float = 0.0
+    resolved_price: float = 0.0
+    direction_up: bool = False
 
 
 class PredictionScoreResult(BaseModel):
     """Score output: directional accuracy."""
 
     model_config = ConfigDict(extra="allow")
+
     value: float = 0.0
     actual_return: float = 0.0
     direction_correct: bool = False
@@ -41,23 +48,25 @@ def score_prediction(
     """Score a directional prediction against realized return.
 
     Args:
-        prediction: Model output with ``value`` field.
-        ground_truth: Resolved outcome with ``profit`` field.
+        prediction: Model output with ``value`` field (Pydantic model).
+        ground_truth: Resolved outcome with ``profit`` field (Pydantic model).
 
     Returns:
         PredictionScoreResult with directional accuracy metrics.
     """
     actual_return = ground_truth.profit
 
-    direction_correct = (prediction.value > 0 and actual_return > 0) or (
-        prediction.value < 0 and actual_return < 0
-    )
+    if ground_truth.entry_price == 0:
+        return PredictionScoreResult(
+            success=False,
+            failed_reason="entry price is zero",
+        )
 
-    # Score: prediction * actual_return (positive when directions match)
-    value = prediction.value * actual_return
+    direction_correct = (prediction.value > 0) == (actual_return > 0)
+    score = abs(prediction.value) if direction_correct else -abs(prediction.value)
 
     return PredictionScoreResult(
-        value=value,
+        value=score,
         actual_return=actual_return,
         direction_correct=direction_correct,
     )
