@@ -40,8 +40,8 @@ class TestExtractPrice:
 class TestOnRecord:
     def test_on_record_marks_to_market(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        snapshot_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, snapshot_repository=snapshot_repo, model_ids=["model_1"])
+        state_repo = MagicMock()
+        sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
@@ -55,10 +55,10 @@ class TestOnRecord:
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.current_price == 51000.0
 
-    def test_on_record_writes_snapshot(self):
+    def test_on_record_persists_state(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        snapshot_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, snapshot_repository=snapshot_repo, model_ids=["model_1"])
+        state_repo = MagicMock()
+        sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
@@ -69,15 +69,12 @@ class TestOnRecord:
         )
         asyncio.run(sink.on_record(record))
 
-        snapshot_repo.save.assert_called_once()
-        saved = snapshot_repo.save.call_args[0][0]
-        assert saved.model_id == "model_1"
-        assert saved.result_summary["net_pnl"] > 0
+        state_repo.save_state.assert_called_once()
 
     def test_on_record_skips_when_no_price(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        snapshot_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, snapshot_repository=snapshot_repo, model_ids=["model_1"])
+        state_repo = MagicMock()
+        sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
         record = FeedDataRecord(
             source="custom", subject="X", kind="depth", granularity="1s",
@@ -85,4 +82,4 @@ class TestOnRecord:
         )
         asyncio.run(sink.on_record(record))
 
-        snapshot_repo.save.assert_not_called()
+        state_repo.save_state.assert_not_called()

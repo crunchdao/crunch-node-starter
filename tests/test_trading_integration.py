@@ -16,10 +16,9 @@ ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 class TestFullFlow:
     def test_order_tick_snapshot_close(self):
-        """Open position -> tick -> snapshot with unrealized P&L -> close -> snapshot with realized P&L."""
         sim = TradingSimulator(cost_model=ZERO_COST)
-        snapshot_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, snapshot_repository=snapshot_repo, model_ids=["model_1"])
+        state_repo = MagicMock()
+        sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
 
         now = datetime.now(UTC)
         ts_ms = int(now.timestamp() * 1000)
@@ -32,13 +31,13 @@ class TestFullFlow:
         )
         asyncio.run(sink.on_record(record))
 
-        snapshot_repo.save.assert_called()
-        snap = snapshot_repo.save.call_args[0][0]
-        assert snap.result_summary["unrealized_pnl"] > 0
-        assert snap.result_summary["realized_pnl"] == 0
-        assert snap.result_summary["open_position_count"] == 1
+        state_repo.save_state.assert_called()
+        snapshot = sim.get_portfolio_snapshot("model_1", now)
+        assert snapshot["total_unrealized_pnl"] > 0
+        assert snapshot["total_realized_pnl"] == 0
+        assert snapshot["open_position_count"] == 1
 
-        snapshot_repo.reset_mock()
+        state_repo.reset_mock()
 
         sim.apply_order("model_1", "BTCUSDT", "short", 1.0, price=51000.0, timestamp=now)
 
@@ -48,19 +47,18 @@ class TestFullFlow:
         )
         asyncio.run(sink.on_record(record2))
 
-        snap2 = snapshot_repo.save.call_args[0][0]
+        snapshot2 = sim.get_portfolio_snapshot("model_1", now)
         expected_realized = 1.0 * (51000.0 - 50000.0) / 50000.0
-        assert snap2.result_summary["realized_pnl"] == pytest.approx(expected_realized)
-        assert snap2.result_summary["unrealized_pnl"] == 0
-        assert snap2.result_summary["open_position_count"] == 0
+        assert snapshot2["total_realized_pnl"] == pytest.approx(expected_realized)
+        assert snapshot2["total_unrealized_pnl"] == 0
+        assert snapshot2["open_position_count"] == 0
 
     def test_hook_to_tick_flow(self):
-        """Prediction hook opens position, then tick writes snapshot."""
         from crunch_node.entities.prediction import InputRecord, PredictionRecord, PredictionStatus
 
         sim = TradingSimulator(cost_model=ZERO_COST)
-        snapshot_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, snapshot_repository=snapshot_repo)
+        state_repo = MagicMock()
+        sink = SimulatorSink(simulator=sim, state_repository=state_repo)
 
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
@@ -89,8 +87,7 @@ class TestFullFlow:
         )
         asyncio.run(sink.on_record(record))
 
-        snapshot_repo.save.assert_called_once()
-        snap = snapshot_repo.save.call_args[0][0]
-        assert snap.model_id == "model_1"
+        state_repo.save_state.assert_called_once()
+        snapshot = sim.get_portfolio_snapshot("model_1", now)
         expected_pnl = 1.0 * (52000.0 - 50000.0) / 50000.0
-        assert snap.result_summary["unrealized_pnl"] == pytest.approx(expected_pnl)
+        assert snapshot["total_unrealized_pnl"] == pytest.approx(expected_pnl)

@@ -37,15 +37,15 @@ def _maybe_build_simulator_sink(config, session):
     if cost_model is None:
         return None
 
-    from crunch_node.db import DBSnapshotRepository
+    from crunch_node.db.trading_state_repository import TradingStateRepository
     from crunch_node.services.trading.simulator import TradingSimulator
     from crunch_node.services.trading.sink import SimulatorSink
 
     simulator = TradingSimulator(cost_model=cost_model)
-    snapshot_repo = DBSnapshotRepository(session)
+    state_repo = TradingStateRepository(session)
     sink = SimulatorSink(
         simulator=simulator,
-        snapshot_repository=snapshot_repo,
+        state_repository=state_repo,
     )
     logger.info("Trading simulator enabled with cost_model: %s", cost_model)
     return sink

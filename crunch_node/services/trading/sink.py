@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -16,12 +15,12 @@ class SimulatorSink:
     def __init__(
         self,
         simulator: TradingSimulator,
-        snapshot_repository: Any,
+        state_repository: Any,
         model_ids: list[str] | None = None,
         signal_mode: Literal["delta", "target"] = "delta",
     ) -> None:
         self._simulator = simulator
-        self._snapshot_repository = snapshot_repository
+        self._state_repository = state_repository
         self._model_ids = model_ids or []
         self._signal_mode = signal_mode
 
@@ -31,7 +30,7 @@ class SimulatorSink:
             return
         ts = datetime.fromtimestamp(record.ts_event / 1000, tz=UTC)
         self._simulator.mark_to_market(record.subject, price, ts)
-        self._write_snapshots(ts)
+        self._persist_state()
 
     @staticmethod
     def extract_price(record: FeedDataRecord) -> float | None:
@@ -136,23 +135,13 @@ class SimulatorSink:
                 price=price, timestamp=timestamp,
             )
 
-    def _write_snapshots(self, timestamp: datetime) -> None:
-        from crunch_node.entities.prediction import SnapshotRecord
-
+    def _persist_state(self) -> None:
         for model_id in self._model_ids:
-            snapshot_data = self._simulator.get_portfolio_snapshot(model_id, timestamp)
-            snapshot = SnapshotRecord(
-                id=str(uuid.uuid4()),
-                model_id=model_id,
-                period_start=timestamp,
-                period_end=timestamp,
-                prediction_count=len(snapshot_data.get("positions", [])),
-                result_summary={
-                    "net_pnl": snapshot_data["net_pnl"],
-                    "unrealized_pnl": snapshot_data["total_unrealized_pnl"],
-                    "realized_pnl": snapshot_data["total_realized_pnl"],
-                    "total_fees": snapshot_data["total_fees"],
-                    "open_position_count": snapshot_data["open_position_count"],
-                },
+            state = self._simulator.get_full_state(model_id)
+            self._state_repository.save_state(
+                model_id,
+                state["positions"],
+                state["trades"],
+                portfolio_fees=state["portfolio_fees"],
+                closed_carry=state["closed_carry"],
             )
-            self._snapshot_repository.save(snapshot)

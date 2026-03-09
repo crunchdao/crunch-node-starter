@@ -29,7 +29,7 @@ class TestOnPredictions:
 
     def test_hook_forwards_signal_to_simulator(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, snapshot_repository=MagicMock())
+        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
@@ -44,7 +44,7 @@ class TestOnPredictions:
 
     def test_hook_extracts_price_from_input(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, snapshot_repository=MagicMock())
+        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
@@ -55,7 +55,7 @@ class TestOnPredictions:
 
     def test_hook_auto_registers_model_id(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, snapshot_repository=MagicMock())
+        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
@@ -65,7 +65,7 @@ class TestOnPredictions:
 
     def test_hook_skips_when_no_price(self):
         sim = TradingSimulator(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, snapshot_repository=MagicMock())
+        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
