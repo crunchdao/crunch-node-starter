@@ -13,7 +13,7 @@ WORKDIR /app
 
 # Crunch engine (from PyPI)
 # Bump this to force Docker to re-pull the latest package version
-ARG CRUNCH_NODE_VERSION=0.1.86
+ARG CRUNCH_NODE_VERSION=0.1.92
 RUN pip install --no-cache-dir "crunch-node>=${CRUNCH_NODE_VERSION}"
 
 # model-runner-client: force-reinstall from git master to pick up gateway_credentials
