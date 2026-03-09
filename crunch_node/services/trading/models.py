@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
+
+Direction = Literal["long", "short"]
 
 
 @dataclass
 class Position:
     model_id: str
     subject: str
-    direction: str
+    direction: Direction
     leverage: float
     entry_price: float
     opened_at: datetime
@@ -17,16 +22,17 @@ class Position:
     def unrealized_pnl(self) -> float:
         if self.entry_price == 0.0:
             return 0.0
-        if self.direction == "long":
-            return self.leverage * (self.current_price - self.entry_price) / self.entry_price
-        return self.leverage * (self.entry_price - self.current_price) / self.entry_price
+        price_return = (self.current_price - self.entry_price) / self.entry_price
+        if self.direction == "short":
+            price_return = -price_return
+        return self.leverage * price_return
 
 
-@dataclass
+@dataclass(frozen=True)
 class Trade:
     model_id: str
     subject: str
-    direction: str
+    direction: Direction
     leverage: float
     entry_price: float
     opened_at: datetime
