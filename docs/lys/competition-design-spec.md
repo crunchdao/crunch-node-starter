@@ -31,7 +31,7 @@ The LowFreq Alpha Engine PDF describes a broader alpha discovery platform target
 
 ### Competition 1: CEX-DEX Correction Predictor
 
-The alpha window is 200–800ms. The current coordinator node pipeline isn't optimized for this latency, but the architecture can be extended to support it. Live signal delivery will likely need a fast-path that bypasses the standard DB write → pg NOTIFY flow, while the coordinator continues to handle scoring and competition management asynchronously.
+The alpha window is 200–800ms. The current crunch node pipeline isn't optimized for this latency, but the architecture can be extended to support it. Live signal delivery will likely need a fast-path that bypasses the standard DB write → pg NOTIFY flow, while the coordinator continues to handle scoring and competition management asynchronously.
 
 **LYS Flash pipeline budget** (from LowFreq PDF benchmarks):
 - TX Build (Rust SDK): <100µs
@@ -351,7 +351,7 @@ Each model's share = its contribution to ensemble PnL as a proportion of total e
 |---|---|
 | Perfectly aligned with mission — we pay for what makes money. Best models get the most. Zero gaming potential (PnL is the ultimate metric). | Cold start problem — new models have zero PnL history and get nothing. Creates winner-takes-all dynamic that discourages new entrants. Single bad week can wipe a model's accumulated weight. Requires PnL attribution feedback from LYS (dependency). |
 
-#### Strategy 2: Rank tiers (current coordinator node default)
+#### Strategy 2: Rank tiers (current crunch node default)
 
 Fixed percentage per rank bracket (e.g. 1st = 35%, 2nd–5th = 10% each, 6th–10th = 5% each, rest split equally).
 

@@ -7,16 +7,6 @@
 # The benchmark script copies this automatically to the workspace.
 services:
 
-  feed-data-worker:
-    build:
-      context: ..
-      dockerfile: node/Dockerfile
-    volumes:
-      - ../challenge:/app/challenge
-      - ../../crunch_node:/app/crunch_node:ro
-    environment:
-      PYTHONPATH: /app:/app/challenge
-
   predict-worker:
     build:
       context: ..

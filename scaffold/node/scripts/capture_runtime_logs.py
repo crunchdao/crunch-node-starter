@@ -7,10 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 SERVICES = (
-    "feed-data-worker",
     "predict-worker",
     "score-worker",
-    "checkpoint-worker",
     "report-worker",
     "model-orchestrator",
     "postgres",

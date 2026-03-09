@@ -10,8 +10,7 @@ Feed → Input → Prediction → Score → Snapshot → Leaderboard → Checkpo
 
 | Worker | Role |
 |---|---|
-| `feed-data-worker` | Ingests feed data (Pyth, Binance) via polling |
-| `predict-worker` | Event-driven (pg NOTIFY): feed → models → predictions |
+| `predict-worker` | Ingests feed data (Pyth, Binance), dispatches to models, collects predictions |
 | `score-worker` | Resolves ground truth → scores → snapshots → leaderboard → checkpoints |
 | `report-worker` | FastAPI server for all report endpoints |
 

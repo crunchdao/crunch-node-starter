@@ -23,7 +23,7 @@ C4Context
 
 ## Scope
 
-This diagram shows the coordinator node as a single system and its external
+This diagram shows the crunch node as a single system and its external
 actors/systems. Internally, the node now uses a **predict kernel architecture**
 that separates:
 

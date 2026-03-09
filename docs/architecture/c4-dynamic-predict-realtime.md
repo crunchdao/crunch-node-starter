@@ -4,7 +4,7 @@
 C4Dynamic
   title Dynamic Diagram - Realtime Predict Hot Path
 
-  Container(feedWorker, "feed-data-worker", "Python", "Ingests feed and emits notifications")
+  Component(feedReader, "FeedReader", "Python", "Ingests feed data within predict-worker")
   Component(realtime, "RealtimePredictService", "Service", "Realtime orchestration")
   Component(base, "PredictService", "Shared base facade", "Shared predict helpers")
   Component(kernel, "PredictionKernel", "Kernel", "Runner lifecycle + transport")
@@ -13,7 +13,7 @@ C4Dynamic
   ContainerDb(postgres, "PostgreSQL", "SQL", "Pipeline storage")
   Component(registry, "ModelRegistry", "Component", "Deferred model metadata persistence")
 
-  Rel(feedWorker, realtime, "1. Notify new feed data", "pg NOTIFY")
+  Rel(feedReader, realtime, "1. New feed data available", "in-process")
   Rel(realtime, base, "2. Run prediction cycle", "in-process")
   Rel(base, kernel, "3. Encode + dispatch feed_update/predict calls", "in-process")
   Rel(kernel, modelOrch, "4. Execute model methods", "gRPC")

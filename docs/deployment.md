@@ -11,21 +11,17 @@ graph TB
     end
 
     subgraph "Backend Network"
-        FDW["feed-data-worker"]
         PW["predict-worker"]
         SW["score-worker"]
-        CW["checkpoint-worker"]
         DB[("PostgreSQL<br/>:5432")]
     end
 
     UI -->|"rewrites proxy"| RW
     RW --> DB
-    FDW --> DB
     PW --> DB
     PW -->|gRPC| MO
     MO -->|"Docker API"| MC["Model Containers"]
     SW --> DB
-    CW --> DB
 
     style DB fill:#336,stroke:#fff,color:#fff
 ```
@@ -36,10 +32,8 @@ graph TB
 |---------|------|---------|
 | `postgres` | 5432 | Database — all pipeline data |
 | `init-db` | — | One-shot: runs migrations then exits |
-| `feed-data-worker` | — | Ingests live feed data |
-| `predict-worker` | — | Dispatches predictions to models |
-| `score-worker` | — | Scores predictions, builds leaderboard |
-| `checkpoint-worker` | — | Creates on-chain emission checkpoints |
+| `predict-worker` | — | Ingests feed data + dispatches predictions to models |
+| `score-worker` | — | Scores predictions, builds leaderboard, creates checkpoints |
 | `report-worker` | 8000 | FastAPI REST API |
 | `model-orchestrator` | 9091 | Manages model containers |
 | `report-ui` | 3000 | Next.js dashboard |
@@ -125,11 +119,9 @@ sequenceDiagram
     participant DC as docker-compose
     participant PG as PostgreSQL
     participant INIT as init-db
-    participant FDW as feed-data-worker
     participant MO as model-orchestrator
     participant PW as predict-worker
     participant SW as score-worker
-    participant CW as checkpoint-worker
     participant RW as report-worker
     participant UI as report-ui
 
@@ -139,18 +131,16 @@ sequenceDiagram
     INIT-->>DC: Exit 0
 
     par All workers start after init-db
-        DC->>FDW: Start
         DC->>MO: Start
         DC->>PW: Start (waits for MO healthy)
         DC->>SW: Start
-        DC->>CW: Start
         DC->>RW: Start
         DC->>UI: Start (waits for RW healthy)
     end
 
-    FDW->>PG: Feed data flowing
+    PW->>PG: Feed data flowing
     PW->>MO: gRPC predict() calls
-    SW->>PG: Scoring + leaderboard
+    SW->>PG: Scoring + leaderboard + checkpoints
     RW->>PG: Serving API
     UI->>RW: Rendering dashboard
 ```

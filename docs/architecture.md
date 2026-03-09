@@ -1,6 +1,6 @@
 # Architecture Overview
 
-The coordinator node is the runtime engine for Crunch competitions. It ingests live market data, dispatches predictions to registered models, scores results against ground truth, aggregates performance into leaderboards, and produces on-chain emission checkpoints.
+The crunch node is the runtime engine for Crunch competitions. It ingests live market data, dispatches predictions to registered models, scores results against ground truth, aggregates performance into leaderboards, and produces on-chain emission checkpoints.
 
 ## System Overview
 
@@ -13,18 +13,15 @@ graph TB
         UI["Report UI<br/>(Next.js)"]
     end
 
-    subgraph Coordinator Node
-        FDW["feed-data-worker"]
+    subgraph Crunch Node
         PW["predict-worker"]
         SW["score-worker"]
-        CW["checkpoint-worker"]
         RW["report-worker<br/>(FastAPI)"]
         DB[("PostgreSQL")]
     end
 
-    FEED -->|WebSocket / REST| FDW
-    FDW -->|INSERT feed_records| DB
-    FDW -->|pg_notify| PW
+    FEED -->|WebSocket / REST| PW
+    PW -->|INSERT feed_records| DB
     PW -->|gRPC predict()| MODELS
     MODELS -->|inference output| PW
     PW -->|INSERT predictions| DB
@@ -32,9 +29,8 @@ graph TB
     SW -->|resolve ground truth| DB
     SW -->|INSERT scores, snapshots| DB
     SW -->|UPDATE leaderboard| DB
-    CW -->|READ snapshots| DB
-    CW -->|INSERT checkpoints| DB
-    CW -->|submit emission| CHAIN
+    SW -->|INSERT checkpoints| DB
+    SW -->|submit emission| CHAIN
     RW -->|READ all tables| DB
     UI -->|HTTP API| RW
 
@@ -45,36 +41,28 @@ graph TB
 
 ## Worker Architecture
 
-Five independent workers run as separate Docker containers, communicating only through PostgreSQL:
+Three independent workers run as separate Docker containers, communicating only through PostgreSQL:
 
 ```mermaid
 graph LR
     subgraph Workers
-        FDW["🔄 feed-data-worker<br/><i>Ingests live data</i>"]
-        PW["🧠 predict-worker<br/><i>Dispatches to models</i>"]
-        SW["📊 score-worker<br/><i>Scores + aggregates</i>"]
-        CW["📦 checkpoint-worker<br/><i>On-chain emissions</i>"]
+        PW["🧠 predict-worker<br/><i>Ingests data + dispatches to models</i>"]
+        SW["📊 score-worker<br/><i>Scores + aggregates + checkpoints</i>"]
         RW["🌐 report-worker<br/><i>REST API</i>"]
     end
 
     DB[("PostgreSQL")]
 
-    FDW --> DB
-    DB --> PW
     PW --> DB
     DB --> SW
     SW --> DB
-    DB --> CW
-    CW --> DB
     DB --> RW
 ```
 
 | Worker | Container | Responsibility |
 |--------|-----------|---------------|
-| **feed-data-worker** | `crunch-node-*-feed-data-worker` | Connects to data feeds (Pyth, Binance), normalizes records, writes to `feed_records` table, sends `pg_notify` to trigger predictions |
-| **predict-worker** | `crunch-node-*-predict-worker` | Listens for feed events, reads latest data, calls model containers via gRPC, stores `predictions` with scope and `resolvable_at` |
-| **score-worker** | `crunch-node-*-score-worker` | Polls for resolvable predictions, fetches ground truth, runs scoring function, creates `scores` → `snapshots` → `leaderboard`, builds Merkle trees |
-| **checkpoint-worker** | `crunch-node-*-checkpoint-worker` | Periodically aggregates snapshots into `checkpoints`, builds Merkle root, submits emission to chain |
+| **predict-worker** | `crunch-node-*-predict-worker` | Connects to data feeds (Pyth, Binance), normalizes records, writes to `feed_records`, calls model containers via gRPC, stores `predictions` with scope and `resolvable_at` |
+| **score-worker** | `crunch-node-*-score-worker` | Polls for resolvable predictions, fetches ground truth, runs scoring function, creates `scores` → `snapshots` → `leaderboard`, builds Merkle trees, periodically aggregates snapshots into `checkpoints` and submits emission to chain |
 | **report-worker** | `crunch-node-*-report-worker` | FastAPI server exposing all data via REST endpoints, serves the UI |
 
 ## Key Design Principles
