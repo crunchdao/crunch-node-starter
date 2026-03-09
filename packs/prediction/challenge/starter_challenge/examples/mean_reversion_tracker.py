@@ -1,4 +1,4 @@
-"""Mean-reversion prediction: bets against recent price extremes."""
+"""Mean reversion: predict price reverts to recent average."""
 
 from __future__ import annotations
 
@@ -6,45 +6,29 @@ from starter_challenge.tracker import TrackerBase
 
 
 class MeanReversionTracker(TrackerBase):
-    """Predicts reversal when price deviates from recent average."""
+    """Predicts return toward the rolling mean price."""
 
     def _predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
     ) -> dict:
-        prices = _extract_prices(self._get_data(subject))
+        prices = _closes(self._get_data(subject))
         if len(prices) < 3:
             return {"value": 0.0}
 
         lookback = min(20, len(prices))
-        window = prices[-lookback:]
-        mean_price = sum(window) / len(window)
-        current = window[-1]
+        mean_price = sum(prices[-lookback:]) / lookback
+        current = prices[-1]
 
-        if mean_price == 0:
+        if current == 0:
             return {"value": 0.0}
 
-        # Deviation from mean — positive deviation → bearish (expect reversion)
-        deviation = (current - mean_price) / mean_price
-        value = max(-1.0, min(1.0, -deviation * 15.0))
-        return {"value": round(value, 4)}
+        # Expected return = direction toward mean, scaled down
+        expected_return = (mean_price - current) / current
+        return {"value": round(expected_return, 6)}
 
 
-def _extract_prices(latest_data):
-    if isinstance(latest_data, dict) and isinstance(
-        latest_data.get("candles_1m"), list
-    ):
-        return _closes(latest_data["candles_1m"])
-    return []
-
-
-def _closes(candles):
-    closes = []
-    for row in candles:
-        if not isinstance(row, dict):
-            continue
-        value = row.get("close")
-        try:
-            closes.append(float(value))
-        except Exception:
-            continue
-    return closes
+def _closes(data):
+    if not isinstance(data, dict):
+        return []
+    candles = data.get("candles_1m", [])
+    return [float(c["close"]) for c in candles if isinstance(c, dict) and "close" in c]

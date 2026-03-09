@@ -1,4 +1,4 @@
-"""Momentum-based prediction: projects recent trend as a directional value."""
+"""Momentum: predict that recent trend continues."""
 
 from __future__ import annotations
 
@@ -6,40 +6,31 @@ from starter_challenge.tracker import TrackerBase
 
 
 class MomentumTracker(TrackerBase):
-    """Outputs a prediction proportional to recent price momentum."""
+    """Predicts the next return will match recent momentum."""
 
     def _predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
     ) -> dict:
-        prices = _extract_prices(self._get_data(subject))
+        prices = _closes(self._get_data(subject))
         if len(prices) < 3:
             return {"value": 0.0}
 
-        lookback = min(8, len(prices))
-        window = prices[-lookback:]
-        momentum = (window[-1] - window[0]) / max(abs(window[0]), 1e-9)
+        # Average return over last few candles
+        lookback = min(5, len(prices) - 1)
+        returns = [
+            (prices[i] - prices[i - 1]) / prices[i - 1]
+            for i in range(-lookback, 0)
+            if prices[i - 1] != 0
+        ]
+        if not returns:
+            return {"value": 0.0}
 
-        # Scale momentum to a conviction value (cap at ~5% move)
-        value = max(-1.0, min(1.0, momentum * 20.0))
-        return {"value": round(value, 4)}
-
-
-def _extract_prices(latest_data):
-    if isinstance(latest_data, dict) and isinstance(
-        latest_data.get("candles_1m"), list
-    ):
-        return _closes(latest_data["candles_1m"])
-    return []
+        avg_return = sum(returns) / len(returns)
+        return {"value": round(avg_return, 6)}
 
 
-def _closes(candles):
-    closes = []
-    for row in candles:
-        if not isinstance(row, dict):
-            continue
-        value = row.get("close")
-        try:
-            closes.append(float(value))
-        except Exception:
-            continue
-    return closes
+def _closes(data):
+    if not isinstance(data, dict):
+        return []
+    candles = data.get("candles_1m", [])
+    return [float(c["close"]) for c in candles if isinstance(c, dict) and "close" in c]
