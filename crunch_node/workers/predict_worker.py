@@ -32,6 +32,25 @@ from crunch_node.services.realtime_predict import RealtimePredictService
 logger = logging.getLogger(__name__)
 
 
+def _maybe_build_simulator_sink(config, session):
+    cost_model = getattr(config, "cost_model", None)
+    if cost_model is None:
+        return None
+
+    from crunch_node.db import DBSnapshotRepository
+    from crunch_node.services.trading.simulator import TradingSimulator
+    from crunch_node.services.trading.sink import SimulatorSink
+
+    simulator = TradingSimulator(cost_model=cost_model)
+    snapshot_repo = DBSnapshotRepository(session)
+    sink = SimulatorSink(
+        simulator=simulator,
+        snapshot_repository=snapshot_repo,
+    )
+    logger.info("Trading simulator enabled with cost_model: %s", cost_model)
+    return sink
+
+
 def configure_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -137,10 +156,17 @@ async def main() -> None:
     )
     repo_sink = RepositorySink(feed_repository)
 
+    sinks = [repo_sink, predict_sink]
+    simulator_sink = _maybe_build_simulator_sink(config, session)
+    if simulator_sink is not None:
+        sinks.append(simulator_sink)
+        if isinstance(predict_service, RealtimePredictService):
+            predict_service.post_predict_hook = simulator_sink.on_predictions
+
     feed_service = FeedDataService(
         settings=feed_settings,
         feed_record_repository=feed_repository,
-        sinks=[repo_sink, predict_sink],
+        sinks=sinks,
     )
 
     logger.info(
