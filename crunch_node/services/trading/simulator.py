@@ -26,6 +26,8 @@ class TradingSimulator:
     ) -> None:
         if leverage <= 0:
             raise ValueError("Leverage must be positive")
+        if direction not in ("long", "short"):
+            raise ValueError("Direction must be 'long' or 'short'")
 
         fee = self._cost_model.order_cost(leverage)
         self._portfolio_fees[model_id] = self._portfolio_fees.get(model_id, 0.0) + fee
@@ -67,6 +69,19 @@ class TradingSimulator:
         model_id, subject = key
 
         if leverage < existing.leverage:
+            partial_pnl = self._compute_realized_pnl(existing, price) * (leverage / existing.leverage)
+            trade = Trade(
+                model_id=model_id,
+                subject=subject,
+                direction=existing.direction,
+                leverage=leverage,
+                entry_price=existing.entry_price,
+                opened_at=existing.opened_at,
+                exit_price=price,
+                closed_at=timestamp,
+                realized_pnl=partial_pnl,
+            )
+            self._trades.setdefault(model_id, []).append(trade)
             existing.leverage -= leverage
             return
 
@@ -115,7 +130,7 @@ class TradingSimulator:
         return self._positions.get((model_id, subject))
 
     def get_trades(self, model_id: str) -> list[Trade]:
-        return self._trades.get(model_id, [])
+        return list(self._trades.get(model_id, []))
 
     def get_portfolio_snapshot(self, model_id: str, timestamp: datetime) -> dict[str, Any]:
         positions = [
