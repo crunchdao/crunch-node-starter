@@ -43,9 +43,18 @@ def _maybe_build_simulator_sink(config, session):
 
     simulator = TradingSimulator(cost_model=cost_model)
     state_repo = TradingStateRepository(session)
+
+    model_ids = state_repo.get_all_model_ids()
+    for model_id in model_ids:
+        state = state_repo.load_state(model_id)
+        if state is not None:
+            simulator.load_state(model_id, state)
+            logger.info("Restored trading state for model %s", model_id)
+
     sink = SimulatorSink(
         simulator=simulator,
         state_repository=state_repo,
+        model_ids=model_ids,
     )
     logger.info("Trading simulator enabled with cost_model: %s", cost_model)
     return sink
