@@ -25,6 +25,6 @@ class TestTradingConfigWiring:
         assert config.trading.cost_model.trading_fee_pct == 0.002
         assert config.trading.signal_mode == "delta"
 
-    def test_default_signal_mode_is_target(self):
+    def test_default_signal_mode_is_order(self):
         config = CrunchConfig()
-        assert config.trading.signal_mode == "target"
+        assert config.trading.signal_mode == "order"

@@ -100,6 +100,28 @@ class SimulatorSink:
             )
             return
 
+        if self._signal_mode == "order":
+            action = inference_output.get("action")
+            amount = inference_output.get("amount")
+            if action is None or amount is None:
+                raise ValueError(
+                    "Order mode requires 'action' and 'amount' in inference_output, "
+                    f"got: {list(inference_output.keys())}"
+                )
+            amount = float(amount)
+            if amount <= 0:
+                return
+            direction = "long" if action == "buy" else "short"
+            self._simulator.apply_order(
+                model_id,
+                subject,
+                direction,
+                amount,
+                price=price,
+                timestamp=timestamp,
+            )
+            return
+
         signal = inference_output.get("signal")
         if signal is None:
             logger.warning(

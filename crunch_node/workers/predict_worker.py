@@ -41,7 +41,11 @@ def _maybe_build_simulator_sink(config, session):
     from crunch_node.services.trading.simulator import TradingEngine
     from crunch_node.services.trading.sink import SimulatorSink
 
-    simulator = TradingEngine(cost_model=trading.cost_model)
+    simulator = TradingEngine(
+        cost_model=trading.cost_model,
+        max_position_leverage=trading.max_position_leverage,
+        max_portfolio_leverage=trading.max_portfolio_leverage,
+    )
     state_repo = TradingStateRepository(session)
 
     model_ids = state_repo.get_all_model_ids()
