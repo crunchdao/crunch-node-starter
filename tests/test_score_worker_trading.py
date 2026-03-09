@@ -11,7 +11,13 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
     def test_trading_state_repo_wired_when_cost_model_present(
-        self, mock_runtime, mock_ext, mock_resolve, mock_reader, mock_session, mock_config
+        self,
+        mock_runtime,
+        mock_ext,
+        mock_resolve,
+        mock_reader,
+        mock_session,
+        mock_config,
     ):
         from crunch_node.services.trading.costs import CostModel
 
@@ -28,6 +34,7 @@ class TestScoreWorkerTrading:
         mock_resolve.return_value = lambda p, g: MagicMock()
 
         from crunch_node.workers.score_worker import build_service
+
         service = build_service()
 
         assert service.trading_state_repository is not None
@@ -39,11 +46,20 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
     def test_no_trading_state_repo_when_no_cost_model(
-        self, mock_runtime, mock_ext, mock_resolve, mock_reader, mock_session, mock_config
+        self,
+        mock_runtime,
+        mock_ext,
+        mock_resolve,
+        mock_reader,
+        mock_session,
+        mock_config,
     ):
-        config = MagicMock(spec=[
-            "scoring_function", "performance",
-        ])
+        config = MagicMock(
+            spec=[
+                "scoring_function",
+                "performance",
+            ]
+        )
         config.scoring_function = None
         mock_config.return_value = config
         mock_session.return_value = MagicMock()
@@ -55,6 +71,7 @@ class TestScoreWorkerTrading:
         mock_resolve.return_value = lambda p, g: MagicMock()
 
         from crunch_node.workers.score_worker import build_service
+
         service = build_service()
 
         assert service.trading_state_repository is None

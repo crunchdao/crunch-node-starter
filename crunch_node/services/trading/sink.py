@@ -62,8 +62,11 @@ class SimulatorSink:
             if not subject:
                 continue
             self.apply_signal(
-                pred.model_id, subject, pred.inference_output,
-                price=price, timestamp=ts,
+                pred.model_id,
+                subject,
+                pred.inference_output,
+                price=price,
+                timestamp=ts,
             )
             if pred.model_id not in self._model_ids:
                 self._model_ids.append(pred.model_id)
@@ -84,8 +87,12 @@ class SimulatorSink:
             leverage = inference_output.get("leverage")
             if direction and leverage:
                 self._simulator.apply_order(
-                    model_id, subject, direction, float(leverage),
-                    price=price, timestamp=timestamp,
+                    model_id,
+                    subject,
+                    direction,
+                    float(leverage),
+                    price=price,
+                    timestamp=timestamp,
                 )
             return
 
@@ -102,16 +109,24 @@ class SimulatorSink:
         if current is None:
             if target_leverage > 0:
                 self._simulator.apply_order(
-                    model_id, subject, target_direction, target_leverage,
-                    price=price, timestamp=timestamp,
+                    model_id,
+                    subject,
+                    target_direction,
+                    target_leverage,
+                    price=price,
+                    timestamp=timestamp,
                 )
             return
 
         if signal == 0:
             opposite = "short" if current.direction == "long" else "long"
             self._simulator.apply_order(
-                model_id, subject, opposite, current.leverage,
-                price=price, timestamp=timestamp,
+                model_id,
+                subject,
+                opposite,
+                current.leverage,
+                price=price,
+                timestamp=timestamp,
             )
             return
 
@@ -119,20 +134,31 @@ class SimulatorSink:
             delta = target_leverage - current.leverage
             if delta > 0:
                 self._simulator.apply_order(
-                    model_id, subject, target_direction, delta,
-                    price=price, timestamp=timestamp,
+                    model_id,
+                    subject,
+                    target_direction,
+                    delta,
+                    price=price,
+                    timestamp=timestamp,
                 )
             elif delta < 0:
                 opposite = "short" if target_direction == "long" else "long"
                 self._simulator.apply_order(
-                    model_id, subject, opposite, abs(delta),
-                    price=price, timestamp=timestamp,
+                    model_id,
+                    subject,
+                    opposite,
+                    abs(delta),
+                    price=price,
+                    timestamp=timestamp,
                 )
         else:
             self._simulator.apply_order(
-                model_id, subject, target_direction,
+                model_id,
+                subject,
+                target_direction,
                 current.leverage + target_leverage,
-                price=price, timestamp=timestamp,
+                price=price,
+                timestamp=timestamp,
             )
 
     def _persist_state(self) -> None:

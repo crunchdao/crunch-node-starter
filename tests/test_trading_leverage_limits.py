@@ -28,7 +28,9 @@ class TestLeverageLimits:
         assert total <= 5.0
 
     def test_no_clamping_within_limits(self):
-        sim = TradingEngine(cost_model=ZERO_COST, max_position_leverage=5.0, max_portfolio_leverage=10.0)
+        sim = TradingEngine(
+            cost_model=ZERO_COST, max_position_leverage=5.0, max_portfolio_leverage=10.0
+        )
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 3.0, price=50000.0, timestamp=now)
         pos = sim.get_position("model_1", "BTCUSDT")

@@ -13,7 +13,14 @@ ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 class TestApplyOrder:
     def test_open_long_position(self):
         sim = TradingEngine(cost_model=ZERO_COST)
-        sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=datetime.now(UTC))
+        sim.apply_order(
+            "model_1",
+            "BTCUSDT",
+            "long",
+            0.5,
+            price=50000.0,
+            timestamp=datetime.now(UTC),
+        )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "long"
@@ -33,7 +40,9 @@ class TestApplyOrder:
         sim = TradingEngine(cost_model=ZERO_COST)
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
-        sim.apply_order("model_1", "BTCUSDT", "short", 0.3, price=51000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 0.3, price=51000.0, timestamp=now
+        )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
         assert pos.leverage == pytest.approx(0.2)
@@ -42,7 +51,9 @@ class TestApplyOrder:
         sim = TradingEngine(cost_model=ZERO_COST)
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
-        sim.apply_order("model_1", "BTCUSDT", "short", 0.3, price=51000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 0.3, price=51000.0, timestamp=now
+        )
         trades = sim.get_trades("model_1")
         assert len(trades) == 1
         expected_pnl = 0.3 * (51000.0 - 50000.0) / 50000.0
@@ -53,7 +64,9 @@ class TestApplyOrder:
         sim = TradingEngine(cost_model=ZERO_COST)
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
-        sim.apply_order("model_1", "BTCUSDT", "short", 0.5, price=51000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 0.5, price=51000.0, timestamp=now
+        )
         assert sim.get_position("model_1", "BTCUSDT") is None
         trades = sim.get_trades("model_1")
         assert len(trades) == 1
@@ -64,7 +77,9 @@ class TestApplyOrder:
         sim = TradingEngine(cost_model=ZERO_COST)
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
-        sim.apply_order("model_1", "BTCUSDT", "short", 0.8, price=51000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 0.8, price=51000.0, timestamp=now
+        )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "short"
@@ -74,17 +89,23 @@ class TestApplyOrder:
     def test_negative_leverage_raises(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         with pytest.raises(ValueError):
-            sim.apply_order("m1", "X", "long", -1.0, price=100.0, timestamp=datetime.now(UTC))
+            sim.apply_order(
+                "m1", "X", "long", -1.0, price=100.0, timestamp=datetime.now(UTC)
+            )
 
     def test_invalid_direction_raises(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         with pytest.raises(ValueError):
-            sim.apply_order("m1", "X", "up", 1.0, price=100.0, timestamp=datetime.now(UTC))
+            sim.apply_order(
+                "m1", "X", "up", 1.0, price=100.0, timestamp=datetime.now(UTC)
+            )
 
     def test_close_short_position(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         now = datetime.now(UTC)
-        sim.apply_order("model_1", "BTCUSDT", "short", 0.5, price=50000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 0.5, price=50000.0, timestamp=now
+        )
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=49000.0, timestamp=now)
         assert sim.get_position("model_1", "BTCUSDT") is None
         expected_pnl = 0.5 * (50000.0 - 49000.0) / 50000.0
@@ -105,7 +126,9 @@ class TestMarkToMarket:
 class TestFees:
     def test_fees_deducted_on_order(self):
         sim = TradingEngine(
-            cost_model=CostModel(trading_fee_pct=0.001, spread_pct=0.0, carry_annual_pct=0.0)
+            cost_model=CostModel(
+                trading_fee_pct=0.001, spread_pct=0.0, carry_annual_pct=0.0
+            )
         )
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
@@ -114,7 +137,9 @@ class TestFees:
 
     def test_snapshot_net_pnl(self):
         sim = TradingEngine(
-            cost_model=CostModel(trading_fee_pct=0.001, spread_pct=0.0, carry_annual_pct=0.0)
+            cost_model=CostModel(
+                trading_fee_pct=0.001, spread_pct=0.0, carry_annual_pct=0.0
+            )
         )
         now = datetime.now(UTC)
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)

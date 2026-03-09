@@ -15,7 +15,6 @@ ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 
 class InMemoryTradingStateRepository:
-
     def __init__(self):
         self._states = {}
 
@@ -122,7 +121,9 @@ class TestPersistToScoreFlow:
             model_ids=["model_1"],
         )
         now = datetime.now(UTC)
-        sim1.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
+        sim1.apply_order(
+            "model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now
+        )
 
         record = FeedDataRecord(
             source="binance",

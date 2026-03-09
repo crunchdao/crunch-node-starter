@@ -756,12 +756,9 @@ class ScoreService:
                         price_return = -price_return
                     total_unrealized += leverage * price_return
 
-            total_realized = sum(
-                t.get("realized_pnl", 0.0) or 0.0 for t in trades_data
-            )
+            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
             total_carry = (
-                sum(p.get("accrued_carry", 0.0) for p in positions_data)
-                + closed_carry
+                sum(p.get("accrued_carry", 0.0) for p in positions_data) + closed_carry
             )
             net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
 

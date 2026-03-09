@@ -42,14 +42,19 @@ class TradingEngine:
         existing = self._positions.get(key)
 
         if existing is not None and existing.direction == direction:
-            leverage = min(leverage, max(0.0, self._max_position_leverage - existing.leverage))
+            leverage = min(
+                leverage, max(0.0, self._max_position_leverage - existing.leverage)
+            )
         else:
             leverage = min(leverage, self._max_position_leverage)
 
         current_portfolio_leverage = sum(
             p.leverage for k, p in self._positions.items() if k[0] == model_id
         )
-        leverage = min(leverage, max(0.0, self._max_portfolio_leverage - current_portfolio_leverage))
+        leverage = min(
+            leverage,
+            max(0.0, self._max_portfolio_leverage - current_portfolio_leverage),
+        )
 
         if leverage <= 0:
             return
@@ -92,7 +97,9 @@ class TradingEngine:
         model_id, subject = key
 
         if leverage < existing.leverage:
-            partial_pnl = self._compute_realized_pnl(existing, price) * (leverage / existing.leverage)
+            partial_pnl = self._compute_realized_pnl(existing, price) * (
+                leverage / existing.leverage
+            )
             trade = Trade(
                 model_id=model_id,
                 subject=subject,
@@ -107,7 +114,9 @@ class TradingEngine:
             self._trades.setdefault(model_id, []).append(trade)
             partial_ratio = leverage / existing.leverage
             partial_carry = existing.accrued_carry * partial_ratio
-            self._closed_carry[model_id] = self._closed_carry.get(model_id, 0.0) + partial_carry
+            self._closed_carry[model_id] = (
+                self._closed_carry.get(model_id, 0.0) + partial_carry
+            )
             existing.accrued_carry -= partial_carry
             existing.leverage -= leverage
             return
@@ -126,7 +135,9 @@ class TradingEngine:
         )
         self._trades.setdefault(model_id, []).append(trade)
 
-        self._closed_carry[model_id] = self._closed_carry.get(model_id, 0.0) + existing.accrued_carry
+        self._closed_carry[model_id] = (
+            self._closed_carry.get(model_id, 0.0) + existing.accrued_carry
+        )
         remainder = leverage - existing.leverage
         del self._positions[key]
         self._last_mark_at.pop(key, None)
@@ -156,7 +167,9 @@ class TradingEngine:
             if key[1] == subject:
                 last_mark = self._last_mark_at.get(key, position.opened_at)
                 elapsed = (timestamp - last_mark).total_seconds()
-                position.accrued_carry += self._cost_model.carry_cost(position.leverage, elapsed)
+                position.accrued_carry += self._cost_model.carry_cost(
+                    position.leverage, elapsed
+                )
                 self._last_mark_at[key] = timestamp
                 position.current_price = price
 
@@ -169,18 +182,19 @@ class TradingEngine:
     def get_trades(self, model_id: str) -> list[Trade]:
         return list(self._trades.get(model_id, []))
 
-    def get_portfolio_snapshot(self, model_id: str, timestamp: datetime) -> dict[str, Any]:
-        positions = [
-            pos for key, pos in self._positions.items() if key[0] == model_id
-        ]
+    def get_portfolio_snapshot(
+        self, model_id: str, timestamp: datetime
+    ) -> dict[str, Any]:
+        positions = [pos for key, pos in self._positions.items() if key[0] == model_id]
         total_unrealized = sum(p.unrealized_pnl for p in positions)
         total_realized = sum(
-            t.realized_pnl for t in self._trades.get(model_id, []) if t.realized_pnl is not None
+            t.realized_pnl
+            for t in self._trades.get(model_id, [])
+            if t.realized_pnl is not None
         )
         total_fees = self._portfolio_fees.get(model_id, 0.0)
-        total_carry = (
-            sum(p.accrued_carry for p in positions)
-            + self._closed_carry.get(model_id, 0.0)
+        total_carry = sum(p.accrued_carry for p in positions) + self._closed_carry.get(
+            model_id, 0.0
         )
 
         return {

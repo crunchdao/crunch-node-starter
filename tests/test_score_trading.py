@@ -27,9 +27,13 @@ class TestTradingScoring:
             "model_id": "m1",
             "positions": [
                 {
-                    "subject": "BTCUSDT", "direction": "long", "leverage": 0.5,
-                    "entry_price": 50000.0, "opened_at": "2026-01-01T00:00:00+00:00",
-                    "current_price": 51000.0, "accrued_carry": 0.0,
+                    "subject": "BTCUSDT",
+                    "direction": "long",
+                    "leverage": 0.5,
+                    "entry_price": 50000.0,
+                    "opened_at": "2026-01-01T00:00:00+00:00",
+                    "current_price": 51000.0,
+                    "accrued_carry": 0.0,
                 }
             ],
             "trades": [],
@@ -59,17 +63,26 @@ class TestTradingScoring:
             "model_id": "m1",
             "positions": [
                 {
-                    "subject": "BTCUSDT", "direction": "long", "leverage": 1.0,
-                    "entry_price": 50000.0, "opened_at": "2026-01-01T00:00:00+00:00",
-                    "current_price": 51000.0, "accrued_carry": 0.001,
+                    "subject": "BTCUSDT",
+                    "direction": "long",
+                    "leverage": 1.0,
+                    "entry_price": 50000.0,
+                    "opened_at": "2026-01-01T00:00:00+00:00",
+                    "current_price": 51000.0,
+                    "accrued_carry": 0.001,
                 }
             ],
             "trades": [
                 {
-                    "subject": "ETHUSDT", "direction": "short", "leverage": 0.3,
-                    "entry_price": 3000.0, "opened_at": "2026-01-01T00:00:00+00:00",
-                    "exit_price": 2900.0, "closed_at": "2026-01-02T00:00:00+00:00",
-                    "realized_pnl": 0.01, "fees_paid": 0.0003,
+                    "subject": "ETHUSDT",
+                    "direction": "short",
+                    "leverage": 0.3,
+                    "entry_price": 3000.0,
+                    "opened_at": "2026-01-01T00:00:00+00:00",
+                    "exit_price": 2900.0,
+                    "closed_at": "2026-01-02T00:00:00+00:00",
+                    "realized_pnl": 0.01,
+                    "fees_paid": 0.0003,
                 }
             ],
             "portfolio_fees": 0.001,

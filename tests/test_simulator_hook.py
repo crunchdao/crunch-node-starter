@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from crunch_node.entities.prediction import InputRecord, PredictionRecord, PredictionStatus
+from crunch_node.entities.prediction import (
+    InputRecord,
+    PredictionRecord,
+    PredictionStatus,
+)
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink

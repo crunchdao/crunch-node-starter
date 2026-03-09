@@ -16,30 +16,41 @@ class TestTradingStateRepository:
 
         positions = [
             Position(
-                model_id="m1", subject="BTCUSDT", direction="long",
-                leverage=0.5, entry_price=50000.0,
+                model_id="m1",
+                subject="BTCUSDT",
+                direction="long",
+                leverage=0.5,
+                entry_price=50000.0,
                 opened_at=datetime(2026, 1, 1, tzinfo=UTC),
-                current_price=51000.0, accrued_carry=0.001,
+                current_price=51000.0,
+                accrued_carry=0.001,
             )
         ]
         trades = [
             Trade(
-                model_id="m1", subject="BTCUSDT", direction="long",
-                leverage=0.3, entry_price=49000.0,
+                model_id="m1",
+                subject="BTCUSDT",
+                direction="long",
+                leverage=0.3,
+                entry_price=49000.0,
                 opened_at=datetime(2026, 1, 1, tzinfo=UTC),
-                exit_price=50000.0, closed_at=datetime(2026, 1, 2, tzinfo=UTC),
-                realized_pnl=0.006, fees_paid=0.0003,
+                exit_price=50000.0,
+                closed_at=datetime(2026, 1, 2, tzinfo=UTC),
+                realized_pnl=0.006,
+                fees_paid=0.0003,
             )
         ]
 
-        repo.save_state("m1", positions, trades, portfolio_fees=0.001, closed_carry=0.0002)
+        repo.save_state(
+            "m1", positions, trades, portfolio_fees=0.001, closed_carry=0.0002
+        )
 
         session.add.assert_called_once()
         session.commit.assert_called_once()
 
     def test_save_state_updates_existing(self):
-        from crunch_node.db.trading_state_repository import TradingStateRepository
         from crunch_node.db.tables.trading import TradingStateRow
+        from crunch_node.db.trading_state_repository import TradingStateRepository
 
         existing_row = TradingStateRow(
             model_id="m1",
@@ -71,16 +82,22 @@ class TestTradingStateRepository:
         assert result is None
 
     def test_load_state_returns_dict(self):
-        from crunch_node.db.trading_state_repository import TradingStateRepository
         from crunch_node.db.tables.trading import TradingStateRow
+        from crunch_node.db.trading_state_repository import TradingStateRepository
 
         row = TradingStateRow(
             model_id="m1",
-            positions_jsonb=[{
-                "subject": "BTCUSDT", "direction": "long", "leverage": 0.5,
-                "entry_price": 50000.0, "opened_at": "2026-01-01T00:00:00+00:00",
-                "current_price": 51000.0, "accrued_carry": 0.001,
-            }],
+            positions_jsonb=[
+                {
+                    "subject": "BTCUSDT",
+                    "direction": "long",
+                    "leverage": 0.5,
+                    "entry_price": 50000.0,
+                    "opened_at": "2026-01-01T00:00:00+00:00",
+                    "current_price": 51000.0,
+                    "accrued_carry": 0.001,
+                }
+            ],
             trades_jsonb=[],
             portfolio_fees=0.001,
             closed_carry=0.0,

@@ -15,7 +15,7 @@ class TestMaybeBuildSimulatorSink:
         sink = _maybe_build_simulator_sink(config, session)
         assert sink is not None
         assert isinstance(sink, SimulatorSink)
-        assert hasattr(sink, '_state_repository')
+        assert hasattr(sink, "_state_repository")
 
     def test_returns_none_when_no_cost_model(self):
         config = MagicMock(spec=[])

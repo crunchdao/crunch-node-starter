@@ -48,7 +48,9 @@ class TestCarryCost:
         assert pos.accrued_carry == pytest.approx(expected_carry, abs=1e-6)
 
     def test_no_carry_when_zero_rate(self):
-        zero_carry = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+        zero_carry = CostModel(
+            trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0
+        )
         sim = TradingEngine(cost_model=zero_carry)
         t0 = datetime(2026, 1, 1, tzinfo=UTC)
 

@@ -10,7 +10,8 @@ Scoring: pnl = signal * actual_return - |signal| * spread_fee
 
 from __future__ import annotations
 
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from typing import Any, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 

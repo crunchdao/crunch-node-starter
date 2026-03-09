@@ -52,9 +52,13 @@ class TestSimulatorSerialization:
         assert trades[0].realized_pnl is not None
 
     def test_load_state_restores_accumulators(self):
-        sim1 = TradingEngine(cost_model=CostModel(
-            trading_fee_pct=0.001, spread_pct=0.0, carry_annual_pct=0.0,
-        ))
+        sim1 = TradingEngine(
+            cost_model=CostModel(
+                trading_fee_pct=0.001,
+                spread_pct=0.0,
+                carry_annual_pct=0.0,
+            )
+        )
         now = datetime(2026, 1, 1, tzinfo=UTC)
         sim1.apply_order("m1", "BTCUSDT", "long", 0.5, price=50000.0, timestamp=now)
         state = sim1.get_full_state("m1")
@@ -78,5 +82,7 @@ class TestSimulatorSerialization:
         snap2 = sim2.get_portfolio_snapshot("m1", now)
 
         assert snap2["net_pnl"] == pytest.approx(snap1["net_pnl"])
-        assert snap2["total_unrealized_pnl"] == pytest.approx(snap1["total_unrealized_pnl"])
+        assert snap2["total_unrealized_pnl"] == pytest.approx(
+            snap1["total_unrealized_pnl"]
+        )
         assert snap2["open_position_count"] == snap1["open_position_count"]

@@ -18,7 +18,9 @@ class TestFullFlow:
     def test_order_tick_snapshot_close(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, state_repository=state_repo, model_ids=["model_1"])
+        sink = SimulatorSink(
+            simulator=sim, state_repository=state_repo, model_ids=["model_1"]
+        )
 
         now = datetime.now(UTC)
         ts_ms = int(now.timestamp() * 1000)
@@ -26,8 +28,12 @@ class TestFullFlow:
         sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
 
         record = FeedDataRecord(
-            source="binance", subject="BTCUSDT", kind="candle", granularity="1m",
-            ts_event=ts_ms, values={"close": 51000.0},
+            source="binance",
+            subject="BTCUSDT",
+            kind="candle",
+            granularity="1m",
+            ts_event=ts_ms,
+            values={"close": 51000.0},
         )
         asyncio.run(sink.on_record(record))
 
@@ -39,11 +45,17 @@ class TestFullFlow:
 
         state_repo.reset_mock()
 
-        sim.apply_order("model_1", "BTCUSDT", "short", 1.0, price=51000.0, timestamp=now)
+        sim.apply_order(
+            "model_1", "BTCUSDT", "short", 1.0, price=51000.0, timestamp=now
+        )
 
         record2 = FeedDataRecord(
-            source="binance", subject="BTCUSDT", kind="candle", granularity="1m",
-            ts_event=ts_ms, values={"close": 51000.0},
+            source="binance",
+            subject="BTCUSDT",
+            kind="candle",
+            granularity="1m",
+            ts_event=ts_ms,
+            values={"close": 51000.0},
         )
         asyncio.run(sink.on_record(record2))
 
@@ -54,7 +66,11 @@ class TestFullFlow:
         assert snapshot2["open_position_count"] == 0
 
     def test_hook_to_tick_flow(self):
-        from crunch_node.entities.prediction import InputRecord, PredictionRecord, PredictionStatus
+        from crunch_node.entities.prediction import (
+            InputRecord,
+            PredictionRecord,
+            PredictionStatus,
+        )
 
         sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
@@ -82,8 +98,12 @@ class TestFullFlow:
         assert "model_1" in sink._model_ids
 
         record = FeedDataRecord(
-            source="binance", subject="BTCUSDT", kind="candle", granularity="1m",
-            ts_event=int(now.timestamp() * 1000), values={"close": 52000.0},
+            source="binance",
+            subject="BTCUSDT",
+            kind="candle",
+            granularity="1m",
+            ts_event=int(now.timestamp() * 1000),
+            values={"close": 52000.0},
         )
         asyncio.run(sink.on_record(record))
 
