@@ -85,19 +85,28 @@ class SimulatorSink:
         if self._signal_mode == "delta":
             direction = inference_output.get("direction")
             leverage = inference_output.get("leverage")
-            if direction and leverage:
-                self._simulator.apply_order(
-                    model_id,
-                    subject,
-                    direction,
-                    float(leverage),
-                    price=price,
-                    timestamp=timestamp,
+            if direction is None or leverage is None:
+                raise ValueError(
+                    "Delta mode requires 'direction' and 'leverage' in inference_output, "
+                    "got: %s" % list(inference_output.keys())
                 )
+            self._simulator.apply_order(
+                model_id,
+                subject,
+                direction,
+                float(leverage),
+                price=price,
+                timestamp=timestamp,
+            )
             return
 
         signal = inference_output.get("signal")
         if signal is None:
+            logger.warning(
+                "Target mode inference_output missing 'signal' for %s/%s, skipping",
+                model_id,
+                subject,
+            )
             return
         signal = float(signal)
 
