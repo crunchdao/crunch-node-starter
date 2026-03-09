@@ -32,7 +32,13 @@ class SimulatorSink:
 
     @staticmethod
     def extract_price(record: FeedDataRecord) -> float | None:
-        return record.values.get("close") or record.values.get("price")
+        price = record.values.get("close")
+        if price is not None:
+            return float(price)
+        price = record.values.get("price")
+        if price is not None:
+            return float(price)
+        return None
 
     def _write_snapshots(self, timestamp: datetime) -> None:
         from crunch_node.entities.prediction import SnapshotRecord
