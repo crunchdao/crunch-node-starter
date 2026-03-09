@@ -10,6 +10,7 @@ from crunch_node.db.tables.pipeline import (
     ScoreRow,
     SnapshotRow,
 )
+from crunch_node.db.tables.trading import TradingStateRow
 
 __all__ = [
     "BackfillJobRow",
@@ -25,4 +26,5 @@ __all__ = [
     "LeaderboardRow",
     "FeedRecordRow",
     "FeedIngestionStateRow",
+    "TradingStateRow",
 ]
