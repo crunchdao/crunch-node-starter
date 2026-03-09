@@ -8,8 +8,15 @@ from crunch_node.services.trading.models import Direction, Position, Trade
 
 
 class TradingSimulator:
-    def __init__(self, cost_model: CostModel) -> None:
+    def __init__(
+        self,
+        cost_model: CostModel,
+        max_position_leverage: float = 10.0,
+        max_portfolio_leverage: float = 20.0,
+    ) -> None:
         self._cost_model = cost_model
+        self._max_position_leverage = max_position_leverage
+        self._max_portfolio_leverage = max_portfolio_leverage
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, list[Trade]] = {}
         self._portfolio_fees: dict[str, float] = {}
@@ -31,11 +38,24 @@ class TradingSimulator:
         if direction not in ("long", "short"):
             raise ValueError("Direction must be 'long' or 'short'")
 
-        fee = self._cost_model.order_cost(leverage)
-        self._portfolio_fees[model_id] = self._portfolio_fees.get(model_id, 0.0) + fee
-
         key = (model_id, subject)
         existing = self._positions.get(key)
+
+        if existing is not None and existing.direction == direction:
+            leverage = min(leverage, max(0.0, self._max_position_leverage - existing.leverage))
+        else:
+            leverage = min(leverage, self._max_position_leverage)
+
+        current_portfolio_leverage = sum(
+            p.leverage for k, p in self._positions.items() if k[0] == model_id
+        )
+        leverage = min(leverage, max(0.0, self._max_portfolio_leverage - current_portfolio_leverage))
+
+        if leverage <= 0:
+            return
+
+        fee = self._cost_model.order_cost(leverage)
+        self._portfolio_fees[model_id] = self._portfolio_fees.get(model_id, 0.0) + fee
 
         if existing is None:
             self._positions[key] = Position(
@@ -142,6 +162,9 @@ class TradingSimulator:
 
     def get_position(self, model_id: str, subject: str) -> Position | None:
         return self._positions.get((model_id, subject))
+
+    def get_all_positions(self, model_id: str) -> list[Position]:
+        return [pos for key, pos in self._positions.items() if key[0] == model_id]
 
     def get_trades(self, model_id: str) -> list[Trade]:
         return list(self._trades.get(model_id, []))
