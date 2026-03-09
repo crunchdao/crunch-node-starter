@@ -8,7 +8,7 @@ from starter_challenge.tracker import TrackerBase
 class ContrarianTracker(TrackerBase):
     """Predicts the opposite direction of the most recent candle move."""
 
-    def predict(
+    def _predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
     ) -> dict:
         prices = _extract_prices(self._get_data(subject))

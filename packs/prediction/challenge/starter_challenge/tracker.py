@@ -12,7 +12,10 @@ The ``predict()`` return value must match ``PredictionOutput``::
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class TrackerBase:
@@ -24,6 +27,7 @@ class TrackerBase:
 
     def __init__(self) -> None:
         self._latest_data_by_subject: dict[str, dict[str, Any]] = {}
+        self._model_name = type(self).__name__
 
     def feed_update(self, data: dict[str, Any]) -> None:
         """Receive latest market data. Override to maintain state.
@@ -49,6 +53,18 @@ class TrackerBase:
             data.get("symbol", "_default") if isinstance(data, dict) else "_default"
         )
         self._latest_data_by_subject[subject_key] = data
+
+        # Log feed summary
+        if isinstance(data, dict):
+            candles = data.get("candles_1m", [])
+            last_close = candles[-1].get("close") if candles else None
+            logger.info(
+                "[%s] feed_update subject=%s candles=%d last_close=%s",
+                self._model_name,
+                subject_key,
+                len(candles),
+                last_close,
+            )
 
     def _get_data(self, subject: str) -> dict[str, Any] | None:
         """Return the latest feed data for *subject*.
@@ -76,4 +92,18 @@ class TrackerBase:
             Expects ``{"value": float}`` where positive means bullish
             and negative means bearish, magnitude = conviction.
         """
-        raise NotImplementedError("Implement predict() in your model")
+        result = self._predict(subject, resolve_horizon_seconds, step_seconds)
+        logger.info(
+            "[%s] predict subject=%s horizon=%ds → %s",
+            self._model_name,
+            subject,
+            resolve_horizon_seconds,
+            result,
+        )
+        return result
+
+    def _predict(
+        self, subject: str, resolve_horizon_seconds: int, step_seconds: int
+    ) -> dict[str, Any]:
+        """Override this in your model. See ``predict()`` for docs."""
+        raise NotImplementedError("Implement _predict() or predict() in your model")
