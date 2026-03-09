@@ -30,7 +30,6 @@ class SimulatorSink:
             return
         ts = datetime.fromtimestamp(record.ts_event / 1000, tz=UTC)
         self._simulator.mark_to_market(record.subject, price, ts)
-        self._persist_state()
 
     @staticmethod
     def extract_price(record: FeedDataRecord) -> float | None:
@@ -71,6 +70,7 @@ class SimulatorSink:
             if pred.model_id not in self._model_ids:
                 self._model_ids.append(pred.model_id)
 
+        self._persist_state()
         return predictions
 
     def apply_signal(
@@ -88,7 +88,7 @@ class SimulatorSink:
             if direction is None or leverage is None:
                 raise ValueError(
                     "Delta mode requires 'direction' and 'leverage' in inference_output, "
-                    "got: %s" % list(inference_output.keys())
+                    f"got: {list(inference_output.keys())}"
                 )
             self._simulator.apply_order(
                 model_id,

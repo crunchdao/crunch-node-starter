@@ -6,6 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from crunch_node.entities.prediction import (
+    InputRecord,
+    PredictionRecord,
+    PredictionStatus,
+)
 from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
@@ -69,11 +74,26 @@ class TestPersistToScoreFlow:
         sink = SimulatorSink(
             simulator=sim,
             state_repository=state_repo,
-            model_ids=["model_1"],
         )
 
         now = datetime.now(UTC)
-        sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
+        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        predictions = [
+            PredictionRecord(
+                id="PRED_1",
+                model_id="model_1",
+                input_id="INP_1",
+                prediction_config_id=None,
+                scope_key="trading-btcusdt",
+                scope={"subject": "BTCUSDT"},
+                inference_output={"direction": "long", "leverage": 1.0},
+                status=PredictionStatus.PENDING,
+                exec_time_ms=1.0,
+                performed_at=now,
+                resolvable_at=now,
+            ),
+        ]
+        sink.on_predictions(predictions, inp, now)
 
         record = FeedDataRecord(
             source="binance",
@@ -107,9 +127,8 @@ class TestPersistToScoreFlow:
         snapshot_repo.save.assert_called_once()
         snap = snapshot_repo.save.call_args[0][0]
         assert snap.model_id == "model_1"
-        expected_pnl = 1.0 * (51000.0 - 50000.0) / 50000.0
-        assert snap.result_summary["unrealized_pnl"] == pytest.approx(expected_pnl)
-        assert snap.result_summary["net_pnl"] == pytest.approx(expected_pnl)
+        assert snap.result_summary["unrealized_pnl"] == pytest.approx(0.0)
+        assert snap.result_summary["net_pnl"] == pytest.approx(0.0)
 
     def test_crash_recovery_then_score(self):
         state_repo = InMemoryTradingStateRepository()
@@ -118,12 +137,25 @@ class TestPersistToScoreFlow:
         sink1 = SimulatorSink(
             simulator=sim1,
             state_repository=state_repo,
-            model_ids=["model_1"],
         )
         now = datetime.now(UTC)
-        sim1.apply_order(
-            "model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now
-        )
+        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        predictions = [
+            PredictionRecord(
+                id="PRED_1",
+                model_id="model_1",
+                input_id="INP_1",
+                prediction_config_id=None,
+                scope_key="trading-btcusdt",
+                scope={"subject": "BTCUSDT"},
+                inference_output={"direction": "long", "leverage": 1.0},
+                status=PredictionStatus.PENDING,
+                exec_time_ms=1.0,
+                performed_at=now,
+                resolvable_at=now,
+            ),
+        ]
+        sink1.on_predictions(predictions, inp, now)
 
         record = FeedDataRecord(
             source="binance",
@@ -142,4 +174,4 @@ class TestPersistToScoreFlow:
         pos = sim2.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "long"
-        assert pos.current_price == pytest.approx(51000.0)
+        assert pos.current_price == pytest.approx(50000.0)

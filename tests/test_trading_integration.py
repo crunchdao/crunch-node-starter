@@ -37,13 +37,11 @@ class TestFullFlow:
         )
         asyncio.run(sink.on_record(record))
 
-        state_repo.save_state.assert_called()
+        state_repo.save_state.assert_not_called()
         snapshot = sim.get_portfolio_snapshot("model_1", now)
         assert snapshot["total_unrealized_pnl"] > 0
         assert snapshot["total_realized_pnl"] == 0
         assert snapshot["open_position_count"] == 1
-
-        state_repo.reset_mock()
 
         sim.apply_order(
             "model_1", "BTCUSDT", "short", 1.0, price=51000.0, timestamp=now
@@ -96,6 +94,7 @@ class TestFullFlow:
 
         sink.on_predictions(predictions, inp, now)
         assert "model_1" in sink._model_ids
+        state_repo.save_state.assert_called_once()
 
         record = FeedDataRecord(
             source="binance",
@@ -107,7 +106,6 @@ class TestFullFlow:
         )
         asyncio.run(sink.on_record(record))
 
-        state_repo.save_state.assert_called_once()
         snapshot = sim.get_portfolio_snapshot("model_1", now)
         expected_pnl = 1.0 * (52000.0 - 50000.0) / 50000.0
         assert snapshot["total_unrealized_pnl"] == pytest.approx(expected_pnl)

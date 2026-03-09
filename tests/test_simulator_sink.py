@@ -79,7 +79,7 @@ class TestOnRecord:
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.current_price == 51000.0
 
-    def test_on_record_persists_state(self):
+    def test_on_record_does_not_persist(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(
@@ -99,7 +99,7 @@ class TestOnRecord:
         )
         asyncio.run(sink.on_record(record))
 
-        state_repo.save_state.assert_called_once()
+        state_repo.save_state.assert_not_called()
 
     def test_on_record_skips_when_no_price(self):
         sim = TradingEngine(cost_model=ZERO_COST)
