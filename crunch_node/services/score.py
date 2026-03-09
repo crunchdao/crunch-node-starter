@@ -91,6 +91,7 @@ class ScoreService:
             self._checkpoint_service = None
         self._last_checkpoint_at: datetime | None = None
 
+        self.trading_state_repository = kwargs.pop("trading_state_repository", None)
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
 
@@ -296,7 +297,9 @@ class ScoreService:
     def score_and_snapshot(self) -> bool:
         now = datetime.now(UTC)
 
-        # 1. score predictions past their resolve horizon
+        if self.trading_state_repository is not None:
+            return self._score_trading(now)
+
         scored = self._score_predictions(now)
         if not scored:
             self.logger.info("No predictions scored this cycle")
@@ -723,6 +726,70 @@ class ScoreService:
                 len(ens_preds),
                 {m: round(w, 3) for m, w in weights.items()},
             )
+
+    # ── trading scoring ──
+
+    def _score_trading(self, now: datetime) -> bool:
+        model_ids = self.trading_state_repository.get_all_model_ids()
+        if not model_ids:
+            return False
+
+        written_snapshots = []
+        for model_id in model_ids:
+            state = self.trading_state_repository.load_state(model_id)
+            if state is None:
+                continue
+
+            positions_data = state.get("positions", [])
+            trades_data = state.get("trades", [])
+            portfolio_fees = state.get("portfolio_fees", 0.0)
+            closed_carry = state.get("closed_carry", 0.0)
+
+            total_unrealized = 0.0
+            for p in positions_data:
+                entry = p["entry_price"]
+                current = p.get("current_price", entry)
+                leverage = p["leverage"]
+                if entry > 0:
+                    price_return = (current - entry) / entry
+                    if p["direction"] == "short":
+                        price_return = -price_return
+                    total_unrealized += leverage * price_return
+
+            total_realized = sum(
+                t.get("realized_pnl", 0.0) or 0.0 for t in trades_data
+            )
+            total_carry = (
+                sum(p.get("accrued_carry", 0.0) for p in positions_data)
+                + closed_carry
+            )
+            net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
+
+            snapshot = SnapshotRecord(
+                id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                model_id=model_id,
+                period_start=now,
+                period_end=now,
+                prediction_count=len(positions_data),
+                result_summary={
+                    "net_pnl": net_pnl,
+                    "unrealized_pnl": total_unrealized,
+                    "realized_pnl": total_realized,
+                    "total_fees": portfolio_fees,
+                    "total_carry_costs": total_carry,
+                    "open_position_count": len(positions_data),
+                },
+            )
+            self.snapshot_repository.save(snapshot)
+            written_snapshots.append(snapshot)
+
+        if not written_snapshots:
+            return False
+
+        self.logger.info("Wrote %d trading snapshots", len(written_snapshots))
+        self._rebuild_leaderboard()
+        self._maybe_checkpoint(now)
+        return True
 
     # ── 5. checkpoint ──
 
