@@ -74,12 +74,17 @@ _METRIC_DISPLAY_NAMES: dict[str, str] = {
     "ensemble_correlation": "Ens. Corr",
 }
 
+_METRIC_FORMATS: dict[str, str] = {
+    "hit_rate": "decimal-2",
+    "sortino_ratio": "decimal-2",
+}
+
 _METRIC_TOOLTIPS: dict[str, str] = {
     "ic": "Information Coefficient — Spearman rank correlation between predictions and realized returns",
     "ic_sharpe": "IC Sharpe — mean(IC) / std(IC), rewards consistency",
     "mean_return": "Mean return of a long-short portfolio formed from signals",
     "net_pnl": "Current net profit/loss including fees and carry costs",
-    "hit_rate": "Percentage of closed trades with positive realized PnL",
+    "hit_rate": "Fraction of closed trades with positive realized PnL",
     "max_drawdown": "Worst peak-to-trough drawdown on cumulative PnL",
     "sortino_ratio": "Like Sharpe but only penalizes downside volatility",
     "turnover": "Mean absolute change in signal between consecutive predictions",
@@ -137,12 +142,13 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             metric_name, metric_name.replace("_", " ").title()
         )
         tooltip = _METRIC_TOOLTIPS.get(metric_name)
+        fmt = _METRIC_FORMATS.get(metric_name, "decimal-4")
         columns.append(
             {
                 "id": col_id,
                 "type": "VALUE",
                 "property": metric_name,
-                "format": "decimal-4",
+                "format": fmt,
                 "displayName": display,
                 "tooltip": tooltip,
                 "nativeConfiguration": None,

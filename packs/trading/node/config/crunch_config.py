@@ -61,13 +61,9 @@ class CrunchConfig(BaseCrunchConfig):
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(
-            windows={
-                "score_recent": AggregationWindow(hours=24),
-                "score_steady": AggregationWindow(hours=72),
-                "score_anchor": AggregationWindow(hours=168),
-            },
+            windows={},
             value_field="net_pnl",
-            ranking_key="score_recent",
+            ranking_key="net_pnl",
             ranking_direction="desc",
         )
     )

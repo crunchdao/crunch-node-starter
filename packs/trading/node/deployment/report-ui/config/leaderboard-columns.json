@@ -25,61 +25,31 @@
   {
     "id": 3,
     "type": "VALUE",
-    "property": "score_recent",
-    "format": "decimal-4",
-    "displayName": "PnL (24h)",
-    "tooltip": "Average net PnL over the last 24 hours.",
+    "property": "hit_rate",
+    "format": "decimal-2",
+    "displayName": "Hit Rate",
+    "tooltip": "Fraction of closed trades with positive realized PnL.",
     "nativeConfiguration": null,
     "order": 20
   },
   {
     "id": 4,
     "type": "VALUE",
-    "property": "score_steady",
+    "property": "max_drawdown",
     "format": "decimal-4",
-    "displayName": "PnL (72h)",
-    "tooltip": "Average net PnL over the last 72 hours.",
+    "displayName": "Max DD",
+    "tooltip": "Worst peak-to-trough drawdown on cumulative PnL.",
     "nativeConfiguration": null,
     "order": 30
   },
   {
     "id": 5,
     "type": "VALUE",
-    "property": "score_anchor",
-    "format": "decimal-4",
-    "displayName": "PnL (7d)",
-    "tooltip": "Average net PnL over the last 7 days.",
-    "nativeConfiguration": null,
-    "order": 40
-  },
-  {
-    "id": 6,
-    "type": "VALUE",
-    "property": "hit_rate",
-    "format": "percent-1",
-    "displayName": "Hit Rate",
-    "tooltip": "Percentage of closed trades with positive realized PnL.",
-    "nativeConfiguration": null,
-    "order": 100
-  },
-  {
-    "id": 7,
-    "type": "VALUE",
-    "property": "max_drawdown",
-    "format": "decimal-4",
-    "displayName": "Max DD",
-    "tooltip": "Worst peak-to-trough drawdown on cumulative PnL.",
-    "nativeConfiguration": null,
-    "order": 110
-  },
-  {
-    "id": 8,
-    "type": "VALUE",
     "property": "sortino_ratio",
     "format": "decimal-2",
     "displayName": "Sortino",
     "tooltip": "Risk-adjusted return (penalizes downside volatility only).",
     "nativeConfiguration": null,
-    "order": 120
+    "order": 40
   }
 ]
