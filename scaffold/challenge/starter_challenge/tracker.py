@@ -21,6 +21,10 @@ class TrackerBase:
     def __init__(self) -> None:
         self._latest_data_by_subject: dict[str, dict[str, Any]] = {}
 
+    def tick(self, data: dict[str, Any]) -> None:
+        """Called by the model runner on each feed update. Delegates to ``feed_update``."""
+        self.feed_update(data)
+
     def feed_update(self, data: dict[str, Any]) -> None:
         """Receive latest market data. Override to maintain state.
 
