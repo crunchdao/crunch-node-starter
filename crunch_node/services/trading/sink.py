@@ -143,7 +143,7 @@ class SimulatorSink:
                 return
             if action not in ("buy", "sell"):
                 raise ValueError(
-                    "Order mode 'action' must be 'buy' or 'sell', got: %r" % action
+                    f"Order mode 'action' must be 'buy' or 'sell', got: {action!r}"
                 )
             direction = "long" if action == "buy" else "short"
             self._simulator.apply_order(
