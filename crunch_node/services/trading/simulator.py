@@ -48,8 +48,10 @@ class TradingEngine:
         else:
             size = min(size, self._max_position_size)
 
+        is_opposite = existing is not None and existing.direction != direction
         current_portfolio_size = sum(
-            p.size for k, p in self._positions.items() if k[0] == model_id
+            p.size for k, p in self._positions.items()
+            if k[0] == model_id and not (is_opposite and k == key)
         )
         size = min(
             size,
@@ -218,6 +220,8 @@ class TradingEngine:
         }
 
     def load_state(self, model_id: str, state: dict[str, Any]) -> None:
+        self._trades[model_id] = []
+
         for pos_data in state.get("positions", []):
             if isinstance(pos_data, Position):
                 pos = pos_data

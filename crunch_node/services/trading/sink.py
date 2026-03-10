@@ -21,7 +21,7 @@ class SimulatorSink:
     ) -> None:
         self._simulator = simulator
         self._state_repository = state_repository
-        self._model_ids = model_ids or []
+        self._model_ids: set[str] = set(model_ids) if model_ids else set()
         self._signal_mode = signal_mode
         self._last_price: dict[str, float] = {}
 
@@ -82,8 +82,7 @@ class SimulatorSink:
                 )
                 continue
             dirty_model_ids.add(pred.model_id)
-            if pred.model_id not in self._model_ids:
-                self._model_ids.append(pred.model_id)
+            self._model_ids.add(pred.model_id)
 
         self._persist_state(dirty_model_ids)
         return predictions

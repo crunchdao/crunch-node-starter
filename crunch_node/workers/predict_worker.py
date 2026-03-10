@@ -175,6 +175,10 @@ async def main() -> None:
     if simulator_sink is not None:
         sinks.append(simulator_sink)
         if isinstance(predict_service, RealtimePredictService):
+            if predict_service.post_predict_hook is not None:
+                raise ValueError(
+                    "Cannot use both a custom post_predict_hook and trading engine"
+                )
             predict_service.post_predict_hook = simulator_sink.on_predictions
 
     feed_service = FeedDataService(
