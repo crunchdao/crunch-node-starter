@@ -67,7 +67,9 @@ class SimulatorSink:
                 continue
 
             asset = self._pair_to_asset.get(raw_subject, raw_subject)
-            trading_pair = self._trading_config.asset_price_mapping.get(asset, raw_subject)
+            trading_pair = self._trading_config.asset_price_mapping.get(
+                asset, raw_subject
+            )
             price = self._last_price.get(trading_pair)
             if price is None:
                 logger.warning(

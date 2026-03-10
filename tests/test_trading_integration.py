@@ -48,9 +48,7 @@ class TestFullFlow:
         assert snapshot["total_realized_pnl"] == 0
         assert snapshot["open_position_count"] == 1
 
-        sim.apply_order(
-            "model_1", "BTC", "short", 1.0, price=51000.0, timestamp=now
-        )
+        sim.apply_order("model_1", "BTC", "short", 1.0, price=51000.0, timestamp=now)
 
         record2 = FeedDataRecord(
             source="binance",
