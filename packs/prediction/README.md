@@ -88,6 +88,10 @@ appear on the leaderboard:
 3. **~60s** — resolution horizon elapses
 4. **~60s** — next score worker cycle picks up resolvable predictions
 
+The leaderboard at `http://localhost:3000` populates as soon as
+step 4 completes — the same cycle that scores predictions also
+writes snapshots and updates the leaderboard rankings.
+
 ## Getting started
 
 Subclass `TrackerBase` and implement `_predict()`:
