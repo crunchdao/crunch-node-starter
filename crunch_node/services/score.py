@@ -824,22 +824,16 @@ class ScoreService:
 
         metrics["max_drawdown"] = self._max_drawdown(pnl_series)
 
-        profitable = sum(
-            1 for t in trades if (t.get("realized_pnl") or 0.0) > 0
-        )
+        profitable = sum(1 for t in trades if (t.get("realized_pnl") or 0.0) > 0)
         metrics["hit_rate"] = profitable / len(trades) if trades else 0.0
 
         metrics["sortino_ratio"] = self._sortino_ratio(pnl_series)
 
         return metrics
 
-    def _get_pnl_history(
-        self, model_id: str, current_net_pnl: float
-    ) -> list[float]:
+    def _get_pnl_history(self, model_id: str, current_net_pnl: float) -> list[float]:
         historical = self.snapshot_repository.find(model_id=model_id)
-        pnl_series = [
-            float(s.result_summary.get("net_pnl", 0.0)) for s in historical
-        ]
+        pnl_series = [float(s.result_summary.get("net_pnl", 0.0)) for s in historical]
         pnl_series.append(current_net_pnl)
         return pnl_series
 
@@ -861,10 +855,7 @@ class ScoreService:
     def _sortino_ratio(pnl_series: list[float]) -> float:
         if len(pnl_series) < 2:
             return 0.0
-        returns = [
-            pnl_series[i] - pnl_series[i - 1]
-            for i in range(1, len(pnl_series))
-        ]
+        returns = [pnl_series[i] - pnl_series[i - 1] for i in range(1, len(pnl_series))]
         mean_return = sum(returns) / len(returns)
         downside = [r for r in returns if r < 0]
         if not downside:
