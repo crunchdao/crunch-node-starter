@@ -199,7 +199,7 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             "displayName": "Score Metrics",
             "tooltip": None,
             "order": 10,
-            "endpointUrl": "/reports/models/global",
+            "endpointUrl": "/reports/models/metrics",
             "nativeConfiguration": {
                 "type": "line",
                 "xAxis": {"name": "performed_at"},
