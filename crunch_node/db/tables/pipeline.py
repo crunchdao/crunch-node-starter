@@ -5,9 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Column, Index
+from sqlalchemy import Column, DateTime, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
+
+TZDateTime = DateTime(timezone=True)
 
 
 def utc_now() -> datetime:
@@ -24,7 +26,9 @@ class InputRow(SQLModel, table=True):
         sa_column=Column(JSONB),
     )
 
-    received_at: datetime = Field(default_factory=utc_now, index=True)
+    received_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
 
 
 class PredictionRow(SQLModel, table=True):
@@ -57,8 +61,10 @@ class PredictionRow(SQLModel, table=True):
         sa_column=Column(JSONB),
     )
 
-    performed_at: datetime = Field(default_factory=utc_now, index=True)
-    resolvable_at: datetime = Field(index=True)
+    performed_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
+    resolvable_at: datetime = Field(index=True, sa_type=TZDateTime)
 
     __table_args__ = (Index("idx_predictions_lookup", "model_id", "scope_key"),)
 
@@ -75,7 +81,7 @@ class ScoreRow(SQLModel, table=True):
     )
     success: bool | None = None
     failed_reason: str | None = None
-    scored_at: datetime = Field(default_factory=utc_now, index=True)
+    scored_at: datetime = Field(default_factory=utc_now, index=True, sa_type=TZDateTime)
 
 
 class SnapshotRow(SQLModel, table=True):
@@ -84,8 +90,8 @@ class SnapshotRow(SQLModel, table=True):
     id: str = Field(primary_key=True)
     model_id: str = Field(index=True, foreign_key="models.id")
 
-    period_start: datetime = Field(index=True)
-    period_end: datetime = Field(index=True)
+    period_start: datetime = Field(index=True, sa_type=TZDateTime)
+    period_end: datetime = Field(index=True, sa_type=TZDateTime)
     prediction_count: int = Field(default=0)
 
     result_summary_jsonb: dict[str, Any] = Field(
@@ -98,7 +104,9 @@ class SnapshotRow(SQLModel, table=True):
     )
     content_hash: str | None = Field(default=None, index=True)
 
-    created_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
 
 
 class CheckpointRow(SQLModel, table=True):
@@ -106,8 +114,8 @@ class CheckpointRow(SQLModel, table=True):
 
     id: str = Field(primary_key=True)
 
-    period_start: datetime = Field(index=True)
-    period_end: datetime = Field(index=True)
+    period_start: datetime = Field(index=True, sa_type=TZDateTime)
+    period_end: datetime = Field(index=True, sa_type=TZDateTime)
     status: str = Field(default="PENDING", index=True)
 
     entries_jsonb: list[dict[str, Any]] = Field(
@@ -121,9 +129,11 @@ class CheckpointRow(SQLModel, table=True):
 
     merkle_root: str | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
     tx_hash: str | None = Field(default=None)
-    submitted_at: datetime | None = Field(default=None)
+    submitted_at: datetime | None = Field(default=None, sa_type=TZDateTime)
 
 
 class PredictionConfigRow(SQLModel, table=True):
