@@ -66,11 +66,11 @@ class CrunchConfig(BaseCrunchConfig):
     # Prediction schedule — what to predict, how often, when to resolve
     scheduled_predictions: list[ScheduledPrediction] = [
         ScheduledPrediction(
-            scope_key="realtime-btc-price-10s",
+            scope_key="realtime-btc-price-120s",
             scope={
                 "subject": "BTCUSDT"
             },  # passed to model.predict(); feed resolution is automatic
-            prediction_interval_seconds=1,  # how often it is called
-            resolve_horizon_seconds=10,  # how long to wait for the ground truth
+            prediction_interval_seconds=60,  # predict every 60 seconds
+            resolve_horizon_seconds=120,  # resolve ground truth after 2 minutes
         ),
     ]
