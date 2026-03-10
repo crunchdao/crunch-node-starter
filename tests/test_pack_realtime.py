@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 
 # ── Pack paths ─────────────────────────────────────────────────────────
-PACK_DIR = Path(__file__).resolve().parent.parent / "packs" / "prediction"
+PACK_DIR = Path(__file__).resolve().parent.parent / "packs" / "realtime"
 PACK_NODE_CONFIG = PACK_DIR / "node" / "config"
 PACK_CHALLENGE = PACK_DIR / "challenge"
 PACK_ENV_EXAMPLE = PACK_DIR / "node" / ".local.env.example"
