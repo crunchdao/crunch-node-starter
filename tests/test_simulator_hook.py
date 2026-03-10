@@ -10,11 +10,13 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
 )
 from crunch_node.feeds.contracts import FeedDataRecord
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
 
 
 def _make_feed_record(
@@ -52,7 +54,11 @@ class TestOnPredictions:
 
     def test_hook_forwards_signal_to_simulator(self):
         sim = TradingEngine(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
+        sink = SimulatorSink(
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+        )
         now = datetime.now(UTC)
         _prime_price(sink, "BTCUSDT", 50000.0)
         inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
@@ -68,7 +74,11 @@ class TestOnPredictions:
 
     def test_hook_uses_price_from_feed(self):
         sim = TradingEngine(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
+        sink = SimulatorSink(
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+        )
         now = datetime.now(UTC)
         _prime_price(sink, "BTCUSDT", 50000.0)
         inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
@@ -80,7 +90,11 @@ class TestOnPredictions:
 
     def test_hook_auto_registers_model_id(self):
         sim = TradingEngine(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
+        sink = SimulatorSink(
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+        )
         now = datetime.now(UTC)
         _prime_price(sink, "BTCUSDT", 50000.0)
         inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
@@ -91,7 +105,11 @@ class TestOnPredictions:
 
     def test_hook_skips_when_no_price(self):
         sim = TradingEngine(cost_model=ZERO_COST)
-        sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
+        sink = SimulatorSink(
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+        )
         now = datetime.now(UTC)
         inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
