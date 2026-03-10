@@ -199,7 +199,7 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             "displayName": "Score Metrics",
             "tooltip": None,
             "order": 10,
-            "endpointUrl": "/reports/models/global",
+            "endpointUrl": "/reports/models/metrics",
             "nativeConfiguration": {
                 "type": "line",
                 "xAxis": {"name": "performed_at"},
@@ -404,6 +404,22 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
     # Validate against typed contracts
     validated = ReportSchemaEnvelope.model_validate(schema)
     return validated.model_dump()
+
+
+def _strip_tz(dt: datetime | None) -> datetime | None:
+    """Remove timezone info from a datetime so JSON serialises without trailing Z.
+
+    The @crunchdao/chart lineChart appends ``"Z"`` to every x-axis value
+    before passing it to ``new Date()``.  If the backend already emits an
+    ISO string that ends with ``Z`` (timezone-aware UTC), the chart
+    produces ``"…ZZ"`` → ``Invalid Date`` → ``NaN`` → no points render.
+
+    Stripping tzinfo here is a **workaround** — the proper fix is to stop
+    appending ``"Z"`` in ``lineChart.tsx`` (see Fix 1 in the PR).
+    """
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
 
 
 def _flatten_metrics(metrics: dict[str, Any]) -> dict[str, float | None]:
@@ -765,7 +781,7 @@ def get_models_global(
                     "direction": CONTRACT.aggregation.ranking_direction,
                 },
                 **_flatten_metrics(metrics),
-                "performed_at": performed_at,
+                "performed_at": _strip_tz(performed_at),
             }
         )
 
@@ -831,7 +847,7 @@ def get_models_params(
                     "direction": CONTRACT.aggregation.ranking_direction,
                 },
                 **_flatten_metrics(metrics),
-                "performed_at": performed_at,
+                "performed_at": _strip_tz(performed_at),
             }
         )
 
@@ -877,8 +893,8 @@ def get_predictions(
                     "score_failed_reason": score.failed_reason
                     if score
                     else "Prediction not scored",
-                    "scored_at": score.scored_at if score else None,
-                    "performed_at": prediction.performed_at,
+                    "scored_at": _strip_tz(score.scored_at) if score else None,
+                    "performed_at": _strip_tz(prediction.performed_at),
                 }
             )
 
@@ -945,11 +961,11 @@ def get_snapshots(
         {
             "id": s.id,
             "model_id": s.model_id,
-            "period_start": s.period_start,
-            "period_end": s.period_end,
+            "period_start": _strip_tz(s.period_start),
+            "period_end": _strip_tz(s.period_end),
             "prediction_count": s.prediction_count,
             "result_summary": s.result_summary,
-            "created_at": s.created_at,
+            "created_at": _strip_tz(s.created_at),
         }
         for s in snapshots
     ]
@@ -989,7 +1005,7 @@ def get_models_metrics_timeseries(
             summary = snap.result_summary or {}
             row: dict[str, Any] = {
                 "model_id": snap.model_id,
-                "performed_at": snap.created_at,
+                "performed_at": _strip_tz(snap.created_at),
                 "prediction_count": snap.prediction_count,
             }
             for key, val in summary.items():
@@ -1116,8 +1132,8 @@ def get_ensemble_history(
         row = {
             "ensemble_name": name,
             "model_id": snap.model_id,
-            "period_start": snap.period_start,
-            "period_end": snap.period_end,
+            "period_start": _strip_tz(snap.period_start),
+            "period_end": _strip_tz(snap.period_end),
             "prediction_count": snap.prediction_count,
             **{
                 k: v
