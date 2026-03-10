@@ -12,11 +12,8 @@ from pydantic import BaseModel
 
 from crunch_node.crunch_config import CrunchConfig, ScoringFunction
 from crunch_node.db.repositories import (
-    DBCheckpointRepository,
     DBInputRepository,
     DBLeaderboardRepository,
-    DBMerkleCycleRepository,
-    DBMerkleNodeRepository,
     DBModelRepository,
     DBPredictionRepository,
     DBScoreRepository,
@@ -44,9 +41,8 @@ class ScoreService:
         snapshot_repository: DBSnapshotRepository | None = None,
         model_repository: DBModelRepository | None = None,
         leaderboard_repository: DBLeaderboardRepository | None = None,
-        merkle_cycle_repository: DBMerkleCycleRepository | None = None,
-        merkle_node_repository: DBMerkleNodeRepository | None = None,
-        checkpoint_repository: DBCheckpointRepository | None = None,
+        checkpoint_service: CheckpointService | None = None,
+        merkle_service: MerkleService | None = None,
         config: CrunchConfig | None = None,
         contract: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
@@ -68,27 +64,8 @@ class ScoreService:
             raise ValueError("Provide only one of config= or contract=")
         self.config = config or contract or CrunchConfig()
 
-        # Merkle tamper evidence
-        if merkle_cycle_repository and merkle_node_repository:
-            self.merkle_service: MerkleService | None = MerkleService(
-                merkle_cycle_repository=merkle_cycle_repository,
-                merkle_node_repository=merkle_node_repository,
-            )
-        else:
-            self.merkle_service = None
-
-        # Checkpoint service (composed, not a separate container)
-        if checkpoint_repository and snapshot_repository and model_repository:
-            self._checkpoint_service: CheckpointService | None = CheckpointService(
-                snapshot_repository=snapshot_repository,
-                checkpoint_repository=checkpoint_repository,
-                model_repository=model_repository,
-                config=self.config,
-                interval_seconds=checkpoint_interval_seconds,
-                merkle_service=self.merkle_service,
-            )
-        else:
-            self._checkpoint_service = None
+        self.merkle_service = merkle_service
+        self._checkpoint_service = checkpoint_service
         self._last_checkpoint_at: datetime | None = None
 
         self.trading_state_repository = kwargs.pop("trading_state_repository", None)
