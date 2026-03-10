@@ -80,6 +80,14 @@ actual_return = (resolved_price - entry_price) / entry_price
 | Resolution horizon | 60 seconds |
 | Score cycle | Every 60 seconds |
 
+After deploying, expect **~2–3 minutes** before the first scores
+appear on the leaderboard:
+
+1. **~60s** — model containers build and connect
+2. **~15s** — first prediction saved (next feed cycle)
+3. **~60s** — resolution horizon elapses
+4. **~60s** — next score worker cycle picks up resolvable predictions
+
 ## Getting started
 
 Subclass `TrackerBase` and implement `_predict()`:
