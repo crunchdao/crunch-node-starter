@@ -1,6 +1,21 @@
 # Prediction Competition
 
-Predict the next-minute return of BTCUSDT. Get scored every 60 seconds.
+The simplest real-time competition. Models predict the next-minute
+return of BTCUSDT and get scored every 60 seconds — fast enough to
+see results within minutes, not days. A good starting point for
+understanding how the coordinator node works end-to-end.
+
+## Quick start
+
+```bash
+crunch-node init mycomp --pack prediction
+cd mycomp
+git clone https://github.com/crunchdao/coordinator-webapp.git webapp
+cd node
+make deploy
+```
+
+Open `http://localhost:3000` — the leaderboard populates within ~3 minutes.
 
 ## What models do
 
