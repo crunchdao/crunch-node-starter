@@ -10,8 +10,9 @@ import time
 
 import pytest
 
-pytestmark = pytest.mark.skip(
-    reason="Tests need updates to match current timing collector API (stage_latencies is a list, not dict)",
+pytestmark = pytest.mark.skipif(
+    os.getenv("CI") == "true",
+    reason="Tests need updates to match current timing implementation",
 )
 
 from datetime import UTC, datetime
@@ -185,7 +186,9 @@ class TestTimingInstrumentation:
 
         timing_data = {
             "feed_received_us": base_time,
+            "feed_normalized_us": base_time + 200,
             "feed_persisted_us": base_time + 500,
+            "notify_sent_us": base_time + 510,
             "notify_received_us": base_time + 600,
             "data_loaded_us": base_time + 700,
             "models_dispatched_us": base_time + 800,
@@ -207,20 +210,24 @@ class TestTimingInstrumentation:
         assert metrics["total_records"] == 1
 
         stage_latencies = metrics["stage_latencies"]
+        assert isinstance(stage_latencies, list)
+
+        # Build name→entry lookup
+        by_name = {s["name"]: s for s in stage_latencies}
 
         # Verify stage latency calculations
-        assert "feed_ingestion" in stage_latencies
-        feed_ingestion = stage_latencies["feed_ingestion"]
+        assert "feed_ingestion" in by_name
+        feed_ingestion = by_name["feed_ingestion"]
         assert feed_ingestion["count"] == 1
-        assert feed_ingestion["mean_us"] == 500.0  # 500us from received to persisted
+        assert feed_ingestion["mean_us"] == 200.0  # received → normalized
 
-        assert "model_dispatch" in stage_latencies
-        model_dispatch = stage_latencies["model_dispatch"]
-        assert model_dispatch["count"] == 1
-        assert model_dispatch["mean_us"] == 700.0  # 700us from dispatch to complete
+        assert "model_execution" in by_name
+        model_execution = by_name["model_execution"]
+        assert model_execution["count"] == 1
+        assert model_execution["mean_us"] == 700.0  # dispatched → completed
 
-        assert "end_to_end" in stage_latencies
-        end_to_end = stage_latencies["end_to_end"]
+        assert "end_to_end" in by_name
+        end_to_end = by_name["end_to_end"]
         assert end_to_end["count"] == 1
         # End-to-end: base_time to base_time + 1800 = 1800us
         assert (
@@ -270,10 +277,11 @@ class TestTimingInstrumentation:
         for field in required_fields:
             assert field in metrics
 
-        # Verify stage latencies structure
-        assert isinstance(metrics["stage_latencies"], dict)
-        if "end_to_end" in metrics["stage_latencies"]:
-            end_to_end = metrics["stage_latencies"]["end_to_end"]
+        # Verify stage latencies structure (list of dicts with "name" key)
+        assert isinstance(metrics["stage_latencies"], list)
+        by_name = {s["name"]: s for s in metrics["stage_latencies"]}
+        if "end_to_end" in by_name:
+            end_to_end = by_name["end_to_end"]
             required_stats = [
                 "count",
                 "mean_us",
