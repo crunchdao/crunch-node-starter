@@ -24,7 +24,7 @@ class TestApplyOrder:
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "long"
-        assert pos.leverage == 0.5
+        assert pos.size == 0.5
         assert pos.entry_price == 50000.0
 
     def test_add_to_existing_position(self):
@@ -33,7 +33,7 @@ class TestApplyOrder:
         sim.apply_order("model_1", "BTCUSDT", "long", 0.3, price=50000.0, timestamp=now)
         sim.apply_order("model_1", "BTCUSDT", "long", 0.2, price=51000.0, timestamp=now)
         pos = sim.get_position("model_1", "BTCUSDT")
-        assert pos.leverage == pytest.approx(0.5)
+        assert pos.size == pytest.approx(0.5)
         assert pos.entry_price == pytest.approx((50000.0 * 0.3 + 51000.0 * 0.2) / 0.5)
 
     def test_reduce_position(self):
@@ -45,7 +45,7 @@ class TestApplyOrder:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(0.2)
+        assert pos.size == pytest.approx(0.2)
 
     def test_reduce_records_partial_trade(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -58,7 +58,7 @@ class TestApplyOrder:
         assert len(trades) == 1
         expected_pnl = 0.3 * (51000.0 - 50000.0) / 50000.0
         assert trades[0].realized_pnl == pytest.approx(expected_pnl)
-        assert trades[0].leverage == 0.3
+        assert trades[0].size == 0.3
 
     def test_close_position_by_opposite_order(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -83,10 +83,10 @@ class TestApplyOrder:
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "short"
-        assert pos.leverage == pytest.approx(0.3)
+        assert pos.size == pytest.approx(0.3)
         assert len(sim.get_trades("model_1")) == 1
 
-    def test_negative_leverage_raises(self):
+    def test_negative_size_raises(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         with pytest.raises(ValueError):
             sim.apply_order(

@@ -16,8 +16,8 @@ class TestOrderMode:
     def test_buy_opens_long(self):
         sim = TradingEngine(
             cost_model=ZERO_COST,
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
             simulator=sim, state_repository=MagicMock(), signal_mode="order"
@@ -32,13 +32,13 @@ class TestOrderMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(100.0)
+        assert pos.size == pytest.approx(100.0)
 
     def test_sell_opens_short(self):
         sim = TradingEngine(
             cost_model=ZERO_COST,
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
             simulator=sim, state_repository=MagicMock(), signal_mode="order"
@@ -53,13 +53,13 @@ class TestOrderMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "short"
-        assert pos.leverage == pytest.approx(50.0)
+        assert pos.size == pytest.approx(50.0)
 
     def test_zero_amount_is_noop(self):
         sim = TradingEngine(
             cost_model=ZERO_COST,
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
             simulator=sim, state_repository=MagicMock(), signal_mode="order"
@@ -77,8 +77,8 @@ class TestOrderMode:
     def test_missing_fields_raises(self):
         sim = TradingEngine(
             cost_model=ZERO_COST,
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
             simulator=sim, state_repository=MagicMock(), signal_mode="order"
@@ -96,8 +96,8 @@ class TestOrderMode:
     def test_buy_then_sell_closes_position(self):
         sim = TradingEngine(
             cost_model=ZERO_COST,
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
             simulator=sim, state_repository=MagicMock(), signal_mode="order"

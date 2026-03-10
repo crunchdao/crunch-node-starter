@@ -43,8 +43,8 @@ def _maybe_build_simulator_sink(config, session):
 
     simulator = TradingEngine(
         cost_model=trading.cost_model,
-        max_position_leverage=trading.max_position_leverage,
-        max_portfolio_leverage=trading.max_portfolio_leverage,
+        max_position_size=trading.max_position_size,
+        max_portfolio_size=trading.max_portfolio_size,
     )
     state_repo = TradingStateRepository(session)
 

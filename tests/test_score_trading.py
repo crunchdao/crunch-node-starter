@@ -29,7 +29,7 @@ class TestTradingScoring:
                 {
                     "subject": "BTCUSDT",
                     "direction": "long",
-                    "leverage": 0.5,
+                    "size": 0.5,
                     "entry_price": 50000.0,
                     "opened_at": "2026-01-01T00:00:00+00:00",
                     "current_price": 51000.0,
@@ -65,7 +65,7 @@ class TestTradingScoring:
                 {
                     "subject": "BTCUSDT",
                     "direction": "long",
-                    "leverage": 1.0,
+                    "size": 1.0,
                     "entry_price": 50000.0,
                     "opened_at": "2026-01-01T00:00:00+00:00",
                     "current_price": 51000.0,
@@ -76,7 +76,7 @@ class TestTradingScoring:
                 {
                     "subject": "ETHUSDT",
                     "direction": "short",
-                    "leverage": 0.3,
+                    "size": 0.3,
                     "entry_price": 3000.0,
                     "opened_at": "2026-01-01T00:00:00+00:00",
                     "exit_price": 2900.0,

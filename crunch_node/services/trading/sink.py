@@ -99,8 +99,8 @@ class SimulatorSink:
     ) -> None:
         if self._signal_mode == "delta":
             direction = inference_output.get("direction")
-            leverage = inference_output.get("leverage")
-            if direction is None or leverage is None:
+            size = inference_output.get("leverage")
+            if direction is None or size is None:
                 raise ValueError(
                     "Delta mode requires 'direction' and 'leverage' in inference_output, "
                     f"got: {list(inference_output.keys())}"
@@ -109,7 +109,7 @@ class SimulatorSink:
                 model_id,
                 subject,
                 direction,
-                float(leverage),
+                float(size),
                 price=price,
                 timestamp=timestamp,
             )
@@ -148,17 +148,17 @@ class SimulatorSink:
         signal = float(signal)
 
         target_direction = "long" if signal > 0 else "short"
-        target_leverage = abs(signal)
+        target_size = abs(signal)
 
         current = self._simulator.get_position(model_id, subject)
 
         if current is None:
-            if target_leverage > 0:
+            if target_size > 0:
                 self._simulator.apply_order(
                     model_id,
                     subject,
                     target_direction,
-                    target_leverage,
+                    target_size,
                     price=price,
                     timestamp=timestamp,
                 )
@@ -170,14 +170,14 @@ class SimulatorSink:
                 model_id,
                 subject,
                 opposite,
-                current.leverage,
+                current.size,
                 price=price,
                 timestamp=timestamp,
             )
             return
 
         if current.direction == target_direction:
-            delta = target_leverage - current.leverage
+            delta = target_size - current.size
             if delta > 0:
                 self._simulator.apply_order(
                     model_id,
@@ -202,7 +202,7 @@ class SimulatorSink:
                 model_id,
                 subject,
                 target_direction,
-                current.leverage + target_leverage,
+                current.size + target_size,
                 price=price,
                 timestamp=timestamp,
             )

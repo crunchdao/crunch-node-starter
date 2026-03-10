@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timezone
 
+import pytest
+
 from crunch_node.services.trading.models import Position, Trade
 
 
@@ -9,7 +11,7 @@ class TestPositionUnrealizedPnl:
             model_id="m1",
             subject="BTCUSDT",
             direction="long",
-            leverage=0.5,
+            size=0.5,
             entry_price=100.0,
             opened_at=datetime(2026, 1, 1, tzinfo=UTC),
             current_price=120.0,
@@ -21,24 +23,25 @@ class TestPositionUnrealizedPnl:
             model_id="m1",
             subject="BTCUSDT",
             direction="short",
-            leverage=0.5,
+            size=0.5,
             entry_price=100.0,
             opened_at=datetime(2026, 1, 1, tzinfo=UTC),
             current_price=80.0,
         )
         assert pos.unrealized_pnl == 0.5 * (100.0 - 80.0) / 100.0
 
-    def test_position_unrealized_pnl_zero_entry(self):
+    def test_position_unrealized_pnl_zero_entry_raises(self):
         pos = Position(
             model_id="m1",
             subject="BTCUSDT",
             direction="long",
-            leverage=1.0,
+            size=1.0,
             entry_price=0.0,
             opened_at=datetime(2026, 1, 1, tzinfo=UTC),
             current_price=50.0,
         )
-        assert pos.unrealized_pnl == 0.0
+        with pytest.raises(ValueError, match="entry_price is zero"):
+            _ = pos.unrealized_pnl
 
 
 class TestTradeRecord:
@@ -47,7 +50,7 @@ class TestTradeRecord:
             model_id="m1",
             subject="BTCUSDT",
             direction="long",
-            leverage=0.5,
+            size=0.5,
             entry_price=100.0,
             opened_at=datetime(2026, 1, 1, tzinfo=UTC),
         )

@@ -61,7 +61,7 @@ class TestOnPredictions:
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "long"
-        assert pos.leverage == 0.5
+        assert pos.size == 0.5
         assert result == predictions
 
     def test_hook_uses_price_from_feed(self):

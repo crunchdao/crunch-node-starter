@@ -41,7 +41,7 @@ class InMemoryTradingStateRepository:
                 {
                     "subject": p.subject,
                     "direction": p.direction,
-                    "leverage": p.leverage,
+                    "size": p.size,
                     "entry_price": p.entry_price,
                     "opened_at": p.opened_at.isoformat(),
                     "current_price": p.current_price,
@@ -53,7 +53,7 @@ class InMemoryTradingStateRepository:
                 {
                     "subject": t.subject,
                     "direction": t.direction,
-                    "leverage": t.leverage,
+                    "size": t.size,
                     "entry_price": t.entry_price,
                     "opened_at": t.opened_at.isoformat(),
                     "exit_price": t.exit_price,

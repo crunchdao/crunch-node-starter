@@ -24,7 +24,7 @@ class TestTargetMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(0.7)
+        assert pos.size == pytest.approx(0.7)
 
     def test_opens_short_from_flat(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -37,7 +37,7 @@ class TestTargetMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "short"
-        assert pos.leverage == pytest.approx(0.5)
+        assert pos.size == pytest.approx(0.5)
 
     def test_reduces_long(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -53,7 +53,7 @@ class TestTargetMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(0.3)
+        assert pos.size == pytest.approx(0.3)
 
     def test_zero_signal_closes(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -83,7 +83,7 @@ class TestTargetMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "short"
-        assert pos.leverage == pytest.approx(0.3)
+        assert pos.size == pytest.approx(0.3)
 
     def test_increases_long(self):
         sim = TradingEngine(cost_model=ZERO_COST)
@@ -99,4 +99,4 @@ class TestTargetMode:
         )
         pos = sim.get_position("model_1", "BTCUSDT")
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(0.8)
+        assert pos.size == pytest.approx(0.8)

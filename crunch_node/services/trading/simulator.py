@@ -11,12 +11,12 @@ class TradingEngine:
     def __init__(
         self,
         cost_model: CostModel,
-        max_position_leverage: float = 10.0,
-        max_portfolio_leverage: float = 20.0,
+        max_position_size: float = 10.0,
+        max_portfolio_size: float = 20.0,
     ) -> None:
         self._cost_model = cost_model
-        self._max_position_leverage = max_position_leverage
-        self._max_portfolio_leverage = max_portfolio_leverage
+        self._max_position_size = max_position_size
+        self._max_portfolio_size = max_portfolio_size
         self._positions: dict[tuple[str, str], Position] = {}
         self._trades: dict[str, list[Trade]] = {}
         self._portfolio_fees: dict[str, float] = {}
@@ -28,13 +28,13 @@ class TradingEngine:
         model_id: str,
         subject: str,
         direction: Direction,
-        leverage: float,
+        size: float,
         *,
         price: float,
         timestamp: datetime,
     ) -> None:
-        if leverage <= 0:
-            raise ValueError("Leverage must be positive")
+        if size <= 0:
+            raise ValueError("Size must be positive")
         if direction not in ("long", "short"):
             raise ValueError("Direction must be 'long' or 'short'")
 
@@ -42,24 +42,24 @@ class TradingEngine:
         existing = self._positions.get(key)
 
         if existing is not None and existing.direction == direction:
-            leverage = min(
-                leverage, max(0.0, self._max_position_leverage - existing.leverage)
+            size = min(
+                size, max(0.0, self._max_position_size - existing.size)
             )
         else:
-            leverage = min(leverage, self._max_position_leverage)
+            size = min(size, self._max_position_size)
 
-        current_portfolio_leverage = sum(
-            p.leverage for k, p in self._positions.items() if k[0] == model_id
+        current_portfolio_size = sum(
+            p.size for k, p in self._positions.items() if k[0] == model_id
         )
-        leverage = min(
-            leverage,
-            max(0.0, self._max_portfolio_leverage - current_portfolio_leverage),
+        size = min(
+            size,
+            max(0.0, self._max_portfolio_size - current_portfolio_size),
         )
 
-        if leverage <= 0:
+        if size <= 0:
             return
 
-        fee = self._cost_model.order_cost(leverage)
+        fee = self._cost_model.order_cost(size)
         self._portfolio_fees[model_id] = self._portfolio_fees.get(model_id, 0.0) + fee
 
         if existing is None:
@@ -67,7 +67,7 @@ class TradingEngine:
                 model_id=model_id,
                 subject=subject,
                 direction=direction,
-                leverage=leverage,
+                size=size,
                 entry_price=price,
                 opened_at=timestamp,
                 current_price=price,
@@ -76,35 +76,35 @@ class TradingEngine:
             return
 
         if existing.direction == direction:
-            new_leverage = existing.leverage + leverage
+            new_size = existing.size + size
             existing.entry_price = (
-                existing.entry_price * existing.leverage + price * leverage
-            ) / new_leverage
-            existing.leverage = new_leverage
+                existing.entry_price * existing.size + price * size
+            ) / new_size
+            existing.size = new_size
             return
 
-        self._apply_opposite_order(existing, key, direction, leverage, price, timestamp)
+        self._apply_opposite_order(existing, key, direction, size, price, timestamp)
 
     def _apply_opposite_order(
         self,
         existing: Position,
         key: tuple[str, str],
         direction: Direction,
-        leverage: float,
+        size: float,
         price: float,
         timestamp: datetime,
     ) -> None:
         model_id, subject = key
 
-        if leverage < existing.leverage:
+        if size < existing.size:
             partial_pnl = self._compute_realized_pnl(existing, price) * (
-                leverage / existing.leverage
+                size / existing.size
             )
             trade = Trade(
                 model_id=model_id,
                 subject=subject,
                 direction=existing.direction,
-                leverage=leverage,
+                size=size,
                 entry_price=existing.entry_price,
                 opened_at=existing.opened_at,
                 exit_price=price,
@@ -112,13 +112,13 @@ class TradingEngine:
                 realized_pnl=partial_pnl,
             )
             self._trades.setdefault(model_id, []).append(trade)
-            partial_ratio = leverage / existing.leverage
+            partial_ratio = size / existing.size
             partial_carry = existing.accrued_carry * partial_ratio
             self._closed_carry[model_id] = (
                 self._closed_carry.get(model_id, 0.0) + partial_carry
             )
             existing.accrued_carry -= partial_carry
-            existing.leverage -= leverage
+            existing.size -= size
             return
 
         pnl = self._compute_realized_pnl(existing, price)
@@ -126,7 +126,7 @@ class TradingEngine:
             model_id=model_id,
             subject=subject,
             direction=existing.direction,
-            leverage=existing.leverage,
+            size=existing.size,
             entry_price=existing.entry_price,
             opened_at=existing.opened_at,
             exit_price=price,
@@ -138,7 +138,7 @@ class TradingEngine:
         self._closed_carry[model_id] = (
             self._closed_carry.get(model_id, 0.0) + existing.accrued_carry
         )
-        remainder = leverage - existing.leverage
+        remainder = size - existing.size
         del self._positions[key]
         self._last_mark_at.pop(key, None)
 
@@ -147,7 +147,7 @@ class TradingEngine:
                 model_id=model_id,
                 subject=subject,
                 direction=direction,
-                leverage=remainder,
+                size=remainder,
                 entry_price=price,
                 opened_at=timestamp,
                 current_price=price,
@@ -160,7 +160,7 @@ class TradingEngine:
         price_return = (exit_price - position.entry_price) / position.entry_price
         if position.direction == "short":
             price_return = -price_return
-        return position.leverage * price_return
+        return position.size * price_return
 
     def mark_to_market(self, subject: str, price: float, timestamp: datetime) -> None:
         for key, position in self._positions.items():
@@ -168,7 +168,7 @@ class TradingEngine:
                 last_mark = self._last_mark_at.get(key, position.opened_at)
                 elapsed = (timestamp - last_mark).total_seconds()
                 position.accrued_carry += self._cost_model.carry_cost(
-                    position.leverage, elapsed
+                    position.size, elapsed
                 )
                 self._last_mark_at[key] = timestamp
                 position.current_price = price
@@ -229,7 +229,7 @@ class TradingEngine:
                     model_id=model_id,
                     subject=pos_data["subject"],
                     direction=pos_data["direction"],
-                    leverage=pos_data["leverage"],
+                    size=pos_data["size"],
                     entry_price=pos_data["entry_price"],
                     opened_at=opened_at,
                     current_price=pos_data.get("current_price", 0.0),
@@ -253,7 +253,7 @@ class TradingEngine:
                     model_id=model_id,
                     subject=trade_data["subject"],
                     direction=trade_data["direction"],
-                    leverage=trade_data["leverage"],
+                    size=trade_data["size"],
                     entry_price=trade_data["entry_price"],
                     opened_at=opened_at,
                     exit_price=trade_data.get("exit_price"),

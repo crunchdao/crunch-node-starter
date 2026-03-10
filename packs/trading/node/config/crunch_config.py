@@ -50,8 +50,8 @@ class CrunchConfig(BaseCrunchConfig):
     trading: TradingConfig = Field(
         default_factory=lambda: TradingConfig(
             signal_mode="order",
-            max_position_leverage=1_000_000,
-            max_portfolio_leverage=1_000_000,
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
         )
     )
 

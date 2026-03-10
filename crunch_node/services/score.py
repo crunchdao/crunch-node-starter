@@ -747,12 +747,12 @@ class ScoreService:
             for p in positions_data:
                 entry = p["entry_price"]
                 current = p.get("current_price", entry)
-                leverage = p["leverage"]
+                size = p["size"]
                 if entry > 0:
                     price_return = (current - entry) / entry
                     if p["direction"] == "short":
                         price_return = -price_return
-                    total_unrealized += leverage * price_return
+                    total_unrealized += size * price_return
 
             total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
             total_carry = (

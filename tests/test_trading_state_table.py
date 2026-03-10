@@ -13,7 +13,7 @@ class TestTradingStateRow:
                 {
                     "subject": "BTCUSDT",
                     "direction": "long",
-                    "leverage": 0.5,
+                    "size": 0.5,
                     "entry_price": 50000.0,
                     "opened_at": "2026-01-01T00:00:00+00:00",
                     "current_price": 51000.0,

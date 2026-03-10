@@ -34,7 +34,7 @@ class TestSimulatorSerialization:
         pos = sim2.get_position("m1", "BTCUSDT")
         assert pos is not None
         assert pos.direction == "long"
-        assert pos.leverage == pytest.approx(0.5)
+        assert pos.size == pytest.approx(0.5)
         assert pos.entry_price == pytest.approx(50000.0)
 
     def test_load_state_restores_trades(self):
