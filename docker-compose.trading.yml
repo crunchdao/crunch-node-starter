@@ -1,0 +1,26 @@
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_EXTERNAL_PORT:-5433}:5432"
+    networks: [backend, frontend]
+
+  predict-worker:
+    environment:
+      PYTHONPATH: /app:/app/config:/app/challenge
+    volumes:
+      - ./packs/trading/node/config:/app/config:ro
+      - ./packs/trading/challenge:/app/challenge:ro
+
+  score-worker:
+    environment:
+      PYTHONPATH: /app:/app/config:/app/challenge
+    volumes:
+      - ./packs/trading/node/config:/app/config:ro
+      - ./packs/trading/challenge:/app/challenge:ro
+
+  model-orchestrator:
+    volumes:
+      - ./scaffold/node/deployment/model-orchestrator-local/data:/app/data
+      - ./scaffold/node/deployment/model-orchestrator-local/config:/app/config
+      - ./packs/trading/challenge:/app/challenge:ro
+      - /var/run/docker.sock:/var/run/docker.sock
