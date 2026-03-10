@@ -52,6 +52,8 @@ class SimulatorSink:
         """post_predict_hook: forward model signals as orders to the simulator."""
         ts = now if isinstance(now, datetime) else datetime.now(UTC)
 
+        dirty_model_ids: set[str] = set()
+
         for pred in predictions:
             subject = pred.scope.get("subject")
             if not subject:
@@ -79,10 +81,11 @@ class SimulatorSink:
                     pred.model_id, subject, exc,
                 )
                 continue
+            dirty_model_ids.add(pred.model_id)
             if pred.model_id not in self._model_ids:
                 self._model_ids.append(pred.model_id)
 
-        self._persist_state()
+        self._persist_state(dirty_model_ids)
         return predictions
 
     def apply_signal(
@@ -204,8 +207,8 @@ class SimulatorSink:
                 timestamp=timestamp,
             )
 
-    def _persist_state(self) -> None:
-        for model_id in self._model_ids:
+    def _persist_state(self, model_ids: set[str] | None = None) -> None:
+        for model_id in (model_ids if model_ids is not None else self._model_ids):
             state = self._simulator.get_full_state(model_id)
             self._state_repository.save_state(
                 model_id,

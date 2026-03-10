@@ -27,7 +27,7 @@ class TradingStateRepository:
                 "direction": p.direction,
                 "leverage": p.leverage,
                 "entry_price": p.entry_price,
-                "opened_at": p.opened_at.isoformat(),
+                "opened_at": p.opened_at.astimezone(UTC).isoformat(),
                 "current_price": p.current_price,
                 "accrued_carry": p.accrued_carry,
             }
@@ -39,9 +39,9 @@ class TradingStateRepository:
                 "direction": t.direction,
                 "leverage": t.leverage,
                 "entry_price": t.entry_price,
-                "opened_at": t.opened_at.isoformat(),
+                "opened_at": t.opened_at.astimezone(UTC).isoformat(),
                 "exit_price": t.exit_price,
-                "closed_at": t.closed_at.isoformat() if t.closed_at else None,
+                "closed_at": t.closed_at.astimezone(UTC).isoformat() if t.closed_at else None,
                 "realized_pnl": t.realized_pnl,
                 "fees_paid": t.fees_paid,
             }

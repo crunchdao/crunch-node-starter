@@ -21,7 +21,7 @@ class Position:
     @property
     def unrealized_pnl(self) -> float:
         if self.entry_price == 0.0:
-            return 0.0
+            raise ValueError("Cannot compute unrealized PnL: entry_price is zero")
         price_return = (self.current_price - self.entry_price) / self.entry_price
         if self.direction == "short":
             price_return = -price_return
