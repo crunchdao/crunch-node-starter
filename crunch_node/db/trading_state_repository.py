@@ -41,7 +41,9 @@ class TradingStateRepository:
                 "entry_price": t.entry_price,
                 "opened_at": t.opened_at.astimezone(UTC).isoformat(),
                 "exit_price": t.exit_price,
-                "closed_at": t.closed_at.astimezone(UTC).isoformat() if t.closed_at else None,
+                "closed_at": t.closed_at.astimezone(UTC).isoformat()
+                if t.closed_at
+                else None,
                 "realized_pnl": t.realized_pnl,
                 "fees_paid": t.fees_paid,
             }

@@ -17,7 +17,9 @@ from crunch_node.services.trading.sink import SimulatorSink
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 
-def _make_feed_record(subject: str, close: float, ts_ms: int = 1_000_000) -> FeedDataRecord:
+def _make_feed_record(
+    subject: str, close: float, ts_ms: int = 1_000_000
+) -> FeedDataRecord:
     return FeedDataRecord(
         source="test",
         subject=subject,

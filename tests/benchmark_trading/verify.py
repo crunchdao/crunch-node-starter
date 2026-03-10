@@ -120,9 +120,7 @@ def check_trading_config(workspace: str) -> tuple[bool, str]:
 
 def check_examples(workspace: str) -> tuple[bool, str]:
     """Check that expected example tracker files exist with predict()."""
-    examples_dir = os.path.join(
-        workspace, "challenge", "starter_challenge", "examples"
-    )
+    examples_dir = os.path.join(workspace, "challenge", "starter_challenge", "examples")
     if not os.path.isdir(examples_dir):
         return False, "examples dir not found"
 
@@ -349,14 +347,15 @@ def check_pnl(workspace: str) -> tuple[bool, str]:
         summary = snap.get("result_summary") or {}
         net_pnl = summary.get("net_pnl", 0.0)
         if net_pnl != 0.0:
-            nonzero.append(
-                f"{snap.get('model_id', '?')}: net_pnl={net_pnl:.4f}"
-            )
+            nonzero.append(f"{snap.get('model_id', '?')}: net_pnl={net_pnl:.4f}")
 
     if not nonzero:
         return False, f"{len(snapshots)} snapshots but all have net_pnl=0.0"
 
-    return True, f"{len(nonzero)}/{len(snapshots)} snapshots with non-zero PnL: {'; '.join(nonzero[:5])}"
+    return (
+        True,
+        f"{len(nonzero)}/{len(snapshots)} snapshots with non-zero PnL: {'; '.join(nonzero[:5])}",
+    )
 
 
 # --- Run all milestones ---

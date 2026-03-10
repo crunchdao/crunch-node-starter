@@ -42,15 +42,14 @@ class TradingEngine:
         existing = self._positions.get(key)
 
         if existing is not None and existing.direction == direction:
-            size = min(
-                size, max(0.0, self._max_position_size - existing.size)
-            )
+            size = min(size, max(0.0, self._max_position_size - existing.size))
         else:
             size = min(size, self._max_position_size)
 
         is_opposite = existing is not None and existing.direction != direction
         current_portfolio_size = sum(
-            p.size for k, p in self._positions.items()
+            p.size
+            for k, p in self._positions.items()
             if k[0] == model_id and not (is_opposite and k == key)
         )
         size = min(

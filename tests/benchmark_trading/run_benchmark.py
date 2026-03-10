@@ -249,7 +249,7 @@ def _build_agent_command(agent_cmd: str, session_path: str) -> tuple[str, bool]:
     agent_lower = agent_cmd.lower().strip()
 
     if agent_lower.startswith("pi"):
-        extra = agent_cmd[len("pi"):].strip() if len(agent_cmd) > 2 else ""
+        extra = agent_cmd[len("pi") :].strip() if len(agent_cmd) > 2 else ""
         cmd = f"pi -p --session {session_path} {extra} @BENCHMARK_SPEC.md"
         return cmd, False
 
