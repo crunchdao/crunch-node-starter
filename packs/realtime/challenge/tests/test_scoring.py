@@ -1,4 +1,6 @@
-"""Tests for prediction scoring.
+"""Tests for prediction scoring (linear scoring rule).
+
+score = prediction × actual_return
 
 All tests use Pydantic models — the engine always coerces to typed objects.
 """
@@ -45,56 +47,57 @@ class TestScoringContract:
         assert result.failed_reason is None or isinstance(result.failed_reason, str)
 
 
-class TestScoringBehavior:
-    """Behavioral tests for directional prediction scoring."""
+class TestLinearScoring:
+    """Behavioral tests for prediction × return scoring rule."""
 
-    def test_correct_bullish_scores_positive(self):
-        """Bullish prediction + price up = positive score."""
+    def test_correct_bullish(self):
+        """Positive prediction × positive return = positive score."""
         result = score_prediction(
             PredictionOutput(value=0.5),
             PredictionGroundTruth(profit=0.02, entry_price=40000, resolved_price=40080),
         )
-        assert result.value > 0
-        assert result.direction_correct is True
+        assert result.value == 0.5 * 0.02
+        assert result.prediction == 0.5
+        assert result.actual_return == 0.02
 
-    def test_correct_bearish_scores_positive(self):
-        """Bearish prediction + price down = positive score."""
+    def test_correct_bearish(self):
+        """Negative prediction × negative return = positive score."""
         result = score_prediction(
             PredictionOutput(value=-0.5),
             PredictionGroundTruth(
                 profit=-0.02, entry_price=40000, resolved_price=39920
             ),
         )
+        assert result.value == (-0.5) * (-0.02)
         assert result.value > 0
-        assert result.direction_correct is True
 
-    def test_wrong_direction_scores_negative(self):
-        """Bullish prediction + price down = negative score."""
+    def test_wrong_direction(self):
+        """Positive prediction × negative return = negative score."""
         result = score_prediction(
             PredictionOutput(value=0.5),
             PredictionGroundTruth(
                 profit=-0.02, entry_price=40000, resolved_price=39920
             ),
         )
+        assert result.value == 0.5 * (-0.02)
         assert result.value < 0
-        assert result.direction_correct is False
 
-    def test_zero_prediction_scores_zero(self):
-        """No conviction = zero score."""
+    def test_zero_prediction(self):
+        """Zero prediction always scores zero."""
         result = score_prediction(
             PredictionOutput(value=0.0),
             PredictionGroundTruth(profit=0.02, entry_price=40000, resolved_price=40080),
         )
         assert result.value == 0.0
 
-    def test_higher_conviction_amplifies_score(self):
-        """Larger |prediction| = larger |score|."""
+    def test_magnitude_matters(self):
+        """Larger prediction × same return = larger score."""
         gt = PredictionGroundTruth(profit=0.01, entry_price=40000, resolved_price=40040)
-        low = score_prediction(PredictionOutput(value=0.2), gt)
-        high = score_prediction(PredictionOutput(value=0.8), gt)
-        assert abs(high.value) > abs(low.value)
+        small = score_prediction(PredictionOutput(value=0.1), gt)
+        large = score_prediction(PredictionOutput(value=1.0), gt)
+        assert abs(large.value) > abs(small.value)
 
-    def test_zero_entry_price_fails_gracefully(self):
+    def test_zero_entry_price_fails(self):
         """Zero entry price returns failure."""
         result = score_prediction(
             PredictionOutput(value=0.5),
@@ -104,10 +107,22 @@ class TestScoringBehavior:
         assert result.failed_reason is not None
 
     def test_default_output_scores_zero(self):
-        """Default InferenceOutput (value=0.0) scores 0.0."""
+        """Default PredictionOutput (value=0.0) scores 0.0."""
         result = score_prediction(
             PredictionOutput(),
             PredictionGroundTruth(profit=0.01, entry_price=40000, resolved_price=40040),
         )
         assert result.value == 0.0
         assert result.success is True
+
+    def test_symmetry(self):
+        """Flipping both prediction and return gives same score."""
+        gt_up = PredictionGroundTruth(
+            profit=0.01, entry_price=40000, resolved_price=40040
+        )
+        gt_down = PredictionGroundTruth(
+            profit=-0.01, entry_price=40000, resolved_price=39960
+        )
+        score_bull = score_prediction(PredictionOutput(value=0.5), gt_up)
+        score_bear = score_prediction(PredictionOutput(value=-0.5), gt_down)
+        assert abs(score_bull.value - score_bear.value) < 1e-12

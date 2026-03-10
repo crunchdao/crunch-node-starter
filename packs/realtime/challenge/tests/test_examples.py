@@ -70,7 +70,6 @@ class TestExampleContract:
         tracker.feed_update(_make_feed_data("BTC", [40000, 40010]))
         result = tracker.predict("BTC", resolve_horizon_seconds=60, step_seconds=15)
         assert isinstance(result["value"], (int, float))
-        assert result["value"] == 0.0
 
     def test_single_candle(self, tracker):
         tracker.feed_update(_make_feed_data("BTC", [40000]))

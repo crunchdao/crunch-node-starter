@@ -1,0 +1,45 @@
+[
+  {
+    "id": 1,
+    "type": "MODEL",
+    "property": "model_id",
+    "format": null,
+    "displayName": "Model",
+    "tooltip": null,
+    "nativeConfiguration": {
+      "type": "model",
+      "statusProperty": "status"
+    },
+    "order": 0
+  },
+  {
+    "id": 2,
+    "type": "VALUE",
+    "property": "value",
+    "format": "decimal-6",
+    "displayName": "Score",
+    "tooltip": "prediction × realized return (linear scoring rule)",
+    "nativeConfiguration": null,
+    "order": 10
+  },
+  {
+    "id": 3,
+    "type": "VALUE",
+    "property": "prediction",
+    "format": "decimal-6",
+    "displayName": "Prediction",
+    "tooltip": "Latest predicted return",
+    "nativeConfiguration": null,
+    "order": 20
+  },
+  {
+    "id": 4,
+    "type": "VALUE",
+    "property": "actual_return",
+    "format": "decimal-6",
+    "displayName": "Actual Return",
+    "tooltip": "Realized price return over the horizon",
+    "nativeConfiguration": null,
+    "order": 30
+  }
+]
