@@ -49,7 +49,7 @@ class TrackerBase:
         """Return a trading order for the given asset.
 
         Args:
-            subject: Asset pair (e.g. "BTCUSDT", "ETHUSDT").
+            subject: Asset name (e.g. "BTC", "ETH").
             resolve_horizon_seconds: Seconds until ground truth resolution.
             step_seconds: Time granularity within the horizon.
 

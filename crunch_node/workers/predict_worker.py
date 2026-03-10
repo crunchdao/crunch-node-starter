@@ -161,7 +161,12 @@ async def main() -> None:
     feed_settings = FeedDataSettings.from_env()
     feed_repository = DBFeedRecordRepository(session)
 
-    feed_window = FeedWindow(max_size=120)
+    pair_to_asset: dict[str, str] = {}
+    trading = getattr(config, "trading", None)
+    if trading is not None:
+        pair_to_asset = {v: k for k, v in trading.asset_price_mapping.items()}
+
+    feed_window = FeedWindow(max_size=120, pair_to_asset=pair_to_asset)
     logger.info("Loading initial feed window from database")
     feed_window.load_from_db(feed_repository, feed_settings)
 

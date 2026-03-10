@@ -18,6 +18,18 @@ services:
       - ./packs/trading/node/config:/app/config:ro
       - ./packs/trading/challenge:/app/challenge:ro
 
+  report-worker:
+    environment:
+      PYTHONPATH: /app:/app/config:/app/challenge
+    volumes:
+      - ./packs/trading/node/config:/app/config:ro
+      - ./packs/trading/challenge:/app/challenge:ro
+
+  report-ui:
+    volumes:
+      - ./packs/trading/node/deployment/report-ui/config:/app/config
+      - ./packs/trading/node/deployment/report-ui/config:/app/apps/starter/config
+
   model-orchestrator:
     volumes:
       - ./scaffold/node/deployment/model-orchestrator-local/data:/app/data

@@ -74,13 +74,10 @@ class CrunchConfig(BaseCrunchConfig):
 
     metrics: list[str] = Field(
         default_factory=lambda: [
-            "ic",
-            "ic_sharpe",
+            "net_pnl",
             "hit_rate",
-            "mean_return",
             "max_drawdown",
             "sortino_ratio",
-            "turnover",
         ]
     )
 

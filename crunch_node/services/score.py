@@ -760,23 +760,94 @@ class ScoreService:
             )
             net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
 
-            snapshots.append(SnapshotRecord(
-                id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
-                model_id=model_id,
-                period_start=now,
-                period_end=now,
-                prediction_count=len(positions_data),
-                result_summary={
-                    "net_pnl": net_pnl,
-                    "unrealized_pnl": total_unrealized,
-                    "realized_pnl": total_realized,
-                    "total_fees": portfolio_fees,
-                    "total_carry_costs": total_carry,
-                    "open_position_count": len(positions_data),
-                },
-            ))
+            result_summary: dict[str, Any] = {
+                "net_pnl": net_pnl,
+                "unrealized_pnl": total_unrealized,
+                "realized_pnl": total_realized,
+                "total_fees": portfolio_fees,
+                "total_carry_costs": total_carry,
+                "open_position_count": len(positions_data),
+            }
+
+            result_summary.update(
+                self._compute_trading_metrics(model_id, net_pnl, trades_data)
+            )
+
+            snapshots.append(
+                SnapshotRecord(
+                    id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                    model_id=model_id,
+                    period_start=now,
+                    period_end=now,
+                    prediction_count=len(positions_data),
+                    result_summary=result_summary,
+                )
+            )
 
         return snapshots
+
+    def _compute_trading_metrics(
+        self,
+        model_id: str,
+        current_net_pnl: float,
+        trades: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+
+        pnl_series = self._get_pnl_history(model_id, current_net_pnl)
+
+        metrics["max_drawdown"] = self._max_drawdown(pnl_series)
+
+        profitable = sum(
+            1 for t in trades if (t.get("realized_pnl") or 0.0) > 0
+        )
+        metrics["hit_rate"] = profitable / len(trades) if trades else 0.0
+
+        metrics["sortino_ratio"] = self._sortino_ratio(pnl_series)
+
+        return metrics
+
+    def _get_pnl_history(
+        self, model_id: str, current_net_pnl: float
+    ) -> list[float]:
+        historical = self.snapshot_repository.find(model_id=model_id)
+        pnl_series = [
+            float(s.result_summary.get("net_pnl", 0.0)) for s in historical
+        ]
+        pnl_series.append(current_net_pnl)
+        return pnl_series
+
+    @staticmethod
+    def _max_drawdown(pnl_series: list[float]) -> float:
+        if len(pnl_series) < 2:
+            return 0.0
+        peak = pnl_series[0]
+        max_dd = 0.0
+        for pnl in pnl_series[1:]:
+            if pnl > peak:
+                peak = pnl
+            dd = peak - pnl
+            if dd > max_dd:
+                max_dd = dd
+        return max_dd
+
+    @staticmethod
+    def _sortino_ratio(pnl_series: list[float]) -> float:
+        if len(pnl_series) < 2:
+            return 0.0
+        returns = [
+            pnl_series[i] - pnl_series[i - 1]
+            for i in range(1, len(pnl_series))
+        ]
+        mean_return = sum(returns) / len(returns)
+        downside = [r for r in returns if r < 0]
+        if not downside:
+            return 0.0
+        downside_var = sum(r * r for r in downside) / len(downside)
+        downside_std = downside_var**0.5
+        if downside_std < 1e-12:
+            return 0.0
+        return mean_return / downside_std
 
     # ── 5. checkpoint ──
 
@@ -789,7 +860,9 @@ class ScoreService:
             # On first run, check if there's an existing checkpoint
             latest = self._checkpoint_service.checkpoint_repository.get_latest()
             self._last_checkpoint_at = (
-                latest.period_end if latest else datetime.min.replace(tzinfo=UTC)
+                self._ensure_utc(latest.period_end)
+                if latest
+                else datetime.min.replace(tzinfo=UTC)
             )
 
         elapsed = (now - self._last_checkpoint_at).total_seconds()
