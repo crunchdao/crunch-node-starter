@@ -10,8 +10,6 @@ understanding how the coordinator node works end-to-end.
 ```bash
 crunch-node init mycomp --pack prediction
 cd mycomp
-git clone https://github.com/crunchdao/coordinator-webapp.git webapp
-cd node
 make deploy
 ```
 
