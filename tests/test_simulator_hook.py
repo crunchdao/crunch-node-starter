@@ -66,7 +66,7 @@ class TestOnPredictions:
 
         result = sink.on_predictions(predictions, inp, now)
 
-        pos = sim.get_position("model_1", "BTCUSDT")
+        pos = sim.get_position("model_1", "BTC")
         assert pos is not None
         assert pos.direction == "long"
         assert pos.size == 0.5
@@ -85,7 +85,7 @@ class TestOnPredictions:
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
 
         sink.on_predictions(predictions, inp, now)
-        pos = sim.get_position("model_1", "BTCUSDT")
+        pos = sim.get_position("model_1", "BTC")
         assert pos.entry_price == 50000.0
 
     def test_hook_auto_registers_model_id(self):
@@ -115,5 +115,5 @@ class TestOnPredictions:
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
 
         result = sink.on_predictions(predictions, inp, now)
-        assert sim.get_position("model_1", "BTCUSDT") is None
+        assert sim.get_position("model_1", "BTC") is None
         assert result == predictions

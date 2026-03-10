@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 COMPOSE_TRADING := docker compose -f docker-compose.yml -f docker-compose.trading.yml --env-file .local.trading.env
 
-.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build trading trading-down trading-logs
+.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build trading trading-down trading-logs trading-reset
 
 # ── Code quality ─────────────────────────────────────────────────────
 fmt:

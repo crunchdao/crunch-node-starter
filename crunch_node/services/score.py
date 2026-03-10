@@ -305,6 +305,11 @@ class ScoreService:
             for snap in snapshots:
                 self.snapshot_repository.save(snap)
             self.logger.info("Wrote %d trading snapshots", len(snapshots))
+            if self.merkle_service and snapshots:
+                try:
+                    self.merkle_service.commit_cycle(snapshots, now)
+                except Exception as exc:
+                    self.logger.warning("Merkle cycle commit failed: %s", exc)
         else:
             scored = self._score_predictions(now)
             if not scored:

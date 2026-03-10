@@ -178,7 +178,7 @@ class TestPersistToScoreFlow:
         state = state_repo.load_state("model_1")
         sim2.load_state("model_1", state)
 
-        pos = sim2.get_position("model_1", "BTCUSDT")
+        pos = sim2.get_position("model_1", "BTC")
         assert pos is not None
         assert pos.direction == "long"
         assert pos.current_price == pytest.approx(50000.0)

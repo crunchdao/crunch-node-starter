@@ -27,6 +27,9 @@ class SimulatorSink:
         self._signal_mode = signal_mode
         self._trading_config = trading_config
         self._last_price: dict[str, float] = {}
+        self._pair_to_asset: dict[str, str] = {
+            v: k for k, v in trading_config.asset_price_mapping.items()
+        }
 
     async def on_record(self, record: FeedDataRecord) -> None:
         price = self.extract_price(record)
@@ -34,7 +37,8 @@ class SimulatorSink:
             return
         self._last_price[record.subject] = price
         ts = datetime.fromtimestamp(record.ts_event / 1000, tz=UTC)
-        self._simulator.mark_to_market(record.subject, price, ts)
+        asset = self._pair_to_asset.get(record.subject, record.subject)
+        self._simulator.mark_to_market(asset, price, ts)
 
     @staticmethod
     def extract_price(record: FeedDataRecord) -> float | None:
@@ -58,12 +62,12 @@ class SimulatorSink:
         dirty_model_ids: set[str] = set()
 
         for pred in predictions:
-            asset = pred.scope.get("subject")
-            if not asset:
+            raw_subject = pred.scope.get("subject")
+            if not raw_subject:
                 continue
 
-            # Map asset name to trading pair subject for price lookup
-            trading_pair = self._trading_config.asset_price_mapping.get(asset, asset)
+            asset = self._pair_to_asset.get(raw_subject, raw_subject)
+            trading_pair = self._trading_config.asset_price_mapping.get(asset, raw_subject)
             price = self._last_price.get(trading_pair)
             if price is None:
                 logger.warning(
@@ -135,6 +139,10 @@ class SimulatorSink:
             amount = float(amount)
             if amount <= 0:
                 return
+            if action not in ("buy", "sell"):
+                raise ValueError(
+                    "Order mode 'action' must be 'buy' or 'sell', got: %r" % action
+                )
             direction = "long" if action == "buy" else "short"
             self._simulator.apply_order(
                 model_id,

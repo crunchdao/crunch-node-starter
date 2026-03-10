@@ -69,7 +69,7 @@ class TestOnRecord:
         )
 
         now = datetime.now(UTC)
-        sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
+        sim.apply_order("model_1", "BTC", "long", 1.0, price=50000.0, timestamp=now)
 
         record = FeedDataRecord(
             source="binance",
@@ -81,7 +81,7 @@ class TestOnRecord:
         )
         asyncio.run(sink.on_record(record))
 
-        pos = sim.get_position("model_1", "BTCUSDT")
+        pos = sim.get_position("model_1", "BTC")
         assert pos.current_price == 51000.0
 
     def test_on_record_does_not_persist(self):
@@ -95,7 +95,7 @@ class TestOnRecord:
         )
 
         now = datetime.now(UTC)
-        sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
+        sim.apply_order("model_1", "BTC", "long", 1.0, price=50000.0, timestamp=now)
 
         record = FeedDataRecord(
             source="binance",

@@ -30,7 +30,7 @@ class TestFullFlow:
         now = datetime.now(UTC)
         ts_ms = int(now.timestamp() * 1000)
 
-        sim.apply_order("model_1", "BTCUSDT", "long", 1.0, price=50000.0, timestamp=now)
+        sim.apply_order("model_1", "BTC", "long", 1.0, price=50000.0, timestamp=now)
 
         record = FeedDataRecord(
             source="binance",
@@ -49,7 +49,7 @@ class TestFullFlow:
         assert snapshot["open_position_count"] == 1
 
         sim.apply_order(
-            "model_1", "BTCUSDT", "short", 1.0, price=51000.0, timestamp=now
+            "model_1", "BTC", "short", 1.0, price=51000.0, timestamp=now
         )
 
         record2 = FeedDataRecord(
