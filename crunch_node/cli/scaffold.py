@@ -178,7 +178,7 @@ def scaffold_workspace(
 
     Args:
         name: Competition name in kebab-case (e.g. ``my-btc-challenge``).
-        pack: Optional pack overlay (prediction, trading, tournament).
+        pack: Optional pack overlay (realtime, trading, tournament).
         output_dir: Parent directory for the workspace.
         clone_webapp: If True, clone coordinator-webapp into ``webapp/``.
 

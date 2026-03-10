@@ -1,6 +1,6 @@
 """Prediction pack validation — catches integration bugs before deployment.
 
-Verifies internal consistency of packs/prediction/:
+Verifies internal consistency of packs/realtime/:
 - Scoring function accepts Pydantic models (not dicts)
 - feed_normalizer matches FEED_KIND in .local.env.example
 - resolve_ground_truth produces output compatible with scoring
@@ -81,7 +81,7 @@ def _load_pack_config():
         # Load crunch_config (it will find starter_challenge.scoring)
         config_path = PACK_NODE_CONFIG / "crunch_config.py"
         config_spec = importlib.util.spec_from_file_location(
-            "pack_prediction_crunch_config", config_path
+            "pack_realtime_crunch_config", config_path
         )
         config_mod = importlib.util.module_from_spec(config_spec)
         config_spec.loader.exec_module(config_mod)
@@ -101,9 +101,7 @@ def _load_pack_scoring():
     scoring_path = PACK_CHALLENGE / "starter_challenge" / "scoring.py"
     assert scoring_path.exists(), f"Missing {scoring_path}"
 
-    spec = importlib.util.spec_from_file_location(
-        "pack_prediction_scoring", scoring_path
-    )
+    spec = importlib.util.spec_from_file_location("pack_realtime_scoring", scoring_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod.score_prediction

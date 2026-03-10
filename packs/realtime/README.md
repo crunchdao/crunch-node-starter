@@ -8,7 +8,7 @@ understanding how the coordinator node works end-to-end.
 ## Quick start
 
 ```bash
-crunch-node init mycomp --pack prediction
+crunch-node init mycomp --pack realtime
 cd mycomp
 make deploy
 ```
