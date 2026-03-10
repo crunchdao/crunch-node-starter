@@ -27,6 +27,7 @@ from starter_challenge.scoring import (
 
 from crunch_node.crunch_config import (
     Aggregation,
+    AggregationWindow,
     ScheduledPrediction,
 )
 from crunch_node.crunch_config import (
@@ -65,22 +66,23 @@ class CrunchConfig(BaseCrunchConfig):
     # No custom resolve_ground_truth — default handles candle feeds correctly.
     scoring_function: type = score_prediction
 
-    # Simple prediction pack — no rolling windows, just rank by raw score value.
     # Disable cross-model metrics (IC, hit_rate, etc.) that need multi-round data.
     metrics: list[str] = Field(default_factory=list)
+
+    # 1-hour rolling window for leaderboard stability.
     aggregation: Aggregation = Aggregation(
-        windows={},
+        windows={"score_1h": AggregationWindow(hours=1)},
         value_field="value",
-        ranking_key="value",
+        ranking_key="score_1h",
     )
 
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
-                scope_key="prediction-btcusdt-60s",
+                scope_key="prediction-btcusdt-120s",
                 scope={"subject": "BTCUSDT"},
                 prediction_interval_seconds=15,
-                resolve_horizon_seconds=60,
+                resolve_horizon_seconds=120,
             ),
         ]
     )
