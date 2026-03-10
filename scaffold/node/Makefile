@@ -10,7 +10,7 @@ validate:
 
 # ── Deploy (validates first) ─────────────────────────────────────────
 deploy: validate
-	$(COMPOSE) build
+	CACHEBUST=$$(date +%s) $(COMPOSE) build
 	$(COMPOSE) up -d postgres
 	$(COMPOSE) run --rm init-db
 	$(COMPOSE) up -d
