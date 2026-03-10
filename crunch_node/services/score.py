@@ -282,18 +282,19 @@ class ScoreService:
             for snap in snapshots:
                 self.snapshot_repository.save(snap)
             self.logger.info("Wrote %d trading snapshots", len(snapshots))
-            if self.merkle_service and snapshots:
-                try:
-                    self.merkle_service.commit_cycle(snapshots, now)
-                except Exception as exc:
-                    self.logger.warning("Merkle cycle commit failed: %s", exc)
         else:
             scored = self._score_predictions(now)
             if not scored:
                 self.logger.info("No predictions scored this cycle")
                 return False
-            self._write_snapshots(scored, now)
+            snapshots = self._write_snapshots(scored, now)
             self._compute_ensembles(scored, now)
+
+        if self.merkle_service and snapshots:
+            try:
+                self.merkle_service.commit_cycle(snapshots, now)
+            except Exception as exc:
+                self.logger.warning("Merkle cycle commit failed: %s", exc)
 
         self._rebuild_leaderboard()
         self._maybe_checkpoint(now)
@@ -548,13 +549,6 @@ class ScoreService:
             )
 
         self.logger.info("Wrote %d snapshots", len(by_model_scores))
-
-        # Merkle tamper evidence: commit cycle
-        if self.merkle_service and written_snapshots:
-            try:
-                self.merkle_service.commit_cycle(written_snapshots, now)
-            except Exception as exc:
-                self.logger.warning("Merkle cycle commit failed: %s", exc)
 
         return written_snapshots
 
