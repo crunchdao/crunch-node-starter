@@ -12,6 +12,8 @@ x-common-build: &common-build
   build:
     context: ..
     dockerfile: node/Dockerfile
+    args:
+      CACHEBUST: ${CACHEBUST:-0}
   deploy:
     resources:
       limits:
