@@ -51,13 +51,19 @@ class PredictionScoreResult(BaseModel):
     failed_reason: str | None = None
 
 
+SCORE_SCALE = 10_000  # express score in basis-point units
+
+
 def score_prediction(
     prediction: PredictionOutput, ground_truth: PredictionGroundTruth
 ) -> PredictionScoreResult:
-    """Score = prediction × realized_return.
+    """Score = prediction × realized_return × 10,000.
 
     Linear scoring rule — proper, incentive-compatible, impossible to game.
     The optimal strategy is to output E[return | data].
+
+    The 10,000× multiplier converts the raw product (≈10⁻⁸) into
+    human-readable units without changing the incentive structure.
     """
     actual_return = ground_truth.profit
 
@@ -67,7 +73,7 @@ def score_prediction(
             failed_reason="entry price is zero",
         )
 
-    score = prediction.value * actual_return
+    score = prediction.value * actual_return * SCORE_SCALE
 
     return PredictionScoreResult(
         value=score,

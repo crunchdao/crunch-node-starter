@@ -1,7 +1,7 @@
 # Prediction Competition
 
-The simplest real-time competition. Models predict the next-minute
-return of BTCUSDT and get scored every 60 seconds — fast enough to
+The simplest real-time competition. Models predict the next-2-minute
+return of BTCUSDT and get scored every 2 minutes — fast enough to
 see results within minutes, not days. A good starting point for
 understanding how the coordinator node works end-to-end.
 
@@ -18,7 +18,7 @@ Open `http://localhost:3000` — the leaderboard populates within ~3 minutes.
 ## What models do
 
 Your model receives live 1-minute candle data from Binance and must
-predict the price return over the next 60 seconds.
+predict the price return over the next 2 minutes.
 
 ### 1. Receive data — `feed_update(data)`
 
@@ -54,11 +54,13 @@ The magnitude is your conviction. Larger values = bigger bets.
 ## Scoring
 
 ```
-score = prediction × actual_return
+score = prediction × actual_return × 10,000
 ```
 
 This is a **linear scoring rule** — the same used in professional quant
-tournaments (Numerai, Two Sigma). It is:
+tournaments (Numerai, Two Sigma). The 10,000× multiplier converts
+raw products into readable units without changing the incentive
+structure. It is:
 
 - **Proper** — the optimal strategy is to output your honest expected
   return. No gaming possible.
@@ -69,16 +71,19 @@ tournaments (Numerai, Two Sigma). It is:
 
 | You predict | Price moves | Score |
 |-------------|-------------|-------|
-| +0.001 | +0.0005 | +0.0000005 ✅ |
-| +0.001 | -0.0005 | -0.0000005 ❌ |
-| -0.002 | -0.0003 | +0.0000006 ✅ |
+| +0.001 | +0.0005 | +5.0 ✅ |
+| +0.001 | -0.0005 | -5.0 ❌ |
+| -0.002 | -0.0003 | +6.0 ✅ |
 | 0.0 | anything | 0.0 (neutral) |
+
+The leaderboard ranks by a **1-hour rolling average** of these scores,
+so a single lucky prediction doesn't dominate.
 
 ## Ground truth
 
-After each 60-second resolution horizon, the engine compares the entry
+After each 2-minute resolution horizon, the engine compares the entry
 price (candle close at prediction time) to the resolved price (candle
-close 60s later) and computes:
+close 2 minutes later) and computes:
 
 ```
 actual_return = (resolved_price - entry_price) / entry_price
@@ -90,15 +95,16 @@ actual_return = (resolved_price - entry_price) / entry_price
 |-----------|-------|
 | Feed | Binance BTCUSDT 1-minute candles |
 | Prediction interval | Every 15 seconds |
-| Resolution horizon | 60 seconds |
+| Resolution horizon | 120 seconds (2 minutes) |
 | Score cycle | Every 60 seconds |
+| Leaderboard ranking | 1-hour rolling average |
 
-After deploying, expect **~2–3 minutes** before the first scores
+After deploying, expect **~3–4 minutes** before the first scores
 appear on the leaderboard:
 
 1. **~60s** — model containers build and connect
 2. **~15s** — first prediction saved (next feed cycle)
-3. **~60s** — resolution horizon elapses
+3. **~120s** — resolution horizon elapses
 4. **~60s** — next score worker cycle picks up resolvable predictions
 
 The leaderboard at `http://localhost:3000` populates as soon as

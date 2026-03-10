@@ -1,6 +1,6 @@
 """Tests for prediction scoring (linear scoring rule).
 
-score = prediction × actual_return
+score = prediction × actual_return × 10,000
 
 All tests use Pydantic models — the engine always coerces to typed objects.
 """
@@ -8,6 +8,7 @@ All tests use Pydantic models — the engine always coerces to typed objects.
 from __future__ import annotations
 
 from starter_challenge.scoring import (
+    SCORE_SCALE,
     PredictionGroundTruth,
     PredictionOutput,
     PredictionScoreResult,
@@ -56,7 +57,7 @@ class TestLinearScoring:
             PredictionOutput(value=0.5),
             PredictionGroundTruth(profit=0.02, entry_price=40000, resolved_price=40080),
         )
-        assert result.value == 0.5 * 0.02
+        assert result.value == 0.5 * 0.02 * SCORE_SCALE
         assert result.prediction == 0.5
         assert result.actual_return == 0.02
 
@@ -68,7 +69,7 @@ class TestLinearScoring:
                 profit=-0.02, entry_price=40000, resolved_price=39920
             ),
         )
-        assert result.value == (-0.5) * (-0.02)
+        assert result.value == (-0.5) * (-0.02) * SCORE_SCALE
         assert result.value > 0
 
     def test_wrong_direction(self):
@@ -79,7 +80,7 @@ class TestLinearScoring:
                 profit=-0.02, entry_price=40000, resolved_price=39920
             ),
         )
-        assert result.value == 0.5 * (-0.02)
+        assert result.value == 0.5 * (-0.02) * SCORE_SCALE
         assert result.value < 0
 
     def test_zero_prediction(self):
