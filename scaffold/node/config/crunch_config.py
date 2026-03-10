@@ -16,6 +16,7 @@ from crunch_node.crunch_config import (
     ScheduledPrediction,
     ScoreResult,
 )
+from crunch_node.services.realtime_predict import RealtimePredictService
 
 # Input shape is defined by feed_normalizer (default: "candle").
 # See crunch_node.feeds.normalizers for available normalizers and their output types:
@@ -53,6 +54,8 @@ class CrunchConfig(BaseCrunchConfig):
     beyond the default 'value' field.
     """
 
+    predict_service_class: type = RealtimePredictService
+
     feed_normalizer: str = "candle"
     ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = (
@@ -63,11 +66,11 @@ class CrunchConfig(BaseCrunchConfig):
     # Prediction schedule — what to predict, how often, when to resolve
     scheduled_predictions: list[ScheduledPrediction] = [
         ScheduledPrediction(
-            scope_key="realtime-btc-price-10s",
+            scope_key="realtime-btc-price-120s",
             scope={
                 "subject": "BTCUSDT"
             },  # passed to model.predict(); feed resolution is automatic
-            prediction_interval_seconds=1,  # how often it is called
-            resolve_horizon_seconds=10,  # how long to wait for the ground truth
+            prediction_interval_seconds=60,  # predict every 60 seconds
+            resolve_horizon_seconds=120,  # resolve ground truth after 2 minutes
         ),
     ]

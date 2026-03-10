@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -106,35 +105,6 @@ class RealtimePredictService(PredictService):
                     f"Set resolve_horizon_seconds >= {feed_poll_seconds} "
                     f"or use 0 for immediate resolution (live trading)."
                 )
-
-    # ── main loop ──
-
-    async def run(self) -> None:
-        self.logger.info("realtime predict service started")
-        while not self.stop_event.is_set():
-            try:
-                # Wait for data and capture notification time + payload
-                payload = await self._wait_for_data()
-                notify_received_us = time.time_ns() // 1000
-
-                # Extract feed timing from notify payload for cross-process timing
-                feed_timing: dict[str, int] = {}
-                if payload:
-                    try:
-                        import json
-
-                        feed_timing = json.loads(payload)
-                    except (ValueError, json.JSONDecodeError):
-                        pass
-
-                await self.process_tick(
-                    notify_received_us=notify_received_us,
-                    feed_timing=feed_timing,
-                )
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                self.logger.exception("predict loop error: %s", exc)
 
     async def process_tick(
         self,
@@ -331,46 +301,6 @@ class RealtimePredictService(PredictService):
             )
 
         return all_predictions
-
-    # ── event-driven wait ──
-
-    async def _wait_for_data(self) -> str:
-        """Wait for pg NOTIFY or fall back to polling timeout.
-
-        Returns the notification payload (feed_persisted_us as string) or empty string.
-        """
-        timeout = float(self.checkpoint_interval_seconds)
-        try:
-            from crunch_node.db.pg_notify import wait_for_notify
-
-            result = await self._race_stop(
-                wait_for_notify("new_feed_data", timeout=timeout)
-            )
-            if result is not None:
-                notified, payload = result
-                return payload if notified else ""
-            return ""
-        except Exception:
-            await self._race_stop(asyncio.sleep(timeout))
-            return ""
-
-    async def _race_stop(self, coro: Any) -> Any:
-        """Run coro until it completes or stop_event fires. Returns coro result or None."""
-        task = asyncio.create_task(coro)
-        stop = asyncio.create_task(self.stop_event.wait())
-        done, pending = await asyncio.wait(
-            {task, stop}, return_when=asyncio.FIRST_COMPLETED
-        )
-        for p in pending:
-            p.cancel()
-            try:
-                await p
-            except (asyncio.CancelledError, Exception):
-                pass
-
-        if task in done:
-            return task.result()
-        return None
 
     # ── helpers ──
 

@@ -44,8 +44,8 @@ def main():
     parser = argparse.ArgumentParser(description="Backfill data from a feed provider")
     parser.add_argument(
         "--source",
-        default=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "pyth")),
-        help="Feed source (default: $FEED_SOURCE or pyth)",
+        default=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "binance")),
+        help="Feed source (default: $FEED_SOURCE or binance)",
     )
     parser.add_argument(
         "--subject",

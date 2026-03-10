@@ -30,17 +30,17 @@ class FeedDataSettings:
 
     @classmethod
     def from_env(cls) -> FeedDataSettings:
-        subjects_raw = os.getenv("FEED_SUBJECTS", os.getenv("FEED_ASSETS", "BTC"))
+        subjects_raw = os.getenv("FEED_SUBJECTS", os.getenv("FEED_ASSETS", "BTCUSDT"))
         subjects = tuple(
             part.strip() for part in subjects_raw.split(",") if part.strip()
         )
 
         return cls(
-            source=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "pyth"))
+            source=os.getenv("FEED_SOURCE", os.getenv("FEED_PROVIDER", "binance"))
             .strip()
             .lower(),
-            subjects=subjects or ("BTC",),
-            kind=os.getenv("FEED_KIND", "tick").strip().lower(),
+            subjects=subjects or ("BTCUSDT",),
+            kind=os.getenv("FEED_KIND", "candle").strip().lower(),
             granularity=os.getenv("FEED_GRANULARITY", "1s").strip(),
             poll_seconds=float(os.getenv("FEED_POLL_SECONDS", "5")),
             backfill_minutes=int(os.getenv("FEED_BACKFILL_MINUTES", "180")),
@@ -258,21 +258,6 @@ class RepositorySink:
                 meta={"phase": "listen"},
             )
         )
-        try:
-            import json
-
-            from crunch_node.db.pg_notify import notify
-
-            timing_payload = json.dumps(
-                {
-                    "feed_received_us": feed_received_us,
-                    "feed_normalized_us": feed_normalized_us,
-                    "feed_persisted_us": feed_persisted_us,
-                }
-            )
-            notify("new_feed_data", payload=timing_payload)
-        except Exception:
-            pass
 
 
 def _feed_to_domain(

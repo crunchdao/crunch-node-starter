@@ -59,7 +59,7 @@ touch crunch_node/metrics/timing.py
 ### Phase 1.2: Feed Worker Instrumentation (Day 1 Afternoon)
 
 **Files to modify:**
-- `crunch_node/workers/feed_data_worker.py`
+- `crunch_node/workers/predict_worker.py` (feed ingestion)
 - `crunch_node/entities/feed.py` (FeedDataRecord)
 - `crunch_node/feeds/` - All feed implementations
 
@@ -190,7 +190,7 @@ crunch_node/
 │   ├── feed.py              # Modified - add _timing to FeedDataRecord
 │   └── prediction.py        # Modified - add _timing to InputRecord, PredictionRecord  
 ├── workers/
-│   ├── feed_data_worker.py  # Modified - add timing instrumentation
+│   ├── predict_worker.py    # Modified - feed ingestion + timing instrumentation
 │   ├── predict_worker.py    # Modified - add timing instrumentation
 │   └── report_worker.py     # Modified - add timing endpoint
 ├── services/

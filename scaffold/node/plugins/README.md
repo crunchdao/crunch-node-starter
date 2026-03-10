@@ -10,7 +10,7 @@ Use this folder for **node-side integrations** that should not live in the publi
 
 ## Typical use cases
 
-- Custom feed providers beyond built-in Pyth/Binance
+- Custom feed providers beyond the built-in Binance provider
 - External API integrations for data enrichment
 - Infrastructure-specific adapters
 

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from sqlalchemy import DateTime
 from sqlmodel import Field, SQLModel
+
+TZDateTime = DateTime(timezone=True)
 
 
 def utc_now() -> datetime:
@@ -22,7 +25,9 @@ class MerkleCycleRow(SQLModel, table=True):
     snapshots_root: str
     chained_root: str = Field(index=True)
     snapshot_count: int = Field(default=0)
-    created_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
 
 
 class MerkleNodeRow(SQLModel, table=True):
@@ -52,4 +57,4 @@ class MerkleNodeRow(SQLModel, table=True):
         index=True,
     )
     snapshot_content_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=utc_now, sa_type=TZDateTime)

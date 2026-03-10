@@ -1,0 +1,68 @@
+[
+  {
+    "id": 1,
+    "type": "CHART",
+    "displayName": "Score",
+    "tooltip": null,
+    "order": 10,
+    "endpointUrl": "/reports/models/global",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "value",
+            "label": "Score"
+          }
+        ],
+        "format": "decimal-4"
+      },
+      "displayEvolution": false
+    }
+  },
+  {
+    "id": 2,
+    "type": "CHART",
+    "displayName": "Predictions",
+    "tooltip": null,
+    "order": 30,
+    "endpointUrl": "/reports/predictions",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "score_value"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "alertConfig": {
+        "reasonField": "score_failed_reason",
+        "field": "score_success"
+      },
+      "filterConfig": [
+        {
+          "type": "select",
+          "label": "Subject",
+          "property": "subject",
+          "autoSelectFirst": true
+        },
+        {
+          "type": "select",
+          "label": "Horizon",
+          "property": "horizon",
+          "autoSelectFirst": true
+        }
+      ],
+      "groupByProperty": "param",
+      "displayEvolution": false
+    }
+  }
+]

@@ -1,6 +1,5 @@
 from .backfill_jobs import DBBackfillJobRepository
 from .feed_records import DBFeedRecordRepository
-from .pg_notify import listen, notify, wait_for_notify
 from .repositories import (
     DBCheckpointRepository,
     DBInputRepository,

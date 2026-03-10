@@ -15,7 +15,7 @@ lint:
 check: lint test
 
 deploy:
-	$(COMPOSE) build
+	CACHEBUST=$$(date +%s) $(COMPOSE) build
 	$(COMPOSE) up -d postgres
 	$(COMPOSE) --profile init run --rm init-db
 	$(COMPOSE) up -d

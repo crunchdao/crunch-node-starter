@@ -12,6 +12,8 @@ x-common-build: &common-build
   build:
     context: ..
     dockerfile: node/Dockerfile
+    args:
+      CACHEBUST: ${CACHEBUST:-0}
   deploy:
     resources:
       limits:
@@ -85,9 +87,9 @@ services:
       CHECKPOINT_INTERVAL_SECONDS: ${CHECKPOINT_INTERVAL_SECONDS:-60}
       CRUNCH_ID: ${CRUNCH_ID:-starter-challenge}
       MODEL_BASE_CLASSNAME: ${MODEL_BASE_CLASSNAME:-tracker.TrackerBase}
-      FEED_SOURCE: ${FEED_SOURCE:-pyth}
-      FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
-      FEED_KIND: ${FEED_KIND:-tick}
+      FEED_SOURCE: ${FEED_SOURCE:-binance}
+      FEED_SUBJECTS: ${FEED_SUBJECTS:-BTCUSDT}
+      FEED_KIND: ${FEED_KIND:-candle}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
       FEED_POLL_SECONDS: ${FEED_POLL_SECONDS:-5}
       FEED_BACKFILL_MINUTES: ${FEED_BACKFILL_MINUTES:-180}
@@ -117,9 +119,9 @@ services:
       <<: *common-db-env
       CHECKPOINT_INTERVAL_SECONDS: ${CHECKPOINT_INTERVAL_SECONDS:-604800}
       SCORE_INTERVAL_SECONDS: ${SCORE_INTERVAL_SECONDS:-60}
-      FEED_SOURCE: ${FEED_SOURCE:-pyth}
-      FEED_SUBJECTS: ${FEED_SUBJECTS:-BTC}
-      FEED_KIND: ${FEED_KIND:-tick}
+      FEED_SOURCE: ${FEED_SOURCE:-binance}
+      FEED_SUBJECTS: ${FEED_SUBJECTS:-BTCUSDT}
+      FEED_KIND: ${FEED_KIND:-candle}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
       SCORING_FUNCTION: ${SCORING_FUNCTION}
       PYTHONPATH: /app:/app/challenge

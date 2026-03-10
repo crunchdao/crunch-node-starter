@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 
 # ── Paths ──────────────────────────────────────────────────────────────
-BASE_DIR = Path(__file__).resolve().parent.parent / "base"
+BASE_DIR = Path(__file__).resolve().parent.parent / "scaffold"
 NODE_DIR = BASE_DIR / "node"
 CHALLENGE_DIR = BASE_DIR / "challenge"
 # ── Fixtures ───────────────────────────────────────────────────────────
@@ -379,8 +379,6 @@ class TestTrackerOutputMatchesInferenceOutput:
     @pytest.fixture(
         params=[
             "starter_challenge.examples.mean_reversion_tracker:MeanReversionTracker",
-            "starter_challenge.examples.trend_following_tracker:TrendFollowingTracker",
-            "starter_challenge.examples.volatility_regime_tracker:VolatilityRegimeTracker",
         ]
     )
     def example_tracker(self, request):

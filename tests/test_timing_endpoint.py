@@ -13,9 +13,28 @@ from fastapi.testclient import TestClient
 
 from crunch_node.metrics.timing import timing_collector
 
+
+def _can_connect_to_db():
+    """Check if the test postgres is reachable."""
+    try:
+        import psycopg2
+
+        psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST", "postgres"),
+            port=int(os.getenv("POSTGRES_PORT", "5432")),
+            user=os.getenv("POSTGRES_USER", "test"),
+            password=os.getenv("POSTGRES_PASSWORD", "test"),
+            dbname=os.getenv("POSTGRES_DB", "test"),
+            connect_timeout=1,
+        ).close()
+        return True
+    except Exception:
+        return False
+
+
 pytestmark = pytest.mark.skipif(
-    os.getenv("CI") == "true",
-    reason="Integration test requires initialized database",
+    os.getenv("CI") == "true" or not _can_connect_to_db(),
+    reason="Integration test requires running postgres",
 )
 
 

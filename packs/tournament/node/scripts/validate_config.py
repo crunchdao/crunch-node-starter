@@ -115,8 +115,10 @@ def check_scoring():
             from config.crunch_config import CrunchConfig
 
             cc = CrunchConfig()
-            pred = cc.output_type().model_dump()
-            gt = cc.ground_truth_type().model_dump()
+            # Use Pydantic model instances (engine coerces before calling)
+            pred = cc.output_type()
+            gt_type = cc.get_ground_truth_type()
+            gt = gt_type()
         except Exception:
             pass
 
@@ -126,22 +128,32 @@ def check_scoring():
 
         result = score_fn(pred, gt)
 
-        check(
-            "score_prediction returns dict",
-            isinstance(result, dict),
-            f"got {type(result)}",
-        )
-        if not isinstance(result, dict):
+        # Scoring functions may return Pydantic models or dicts
+        if hasattr(result, "model_dump"):
+            result_dict = result.model_dump()
+        elif isinstance(result, dict):
+            result_dict = result
+        else:
+            check(
+                "score_prediction returns dict or Pydantic model",
+                False,
+                f"got {type(result)}",
+            )
             return
 
         check(
-            "Result has 'value' key",
-            "value" in result,
-            f"keys: {list(result.keys())}",
+            "score_prediction returns dict or Pydantic model",
+            True,
         )
-        check("Result has 'success' key", "success" in result, "")
 
-        val = result.get("value", 0.0)
+        check(
+            "Result has 'value' key",
+            "value" in result_dict,
+            f"keys: {list(result_dict.keys())}",
+        )
+        check("Result has 'success' key", "success" in result_dict, "")
+
+        val = result_dict.get("value", 0.0)
         if val == 0.0:
             warn(
                 "Score is zero for default types",

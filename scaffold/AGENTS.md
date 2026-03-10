@@ -1,6 +1,6 @@
 # Coordinator Workspace
 
-Crunch coordinator node. `node/` runs the infrastructure, `challenge/` is the participant-facing package, and `webapp/` is a local clone of `crunchdao/coordinator-webapp`.
+Crunch node. `node/` runs the infrastructure, `challenge/` is the participant-facing package, and `webapp/` is a local clone of `crunchdao/coordinator-webapp`.
 
 ## Git Discipline
 

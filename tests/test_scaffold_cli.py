@@ -262,10 +262,10 @@ class TestScaffoldWorkspace:
 
 
 class TestScaffoldWithPack:
-    def test_prediction_pack(self, tmp_path):
+    def test_realtime_pack(self, tmp_path):
         ws = scaffold_workspace(
             "pred-test",
-            pack="prediction",
+            pack="realtime",
             output_dir=str(tmp_path),
             clone_webapp=False,
         )

@@ -1,7 +1,7 @@
 """Combined feed-predict worker.
 
 Merges feed ingestion and prediction into a single process for low latency.
-Feed records flow directly to predictions without pg_notify or DB roundtrip.
+Feed records flow directly to predictions via PredictSink without DB roundtrip.
 """
 
 from __future__ import annotations

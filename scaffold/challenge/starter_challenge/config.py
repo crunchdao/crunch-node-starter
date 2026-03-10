@@ -15,8 +15,8 @@ COORDINATOR_URL = os.getenv(
 
 # Default feed dimensions for this challenge.
 # Read FEED_* env vars (matching .local.env) with BACKTEST_* as fallback.
-DEFAULT_SOURCE = os.getenv("FEED_SOURCE", os.getenv("BACKTEST_SOURCE", "pyth"))
-DEFAULT_SUBJECT = os.getenv("FEED_SUBJECTS", os.getenv("BACKTEST_SUBJECT", "BTC"))
+DEFAULT_SOURCE = os.getenv("FEED_SOURCE", os.getenv("BACKTEST_SOURCE", "binance"))
+DEFAULT_SUBJECT = os.getenv("FEED_SUBJECTS", os.getenv("BACKTEST_SUBJECT", "BTCUSDT"))
 DEFAULT_KIND = os.getenv("FEED_KIND", os.getenv("BACKTEST_KIND", "tick"))
 DEFAULT_GRANULARITY = os.getenv(
     "FEED_GRANULARITY", os.getenv("BACKTEST_GRANULARITY", "1s")

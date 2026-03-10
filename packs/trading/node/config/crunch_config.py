@@ -13,13 +13,15 @@ from pydantic import BaseModel, Field
 
 from crunch_node.crunch_config import (
     Aggregation,
-    AggregationWindow,
     ScheduledPrediction,
 )
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
-from crunch_node.services.realtime_predict import RealtimeServiceConfig
+from crunch_node.services.realtime_predict import (
+    RealtimePredictService,
+    RealtimeServiceConfig,
+)
 from crunch_node.services.trading.config import TradingConfig
 
 
@@ -39,6 +41,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     Models return buy/sell orders, scored via TradingEngine PnL simulation.
     """
+
+    predict_service_class: type = RealtimePredictService
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput

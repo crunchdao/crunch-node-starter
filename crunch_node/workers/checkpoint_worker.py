@@ -78,9 +78,7 @@ async def main() -> None:
         DeprecationWarning,
         stacklevel=1,
     )
-    logger.info(
-        "coordinator checkpoint worker bootstrap (deprecated — use score worker)"
-    )
+    logger.info("checkpoint worker bootstrap (deprecated — use score worker)")
 
     service = build_service()
 

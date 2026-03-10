@@ -5,9 +5,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import Column
+from sqlalchemy import Column, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
+
+TZDateTime = DateTime(timezone=True)
 
 
 def utc_now() -> datetime:
@@ -36,15 +38,21 @@ class ModelRow(SQLModel, table=True):
         sa_column=Column(JSONB),
     )
 
-    created_at: datetime = Field(default_factory=utc_now, index=True)
-    updated_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
+    updated_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
 
 
 class LeaderboardRow(SQLModel, table=True):
     __tablename__ = "leaderboards"
 
     id: str = Field(primary_key=True)
-    created_at: datetime = Field(default_factory=utc_now, index=True)
+    created_at: datetime = Field(
+        default_factory=utc_now, index=True, sa_type=TZDateTime
+    )
 
     entries_jsonb: list[dict[str, Any]] = Field(
         default_factory=list,
