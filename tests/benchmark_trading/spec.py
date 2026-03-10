@@ -18,7 +18,6 @@ verify everything works, deploy, and fix any issues.
 
 - node/config/crunch_config.py — Trading CrunchConfig with order-based signal mode
 - challenge/starter_challenge/tracker.py — TrackerBase for trading models
-- challenge/starter_challenge/scoring.py — Placeholder (TradingEngine handles PnL)
 - challenge/starter_challenge/examples/ — 3 example trackers (momentum, mean_reversion, breakout)
 - .local.env — Feed config for Binance BTCUSDT/ETHUSDT candles
 
@@ -28,12 +27,7 @@ InferenceOutput — what models return:
 - action: str  — "buy" or "sell"
 - amount: float  — position size (>= 0)
 
-ScoreResult — scoring output:
-- value: float = 0.0
-- success: bool = True
-- failed_reason: str | None = None
-
-No GroundTruth — PnL is computed by the TradingEngine, not a scoring function.
+No scoring function — PnL is computed by the TradingEngine, not a scoring function.
 
 ## Steps
 
@@ -51,12 +45,6 @@ EXPECTED_OUTPUT_FIELDS = {
     "amount": "float",
 }
 
-EXPECTED_SCORE_FIELDS = {
-    "value": "float",
-    "success": "bool",
-    "failed_reason": ("str", "None"),
-}
-
 EXPECTED_EXAMPLES = [
     "momentum_tracker.py",
     "mean_reversion_tracker.py",
@@ -67,17 +55,4 @@ EXPECTED_EXAMPLE_CLASSES = [
     "MomentumTracker",
     "MeanReversionTracker",
     "BreakoutTracker",
-]
-
-SCORING_TEST_CASES = [
-    (
-        {"action": "buy", "amount": 100},
-        {},
-        0.0,
-    ),
-    (
-        {"action": "sell", "amount": 50},
-        {},
-        0.0,
-    ),
 ]

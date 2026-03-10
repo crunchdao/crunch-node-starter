@@ -5,28 +5,24 @@ Each check_* function returns (passed: bool, details: str).
 Milestones:
 - M1: Types correct (InferenceOutput with action:str, amount:float)
 - M2: Trading config present (TradingConfig with signal_mode="order")
-- M3: Scoring placeholder works (returns value=0.0)
-- M4: Examples exist (tracker files with predict returning action/amount)
-- M5: Tests pass (make test)
-- M6: Deploy succeeded (Docker containers running)
-- M7: E2E verified (make verify-e2e)
-- M8: PnL non-zero (TradingEngine produces snapshots with non-zero net_pnl)
+- M3: Examples exist (tracker files with predict returning action/amount)
+- M4: Tests pass (make test)
+- M5: Deploy succeeded (Docker containers running)
+- M6: E2E verified (make verify-e2e)
+- M7: PnL non-zero (TradingEngine produces snapshots with non-zero net_pnl)
 """
 
 from __future__ import annotations
 
 import ast
-import importlib.util
 import json
 import os
 import re
 import subprocess
-import types
 
 from tests.benchmark_trading.spec import (
     EXPECTED_EXAMPLES,
     EXPECTED_OUTPUT_FIELDS,
-    SCORING_TEST_CASES,
 )
 
 
@@ -39,15 +35,6 @@ def _run(cmd: str, cwd: str, timeout: int = 120) -> subprocess.CompletedProcess:
         text=True,
         timeout=timeout,
     )
-
-
-def _load_module_from_file(path: str, module_name: str) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {path}")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 def _node_dir(workspace: str) -> str:
@@ -128,65 +115,7 @@ def check_trading_config(workspace: str) -> tuple[bool, str]:
     return True, "TradingConfig with order mode configured"
 
 
-# --- M3: Scoring placeholder works ---
-
-
-def check_scoring(workspace: str) -> tuple[bool, str]:
-    """Import scoring.py, verify it returns the expected placeholder result."""
-    scoring_path = os.path.join(
-        workspace, "challenge", "starter_challenge", "scoring.py"
-    )
-    if not os.path.exists(scoring_path):
-        return False, "scoring.py not found"
-
-    try:
-        mod = _load_module_from_file(scoring_path, "benchmark_trading_scoring")
-    except Exception as e:
-        return False, f"Failed to import scoring.py: {e}"
-
-    score_fn = getattr(mod, "score_prediction", None)
-    if score_fn is None:
-        return False, "score_prediction function not found"
-
-    results = []
-    for prediction, ground_truth, expected_value in SCORING_TEST_CASES:
-        try:
-            result = score_fn(prediction, ground_truth)
-        except Exception as e:
-            return False, f"score_prediction raised: {e}"
-
-        if not isinstance(result, dict):
-            if hasattr(result, "model_dump"):
-                result = result.model_dump()
-            elif hasattr(result, "__dict__"):
-                result = vars(result)
-            else:
-                return False, f"Expected dict, got {type(result)}"
-
-        value = result.get("value")
-        if value is None:
-            return False, "Result missing 'value' key"
-
-        if "success" not in result:
-            return False, "Result missing 'success' key"
-
-        if "failed_reason" not in result:
-            return False, "Result missing 'failed_reason' key"
-
-        if value != expected_value:
-            results.append(f"FAIL: expected {expected_value}, got {value}")
-        else:
-            results.append(f"OK: value={value}")
-
-    failures = [r for r in results if r.startswith("FAIL")]
-    detail = "; ".join(results)
-
-    if failures:
-        return False, detail
-    return True, detail
-
-
-# --- M4: Examples exist ---
+# --- M3: Examples exist ---
 
 
 def check_examples(workspace: str) -> tuple[bool, str]:
@@ -435,7 +364,6 @@ def check_pnl(workspace: str) -> tuple[bool, str]:
 MILESTONES = [
     ("types_correct", check_types),
     ("trading_config_present", check_trading_config),
-    ("scoring_placeholder", check_scoring),
     ("examples_exist", check_examples),
     ("tests_pass", check_tests),
     ("deploy_succeeded", check_deploy),

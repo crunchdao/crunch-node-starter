@@ -9,10 +9,7 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from crunch_node.crunch_config import (
     Aggregation,
@@ -37,21 +34,6 @@ class InferenceOutput(BaseModel):
     amount: float = Field(default=0.0, ge=0.0)
 
 
-class ScoreResult(BaseModel):
-    """Score output. PnL is computed by the TradingEngine."""
-
-    model_config = ConfigDict(extra="allow")
-
-    value: float = 0.0
-    success: bool = True
-    failed_reason: str | None = None
-
-
-def score_prediction(prediction: Any, ground_truth: Any) -> ScoreResult:
-    """Placeholder — actual PnL is computed by the TradingEngine."""
-    return ScoreResult(value=0.0)
-
-
 class CrunchConfig(BaseCrunchConfig):
     """Trading competition configuration.
 
@@ -60,13 +42,10 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
-    score_type: type[BaseModel] = ScoreResult
 
     realtime_service: RealtimeServiceConfig = Field(
         default_factory=RealtimeServiceConfig
     )
-
-    scoring_function: Callable[..., Any] = score_prediction  # type: ignore[assignment]
 
     trading: TradingConfig = Field(
         default_factory=lambda: TradingConfig(
