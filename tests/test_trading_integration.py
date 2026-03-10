@@ -75,7 +75,19 @@ class TestFullFlow:
         sink = SimulatorSink(simulator=sim, state_repository=state_repo)
 
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        ts_ms = int(now.timestamp() * 1000)
+
+        feed_record = FeedDataRecord(
+            source="binance",
+            subject="BTCUSDT",
+            kind="candle",
+            granularity="1m",
+            ts_event=ts_ms,
+            values={"close": 50000.0},
+        )
+        asyncio.run(sink.on_record(feed_record))
+
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [
             PredictionRecord(
                 id="PRED_1",
@@ -96,15 +108,15 @@ class TestFullFlow:
         assert "model_1" in sink._model_ids
         state_repo.save_state.assert_called_once()
 
-        record = FeedDataRecord(
+        tick_record = FeedDataRecord(
             source="binance",
             subject="BTCUSDT",
             kind="candle",
             granularity="1m",
-            ts_event=int(now.timestamp() * 1000),
+            ts_event=ts_ms,
             values={"close": 52000.0},
         )
-        asyncio.run(sink.on_record(record))
+        asyncio.run(sink.on_record(tick_record))
 
         snapshot = sim.get_portfolio_snapshot("model_1", now)
         expected_pnl = 1.0 * (52000.0 - 50000.0) / 50000.0

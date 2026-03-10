@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
@@ -8,11 +9,27 @@ from crunch_node.entities.prediction import (
     PredictionRecord,
     PredictionStatus,
 )
+from crunch_node.feeds.contracts import FeedDataRecord
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+
+
+def _make_feed_record(subject: str, close: float, ts_ms: int = 1_000_000) -> FeedDataRecord:
+    return FeedDataRecord(
+        source="test",
+        subject=subject,
+        kind="candle",
+        granularity="1m",
+        ts_event=ts_ms,
+        values={"close": close},
+    )
+
+
+def _prime_price(sink: SimulatorSink, subject: str, price: float) -> None:
+    asyncio.run(sink.on_record(_make_feed_record(subject, price)))
 
 
 class TestOnPredictions:
@@ -35,7 +52,8 @@ class TestOnPredictions:
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        _prime_price(sink, "BTCUSDT", 50000.0)
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
 
         result = sink.on_predictions(predictions, inp, now)
@@ -46,11 +64,12 @@ class TestOnPredictions:
         assert pos.leverage == 0.5
         assert result == predictions
 
-    def test_hook_extracts_price_from_input(self):
+    def test_hook_uses_price_from_feed(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        _prime_price(sink, "BTCUSDT", 50000.0)
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
 
         sink.on_predictions(predictions, inp, now)
@@ -61,7 +80,8 @@ class TestOnPredictions:
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(simulator=sim, state_repository=MagicMock())
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        _prime_price(sink, "BTCUSDT", 50000.0)
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [self._make_prediction("model_1", "BTCUSDT", "long", 0.5, now)]
 
         sink.on_predictions(predictions, inp, now)

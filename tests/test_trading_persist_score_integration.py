@@ -19,6 +19,17 @@ from crunch_node.services.trading.sink import SimulatorSink
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
 
+def _feed_record(subject: str, close: float, ts_ms: int) -> FeedDataRecord:
+    return FeedDataRecord(
+        source="binance",
+        subject=subject,
+        kind="candle",
+        granularity="1m",
+        ts_event=ts_ms,
+        values={"close": close},
+    )
+
+
 class InMemoryTradingStateRepository:
     def __init__(self):
         self._states = {}
@@ -77,7 +88,11 @@ class TestPersistToScoreFlow:
         )
 
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        ts_ms = int(now.timestamp() * 1000)
+
+        asyncio.run(sink.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))
+
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [
             PredictionRecord(
                 id="PRED_1",
@@ -95,15 +110,7 @@ class TestPersistToScoreFlow:
         ]
         sink.on_predictions(predictions, inp, now)
 
-        record = FeedDataRecord(
-            source="binance",
-            subject="BTCUSDT",
-            kind="candle",
-            granularity="1m",
-            ts_event=int(now.timestamp() * 1000),
-            values={"close": 51000.0},
-        )
-        asyncio.run(sink.on_record(record))
+        asyncio.run(sink.on_record(_feed_record("BTCUSDT", 51000.0, ts_ms)))
 
         assert state_repo.load_state("model_1") is not None
 
@@ -139,7 +146,11 @@ class TestPersistToScoreFlow:
             state_repository=state_repo,
         )
         now = datetime.now(UTC)
-        inp = InputRecord(id="INP_1", raw_data={"close": 50000.0}, received_at=now)
+        ts_ms = int(now.timestamp() * 1000)
+
+        asyncio.run(sink1.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))
+
+        inp = InputRecord(id="INP_1", raw_data={}, received_at=now)
         predictions = [
             PredictionRecord(
                 id="PRED_1",
@@ -157,15 +168,7 @@ class TestPersistToScoreFlow:
         ]
         sink1.on_predictions(predictions, inp, now)
 
-        record = FeedDataRecord(
-            source="binance",
-            subject="BTCUSDT",
-            kind="candle",
-            granularity="1m",
-            ts_event=int(now.timestamp() * 1000),
-            values={"close": 51000.0},
-        )
-        asyncio.run(sink1.on_record(record))
+        asyncio.run(sink1.on_record(_feed_record("BTCUSDT", 51000.0, ts_ms)))
 
         sim2 = TradingEngine(cost_model=ZERO_COST)
         state = state_repo.load_state("model_1")

@@ -298,25 +298,23 @@ class ScoreService:
         now = datetime.now(UTC)
 
         if self.trading_state_repository is not None:
-            return self._score_trading(now)
+            snapshots = self._build_trading_snapshots(now)
+            if not snapshots:
+                self.logger.info("No trading states yet, waiting for orders")
+                return False
+            for snap in snapshots:
+                self.snapshot_repository.save(snap)
+            self.logger.info("Wrote %d trading snapshots", len(snapshots))
+        else:
+            scored = self._score_predictions(now)
+            if not scored:
+                self.logger.info("No predictions scored this cycle")
+                return False
+            self._write_snapshots(scored, now)
+            self._compute_ensembles(scored, now)
 
-        scored = self._score_predictions(now)
-        if not scored:
-            self.logger.info("No predictions scored this cycle")
-            return False
-
-        # 2. write snapshots (per-model period summary + multi-metric enrichment)
-        cycle_snapshots = self._write_snapshots(scored, now)
-
-        # 3. compute ensembles (if configured)
-        self._compute_ensembles(scored, now)
-
-        # 4. rebuild leaderboard from snapshots
         self._rebuild_leaderboard()
-
-        # 5. create checkpoint if interval elapsed
         self._maybe_checkpoint(now)
-
         return True
 
     async def shutdown(self) -> None:
@@ -729,13 +727,12 @@ class ScoreService:
 
     # ── trading scoring ──
 
-    def _score_trading(self, now: datetime) -> bool:
+    def _build_trading_snapshots(self, now: datetime) -> list[SnapshotRecord]:
         model_ids = self.trading_state_repository.get_all_model_ids()
         if not model_ids:
-            self.logger.info("No trading states yet, waiting for orders")
-            return False
+            return []
 
-        written_snapshots = []
+        snapshots = []
         for model_id in model_ids:
             state = self.trading_state_repository.load_state(model_id)
             if state is None:
@@ -763,7 +760,7 @@ class ScoreService:
             )
             net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
 
-            snapshot = SnapshotRecord(
+            snapshots.append(SnapshotRecord(
                 id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
                 model_id=model_id,
                 period_start=now,
@@ -777,17 +774,9 @@ class ScoreService:
                     "total_carry_costs": total_carry,
                     "open_position_count": len(positions_data),
                 },
-            )
-            self.snapshot_repository.save(snapshot)
-            written_snapshots.append(snapshot)
+            ))
 
-        if not written_snapshots:
-            return False
-
-        self.logger.info("Wrote %d trading snapshots", len(written_snapshots))
-        self._rebuild_leaderboard()
-        self._maybe_checkpoint(now)
-        return True
+        return snapshots
 
     # ── 5. checkpoint ──
 
