@@ -58,6 +58,7 @@ def _maybe_build_simulator_sink(config, session):
     sink = SimulatorSink(
         simulator=simulator,
         state_repository=state_repo,
+        trading_config=trading,
         model_ids=model_ids,
         signal_mode=trading.signal_mode,
     )

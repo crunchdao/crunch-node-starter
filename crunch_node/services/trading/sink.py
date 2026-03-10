@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from crunch_node.entities.prediction import InputRecord, PredictionRecord
 from crunch_node.feeds.contracts import FeedDataRecord
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.simulator import TradingEngine
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class SimulatorSink:
         self,
         simulator: TradingEngine,
         state_repository: Any,
+        trading_config: TradingConfig,
         model_ids: list[str] | None = None,
         signal_mode: Literal["delta", "target", "order"] = "delta",
     ) -> None:
@@ -23,6 +25,7 @@ class SimulatorSink:
         self._state_repository = state_repository
         self._model_ids: set[str] = set(model_ids) if model_ids else set()
         self._signal_mode = signal_mode
+        self._trading_config = trading_config
         self._last_price: dict[str, float] = {}
 
     async def on_record(self, record: FeedDataRecord) -> None:
@@ -55,14 +58,19 @@ class SimulatorSink:
         dirty_model_ids: set[str] = set()
 
         for pred in predictions:
-            subject = pred.scope.get("subject")
-            if not subject:
+            asset = pred.scope.get("subject")
+            if not asset:
                 continue
-            price = self._last_price.get(subject)
+
+            # Map asset name to trading pair subject for price lookup
+            trading_pair = self._trading_config.asset_price_mapping.get(asset, asset)
+            price = self._last_price.get(trading_pair)
             if price is None:
                 logger.warning(
-                    "No price for subject %s, skipping order for %s",
-                    subject, pred.model_id,
+                    "No price for asset %s (trading pair %s), skipping order for %s",
+                    asset,
+                    trading_pair,
+                    pred.model_id,
                 )
                 continue
             if "_validation_error" in pred.inference_output:
@@ -70,7 +78,7 @@ class SimulatorSink:
             try:
                 self.apply_signal(
                     pred.model_id,
-                    subject,
+                    asset,
                     pred.inference_output,
                     price=price,
                     timestamp=ts,
@@ -78,7 +86,9 @@ class SimulatorSink:
             except ValueError as exc:
                 logger.warning(
                     "Skipping order for %s/%s: %s",
-                    pred.model_id, subject, exc,
+                    pred.model_id,
+                    asset,
+                    exc,
                 )
                 continue
             dirty_model_ids.add(pred.model_id)
@@ -207,7 +217,7 @@ class SimulatorSink:
             )
 
     def _persist_state(self, model_ids: set[str] | None = None) -> None:
-        for model_id in (model_ids if model_ids is not None else self._model_ids):
+        for model_id in model_ids if model_ids is not None else self._model_ids:
             state = self._simulator.get_full_state(model_id)
             self._state_repository.save_state(
                 model_id,

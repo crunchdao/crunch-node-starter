@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -12,6 +13,13 @@ class TradingConfig(BaseModel):
     signal_mode: Literal["delta", "target", "order"] = "target"
     max_position_size: float = 10.0
     max_portfolio_size: float = 20.0
+    asset_price_mapping: dict[str, str] = Field(
+        default_factory=lambda: {
+            "BTC": "BTCUSDT",
+            "ETH": "ETHUSDT",
+        },
+        description="Map asset names to trading pair subjects for price lookup",
+    )
 
     @model_validator(mode="after")
     def _validate_size_limits(self) -> TradingConfig:

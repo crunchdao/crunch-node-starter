@@ -52,6 +52,10 @@ class CrunchConfig(BaseCrunchConfig):
             signal_mode="order",
             max_position_size=1_000_000,
             max_portfolio_size=1_000_000,
+            asset_price_mapping={
+                "BTC": "BTCUSDT",
+                "ETH": "ETHUSDT",
+            },
         )
     )
 
