@@ -1,0 +1,14 @@
+{
+  "endpoints": {
+    "leaderboard": "/reports/leaderboard",
+    "models": "/reports/models"
+  },
+  "logs": {
+    "containerNames": [
+      "crunch-node-trading-score-worker",
+      "crunch-node-trading-predict-worker",
+      "crunch-node-trading-report-worker",
+      "crunch-node-trading-model-orchestrator"
+    ]
+  }
+}

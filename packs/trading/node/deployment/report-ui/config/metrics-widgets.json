@@ -1,0 +1,199 @@
+[
+  {
+    "id": 1,
+    "type": "CHART",
+    "displayName": "Score Metrics",
+    "tooltip": null,
+    "order": 10,
+    "endpointUrl": "/reports/models/global",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "score_recent",
+            "label": "Recent Score"
+          },
+          {
+            "name": "score_steady",
+            "label": "Steady Score"
+          },
+          {
+            "name": "score_anchor",
+            "label": "Anchor Score"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "displayEvolution": false
+    }
+  },
+  {
+    "id": 3,
+    "type": "CHART",
+    "displayName": "Rolling score by parameters",
+    "tooltip": null,
+    "order": 20,
+    "endpointUrl": "/reports/models/params",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "score_recent",
+            "label": "Recent Score"
+          },
+          {
+            "name": "score_steady",
+            "label": "Steady Score"
+          },
+          {
+            "name": "score_anchor",
+            "label": "Anchor Score"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "alertConfig": {
+        "reasonField": "score_failed_reason",
+        "field": "score_success"
+      },
+      "filterConfig": [
+        {
+          "type": "select",
+          "label": "Asset",
+          "property": "asset",
+          "autoSelectFirst": true
+        },
+        {
+          "type": "select",
+          "label": "Horizon",
+          "property": "horizon",
+          "autoSelectFirst": true
+        }
+      ],
+      "groupByProperty": "param",
+      "displayEvolution": false
+    }
+  },
+  {
+    "id": 3,
+    "type": "CHART",
+    "displayName": "Rolling score by parameters",
+    "tooltip": null,
+    "order": 20,
+    "endpointUrl": "/reports/models/params",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "score_recent",
+            "label": "Recent Score"
+          },
+          {
+            "name": "score_steady",
+            "label": "Steady Score"
+          },
+          {
+            "name": "score_anchor",
+            "label": "Anchor Score"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "filterConfig": [
+        {
+          "type": "select",
+          "label": "Asset",
+          "property": "asset",
+          "autoSelectFirst": true
+        },
+        {
+          "type": "select",
+          "label": "Horizon",
+          "property": "horizon",
+          "autoSelectFirst": true
+        }
+      ],
+      "groupByProperty": "param",
+      "displayEvolution": false
+    }
+  },
+  {
+    "id": 2,
+    "type": "CHART",
+    "displayName": "Predictions",
+    "tooltip": null,
+    "order": 30,
+    "endpointUrl": "/reports/predictions",
+    "nativeConfiguration": {
+      "type": "line",
+      "xAxis": {
+        "name": "performed_at"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "score_value"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "displayEvolution": false,
+      "alertConfig": {
+        "reasonField": "score_failed_reason",
+        "field": "score_success"
+      },
+      "filterConfig": [
+        {
+          "type": "select",
+          "label": "Asset",
+          "property": "asset",
+          "autoSelectFirst": true
+        },
+        {
+          "type": "select",
+          "label": "Horizon",
+          "property": "horizon",
+          "autoSelectFirst": true
+        }
+      ],
+      "groupByProperty": "param"
+    }
+  },
+  {
+    "id": 7,
+    "type": "CHART",
+    "displayName": "Reward History",
+    "tooltip": "Reward distribution per checkpoint period",
+    "order": 40,
+    "endpointUrl": "/reports/checkpoints/rewards",
+    "nativeConfiguration": {
+      "type": "bar",
+      "xAxis": {
+        "name": "period_end"
+      },
+      "yAxis": {
+        "series": [
+          {
+            "name": "reward_pct",
+            "label": "Reward %"
+          }
+        ],
+        "format": "decimal-2"
+      },
+      "groupByProperty": "model_name",
+      "displayEvolution": false
+    }
+  }
+]
