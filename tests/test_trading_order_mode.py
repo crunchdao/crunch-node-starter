@@ -5,11 +5,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
 
 
 class TestOrderMode:
@@ -20,7 +22,10 @@ class TestOrderMode:
             max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="order"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="order",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -41,7 +46,10 @@ class TestOrderMode:
             max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="order"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="order",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -62,7 +70,10 @@ class TestOrderMode:
             max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="order"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="order",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -81,7 +92,10 @@ class TestOrderMode:
             max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="order"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="order",
         )
         now = datetime.now(UTC)
         with pytest.raises(ValueError, match="Order mode requires"):
@@ -100,7 +114,10 @@ class TestOrderMode:
             max_portfolio_size=1_000_000,
         )
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="order"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="order",
         )
         now = datetime.now(UTC)
         sink.apply_signal(

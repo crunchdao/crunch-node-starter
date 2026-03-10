@@ -5,18 +5,23 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
 
 
 class TestTargetMode:
     def test_opens_long_from_flat(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -29,7 +34,10 @@ class TestTargetMode:
     def test_opens_short_from_flat(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -42,7 +50,10 @@ class TestTargetMode:
     def test_reduces_long(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -58,7 +69,10 @@ class TestTargetMode:
     def test_zero_signal_closes(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -72,7 +86,10 @@ class TestTargetMode:
     def test_flips_long_to_short(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(
@@ -88,7 +105,10 @@ class TestTargetMode:
     def test_increases_long(self):
         sim = TradingEngine(cost_model=ZERO_COST)
         sink = SimulatorSink(
-            simulator=sim, state_repository=MagicMock(), signal_mode="target"
+            simulator=sim,
+            state_repository=MagicMock(),
+            trading_config=DEFAULT_TRADING_CONFIG,
+            signal_mode="target",
         )
         now = datetime.now(UTC)
         sink.apply_signal(

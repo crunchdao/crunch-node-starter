@@ -7,11 +7,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from crunch_node.feeds.contracts import FeedDataRecord
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
 
 
 class TestFullFlow:
@@ -19,7 +21,10 @@ class TestFullFlow:
         sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
         sink = SimulatorSink(
-            simulator=sim, state_repository=state_repo, model_ids=["model_1"]
+            simulator=sim,
+            state_repository=state_repo,
+            trading_config=DEFAULT_TRADING_CONFIG,
+            model_ids=["model_1"],
         )
 
         now = datetime.now(UTC)
@@ -72,7 +77,11 @@ class TestFullFlow:
 
         sim = TradingEngine(cost_model=ZERO_COST)
         state_repo = MagicMock()
-        sink = SimulatorSink(simulator=sim, state_repository=state_repo)
+        sink = SimulatorSink(
+            simulator=sim,
+            state_repository=state_repo,
+            trading_config=DEFAULT_TRADING_CONFIG,
+        )
 
         now = datetime.now(UTC)
         ts_ms = int(now.timestamp() * 1000)

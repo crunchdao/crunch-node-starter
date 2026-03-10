@@ -12,11 +12,13 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
 )
 from crunch_node.feeds.contracts import FeedDataRecord
+from crunch_node.services.trading.config import TradingConfig
 from crunch_node.services.trading.costs import CostModel
 from crunch_node.services.trading.simulator import TradingEngine
 from crunch_node.services.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
+DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
 
 
 def _feed_record(subject: str, close: float, ts_ms: int) -> FeedDataRecord:
@@ -85,6 +87,7 @@ class TestPersistToScoreFlow:
         sink = SimulatorSink(
             simulator=sim,
             state_repository=state_repo,
+            trading_config=DEFAULT_TRADING_CONFIG,
         )
 
         now = datetime.now(UTC)
@@ -144,6 +147,7 @@ class TestPersistToScoreFlow:
         sink1 = SimulatorSink(
             simulator=sim1,
             state_repository=state_repo,
+            trading_config=DEFAULT_TRADING_CONFIG,
         )
         now = datetime.now(UTC)
         ts_ms = int(now.timestamp() * 1000)
