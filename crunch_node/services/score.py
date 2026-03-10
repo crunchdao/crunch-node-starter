@@ -732,6 +732,7 @@ class ScoreService:
     def _score_trading(self, now: datetime) -> bool:
         model_ids = self.trading_state_repository.get_all_model_ids()
         if not model_ids:
+            self.logger.info("No trading states yet, waiting for orders")
             return False
 
         written_snapshots = []

@@ -17,17 +17,19 @@ class SimulatorSink:
         simulator: TradingEngine,
         state_repository: Any,
         model_ids: list[str] | None = None,
-        signal_mode: Literal["delta", "target"] = "delta",
+        signal_mode: Literal["delta", "target", "order"] = "delta",
     ) -> None:
         self._simulator = simulator
         self._state_repository = state_repository
         self._model_ids = model_ids or []
         self._signal_mode = signal_mode
+        self._last_price: dict[str, float] = {}
 
     async def on_record(self, record: FeedDataRecord) -> None:
         price = self.extract_price(record)
         if price is None:
             return
+        self._last_price[record.subject] = price
         ts = datetime.fromtimestamp(record.ts_event / 1000, tz=UTC)
         self._simulator.mark_to_market(record.subject, price, ts)
 
@@ -48,25 +50,35 @@ class SimulatorSink:
         now: Any,
     ) -> list[PredictionRecord]:
         """post_predict_hook: forward model signals as orders to the simulator."""
-        price = input_record.raw_data.get("close") or input_record.raw_data.get("price")
-        if price is None:
-            logger.warning("No price in input_record, skipping order forwarding")
-            return predictions
-
-        price = float(price)
         ts = now if isinstance(now, datetime) else datetime.now(UTC)
 
         for pred in predictions:
             subject = pred.scope.get("subject")
             if not subject:
                 continue
-            self.apply_signal(
-                pred.model_id,
-                subject,
-                pred.inference_output,
-                price=price,
-                timestamp=ts,
-            )
+            price = self._last_price.get(subject)
+            if price is None:
+                logger.warning(
+                    "No price for subject %s, skipping order for %s",
+                    subject, pred.model_id,
+                )
+                continue
+            if "_validation_error" in pred.inference_output:
+                continue
+            try:
+                self.apply_signal(
+                    pred.model_id,
+                    subject,
+                    pred.inference_output,
+                    price=price,
+                    timestamp=ts,
+                )
+            except ValueError as exc:
+                logger.warning(
+                    "Skipping order for %s/%s: %s",
+                    pred.model_id, subject, exc,
+                )
+                continue
             if pred.model_id not in self._model_ids:
                 self._model_ids.append(pred.model_id)
 
