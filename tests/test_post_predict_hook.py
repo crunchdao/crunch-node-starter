@@ -111,7 +111,7 @@ def _make_service(pre_feed_update_hook=None, post_predict_hook=None):
         pre_feed_update_hook=pre_feed_update_hook,
         post_predict_hook=post_predict_hook,
         feed_reader=FakeFeedReader(),
-        config=CrunchConfig(),
+        contract=CrunchConfig(),
         input_repository=InMemoryInputRepository(),
         model_repository=InMemoryModelRepository(),
         prediction_repository=InMemoryPredictionRepository(),

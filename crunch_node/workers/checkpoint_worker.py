@@ -63,7 +63,7 @@ def build_service() -> CheckpointService:
         snapshot_repository=DBSnapshotRepository(session),
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=DBModelRepository(session),
-        config=config,
+        contract=config,
         interval_seconds=interval,
         merkle_service=merkle_service,
     )

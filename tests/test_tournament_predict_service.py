@@ -80,10 +80,10 @@ class FakeRepo:
         pass
 
 
-def make_service(scoring_function=None, config=None) -> TournamentPredictService:
+def make_service(scoring_function=None, contract=None) -> TournamentPredictService:
     """Create a TournamentPredictService with in-memory repos."""
     return TournamentPredictService(
-        config=config or CrunchConfig(),
+        contract=contract or CrunchConfig(),
         input_repository=FakeRepo(),
         model_repository=FakeRepo(),
         prediction_repository=FakeRepo(),
@@ -167,7 +167,7 @@ class TestRunInference(unittest.TestCase):
             y: float
 
         config = CrunchConfig(input_type=StrictInput)
-        service = make_service(config=config)
+        service = make_service(contract=config)
 
         async def _test():
             # Missing 'y' field should raise
@@ -312,7 +312,7 @@ class TestScoreRound(unittest.TestCase):
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         config = CrunchConfig(ground_truth_type=StrictGT)
-        service = make_service(scoring_function=scoring_fn, config=config)
+        service = make_service(scoring_function=scoring_fn, contract=config)
 
         pred = PredictionRecord(
             id="PRE_model1_round-gt",
@@ -490,7 +490,7 @@ class TestScaffoldPattern(unittest.TestCase):
             }
 
         service = TournamentPredictService(
-            config=config,
+            contract=config,
             input_repository=FakeRepo(),
             model_repository=FakeRepo(),
             prediction_repository=FakeRepo(),

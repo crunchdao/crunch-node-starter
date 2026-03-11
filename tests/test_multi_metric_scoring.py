@@ -119,7 +119,7 @@ class TestMultiMetricSnapshots(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=model_repo,
             leaderboard_repository=leaderboard_repo,
-            config=contract,
+            contract=contract,
         )
 
         return service, scores, snapshot_repo
@@ -263,7 +263,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=model_repo,
             leaderboard_repository=leaderboard_repo,
-            config=contract,
+            contract=contract,
         )
 
         # Run snapshots + ensembles
@@ -320,7 +320,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=InMemoryRepo(),
             leaderboard_repository=InMemoryLeaderboardRepo(),
-            config=contract,
+            contract=contract,
         )
 
         service._write_snapshots(scores, now)

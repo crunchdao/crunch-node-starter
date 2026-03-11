@@ -122,11 +122,11 @@ class TestResolveServiceClass(unittest.TestCase):
 class TestServiceInstantiation(unittest.TestCase):
     def test_base_service_can_instantiate_without_feed_reader(self):
         """Base service should allow non-feed modes to omit feed_reader."""
-        service = PredictService(config=CrunchConfig(), runner=FakeRunner())
+        service = PredictService(contract=CrunchConfig(), runner=FakeRunner())
         self.assertIsNone(service.feed_reader)
 
     def test_get_data_without_feed_reader_raises_clear_error(self):
-        service = PredictService(config=CrunchConfig(), runner=FakeRunner())
+        service = PredictService(contract=CrunchConfig(), runner=FakeRunner())
         with self.assertRaises(RuntimeError) as ctx:
             service.get_data(datetime.now(UTC))
         self.assertIn("feed_reader", str(ctx.exception))
@@ -138,7 +138,7 @@ class TestServiceInstantiation(unittest.TestCase):
 
         service = cls(
             feed_reader=FakeFeedReader(),
-            config=config,
+            contract=config,
             runner=FakeRunner(),
         )
 
@@ -154,7 +154,7 @@ class TestServiceInstantiation(unittest.TestCase):
         service = cls(
             checkpoint_interval_seconds=60,
             feed_reader=FakeFeedReader(),
-            config=config,
+            contract=config,
             runner=FakeRunner(),
         )
 

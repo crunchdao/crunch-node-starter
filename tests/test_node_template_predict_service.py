@@ -138,12 +138,12 @@ class NoConfigPredictionRepository(InMemoryPredictionRepository):
 
 
 def _make_service(
-    feed_reader=None, prediction_repo=None, input_repo=None, runner=None, config=None
+    feed_reader=None, prediction_repo=None, input_repo=None, runner=None, contract=None
 ):
     return RealtimePredictService(
         checkpoint_interval_seconds=60,
         feed_reader=feed_reader or FakeFeedReader(),
-        config=config or CrunchConfig(),
+        contract=contract or CrunchConfig(),
         input_repository=input_repo,
         model_repository=InMemoryModelRepository(),
         prediction_repository=prediction_repo or InMemoryPredictionRepository(),
@@ -212,7 +212,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         service = _make_service(
             prediction_repo=repo,
             runner=BadRunner(),
-            config=CrunchConfig(output_type=StrictOutput),
+            contract=CrunchConfig(output_type=StrictOutput),
         )
 
         with self.assertLogs("RealtimePredictService", level="ERROR") as logs:
@@ -316,7 +316,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         service = _make_service(
             prediction_repo=repo,
             runner=runner,
-            config=contract,
+            contract=contract,
         )
 
         await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))

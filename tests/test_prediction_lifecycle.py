@@ -287,7 +287,7 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
         self.predict_service = RealtimePredictService(
             checkpoint_interval_seconds=60,
             feed_reader=FakeFeedReader({"symbol": "BTC", "asof_ts": 100}),
-            config=self.contract,
+            contract=self.contract,
             input_repository=self.input_repo,
             model_repository=self.model_repo,
             prediction_repository=self.pred_repo,
@@ -304,14 +304,14 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
             snapshot_repository=self.snapshot_repo,
             model_repository=self.model_repo,
             leaderboard_repository=self.lb_repo,
-            config=self.contract,
+            contract=self.contract,
         )
 
         self.checkpoint_service = CheckpointService(
             snapshot_repository=self.snapshot_repo,
             checkpoint_repository=self.checkpoint_repo,
             model_repository=self.model_repo,
-            config=self.contract,
+            contract=self.contract,
         )
 
     @staticmethod

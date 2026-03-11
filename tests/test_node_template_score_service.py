@@ -196,7 +196,7 @@ def _make_feed_records(
     ]
 
 
-def _build_service(*, inputs=None, predictions=None, feed_records=None, config=None):
+def _build_service(*, inputs=None, predictions=None, feed_records=None, contract=None):
     return ScoreService(
         checkpoint_interval_seconds=60,
         scoring_function=lambda pred, act: {
@@ -211,7 +211,7 @@ def _build_service(*, inputs=None, predictions=None, feed_records=None, config=N
         snapshot_repository=MemSnapshotRepository(),
         model_repository=MemModelRepository(),
         leaderboard_repository=MemLeaderboardRepository(),
-        config=config,
+        contract=contract,
     )
 
 
@@ -273,7 +273,7 @@ class TestScoreService(unittest.TestCase):
                 ranking_direction="asc",
             )
         )
-        service = _build_service(config=contract)
+        service = _build_service(contract=contract)
 
         ranked = service._rank_leaderboard(
             [
@@ -333,7 +333,7 @@ class TestCoerceOutput(unittest.TestCase):
             value: float = 0.0
 
         contract = CrunchConfig(output_type=FlexOutput)
-        service = _build_service(config=contract)
+        service = _build_service(contract=contract)
         result = service._coerce_output({"value": 0.5, "confidence": 0.9})
         self.assertAlmostEqual(result.value, 0.5)
 
@@ -345,7 +345,7 @@ class TestCoerceOutput(unittest.TestCase):
             leverage: float = Field(default=1.0)
 
         contract = CrunchConfig(output_type=TradingOutput)
-        service = _build_service(config=contract)
+        service = _build_service(contract=contract)
 
         # Model returns partial output — defaults should fill in
         result = service._coerce_output({"order_type": "LONG"})
@@ -365,7 +365,7 @@ class TestCoerceOutput(unittest.TestCase):
             value: float = Field(ge=0.0, le=1.0)
 
         contract = CrunchConfig(output_type=StrictOutput)
-        service = _build_service(config=contract)
+        service = _build_service(contract=contract)
 
         # value=999 violates ge/le constraint — should fall back to model_construct
         with self.assertLogs("crunch_node.services.score", level="WARNING"):
@@ -418,7 +418,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            config=contract,
+            contract=contract,
         )
 
         service.score_and_snapshot()
@@ -459,7 +459,7 @@ class TestValidateScoringIO(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            config=CrunchConfig(output_type=TradeOutput),
+            contract=CrunchConfig(output_type=TradeOutput),
         )
 
         # Should not raise
@@ -512,7 +512,7 @@ class TestValidateScoringIO(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            config=CrunchConfig(score_type=StrictScoreResult),
+            contract=CrunchConfig(score_type=StrictScoreResult),
         )
 
         with self.assertRaises(RuntimeError) as ctx:

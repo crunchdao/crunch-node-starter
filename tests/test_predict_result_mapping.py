@@ -14,7 +14,7 @@ class _Result:
 
 
 def test_map_runner_result_success_sets_pending():
-    service = PredictService(config=CrunchConfig(), runner=object())
+    service = PredictService(contract=CrunchConfig(), runner=object())
 
     status, output = service._map_runner_result(
         _Result(status="SUCCESS", result={"value": 1})
@@ -29,7 +29,7 @@ def test_map_runner_result_validation_error_sets_failed_with_payload():
         value: float = Field(ge=0.0, le=1.0)
 
     service = PredictService(
-        config=CrunchConfig(output_type=StrictOutput), runner=object()
+        contract=CrunchConfig(output_type=StrictOutput), runner=object()
     )
 
     status, output = service._map_runner_result(
@@ -42,7 +42,7 @@ def test_map_runner_result_validation_error_sets_failed_with_payload():
 
 
 def test_map_runner_result_unknown_status_sets_failed():
-    service = PredictService(config=CrunchConfig(), runner=object())
+    service = PredictService(contract=CrunchConfig(), runner=object())
 
     status, output = service._map_runner_result(
         _Result(status="BOGUS", result={"value": 0.1})
