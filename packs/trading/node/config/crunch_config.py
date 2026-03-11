@@ -84,14 +84,14 @@ class CrunchConfig(BaseCrunchConfig):
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
-                scope_key="trading-btcusdt-60s",
-                scope={"subject": "BTCUSDT"},
+                scope_key="trading-btc-60s",
+                scope={"subject": "BTC"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),
             ScheduledPrediction(
-                scope_key="trading-ethusdt-60s",
-                scope={"subject": "ETHUSDT"},
+                scope_key="trading-eth-60s",
+                scope={"subject": "ETH"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),
