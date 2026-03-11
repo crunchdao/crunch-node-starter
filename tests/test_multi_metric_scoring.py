@@ -60,7 +60,7 @@ class TestMultiMetricSnapshots(unittest.TestCase):
     """Test that _write_snapshots produces enriched result_summary with metrics."""
 
     def _make_service(self, metrics=None):
-        contract = CrunchConfig(
+        config = CrunchConfig(
             metrics=metrics
             if metrics is not None
             else ["ic", "hit_rate", "max_drawdown"],
@@ -119,7 +119,7 @@ class TestMultiMetricSnapshots(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=model_repo,
             leaderboard_repository=leaderboard_repo,
-            config=contract,
+            config=config,
         )
 
         return service, scores, snapshot_repo
@@ -200,7 +200,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
         from crunch_node.crunch_config import EnsembleConfig
         from crunch_node.services.ensemble import equal_weight
 
-        contract = CrunchConfig(
+        config = CrunchConfig(
             metrics=["ic", "hit_rate"],
             ensembles=[EnsembleConfig(name="main", strategy=equal_weight)],
         )
@@ -263,7 +263,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=model_repo,
             leaderboard_repository=leaderboard_repo,
-            config=contract,
+            config=config,
         )
 
         # Run snapshots + ensembles
@@ -283,7 +283,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
         self.assertIn("value", ens_snap.result_summary)
 
     def test_no_ensemble_when_empty_config(self):
-        contract = CrunchConfig(metrics=["ic"], ensembles=[])
+        config = CrunchConfig(metrics=["ic"], ensembles=[])
 
         now = datetime.now(UTC)
         predictions = [
@@ -320,7 +320,7 @@ class TestEnsembleInScorePipeline(unittest.TestCase):
             snapshot_repository=snapshot_repo,
             model_repository=InMemoryRepo(),
             leaderboard_repository=InMemoryLeaderboardRepo(),
-            config=contract,
+            config=config,
         )
 
         service._write_snapshots(scores, now)

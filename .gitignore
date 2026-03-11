@@ -28,3 +28,4 @@ tests/benchmark/results
 scaffold/node/docker-compose.override.yml
 scaffold/coordinator_node_local/
 node_modules
+my-challenge

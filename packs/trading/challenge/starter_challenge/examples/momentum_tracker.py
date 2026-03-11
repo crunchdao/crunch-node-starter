@@ -1,4 +1,4 @@
-"""Momentum-based trading signal: projects recent trend as a signal."""
+"""Momentum-based trading: buys when price is trending up, sells when down."""
 
 from __future__ import annotations
 
@@ -6,22 +6,23 @@ from starter_challenge.tracker import TrackerBase
 
 
 class MomentumTracker(TrackerBase):
-    """Outputs a signal proportional to recent price momentum."""
+    """Outputs a buy/sell order based on recent price momentum."""
 
     def predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
     ) -> dict:
         prices = _extract_prices(self._get_data(subject))
         if len(prices) < 3:
-            return {"signal": 0.0}
+            return {"action": "buy", "amount": 0}
 
         lookback = min(8, len(prices))
         window = prices[-lookback:]
         momentum = (window[-1] - window[0]) / max(abs(window[0]), 1e-9)
 
-        # Scale momentum to [-1, 1] range (cap at ~5% move)
-        signal = max(-1.0, min(1.0, momentum * 20.0))
-        return {"signal": round(signal, 4)}
+        if momentum > 0:
+            return {"action": "buy", "amount": round(abs(momentum) * 1000, 2)}
+        else:
+            return {"action": "sell", "amount": round(abs(momentum) * 1000, 2)}
 
 
 def _extract_prices(latest_data):

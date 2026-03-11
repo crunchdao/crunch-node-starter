@@ -1,6 +1,7 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
+COMPOSE_TRADING := docker compose -f docker-compose.yml -f docker-compose.trading.yml --env-file .local.trading.env
 
-.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build
+.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build trading trading-down trading-logs trading-reset
 
 # ── Code quality ─────────────────────────────────────────────────────
 fmt:
@@ -41,6 +42,22 @@ verify-ui:
 	bash tests/test_e2e_ui_smoke.sh
 
 verify-all: verify verify-ui
+
+# ── Trading ──────────────────────────────────────────────────────────
+trading:
+	$(COMPOSE_TRADING) build
+	$(COMPOSE_TRADING) up -d postgres
+	$(COMPOSE_TRADING) --profile init run --rm init-db
+	$(COMPOSE_TRADING) up -d
+
+trading-down:
+	$(COMPOSE_TRADING) down
+
+trading-logs:
+	$(COMPOSE_TRADING) logs -f
+
+trading-reset:
+	$(COMPOSE_TRADING) --profile reset run --rm reset-db
 
 # ── Benchmark ─────────────────────────────────────────────────────────
 AGENT_CMD ?= pi

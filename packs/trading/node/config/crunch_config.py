@@ -1,22 +1,20 @@
-"""CrunchConfig for trading signal competitions.
+"""CrunchConfig for trading competitions.
 
-Models receive live OHLCV candle data and return a directional signal
-in [-1, 1] per trade pair. Scoring simulates leveraged PnL with spread fees.
+Models receive live OHLCV candle data and return buy/sell orders.
+PnL is tracked by the TradingEngine, not a scoring function.
 
 Feed: Binance-style 1m candles for configurable pairs (default BTCUSDT, ETHUSDT)
-Output: signal float in [-1, 1] (positive=long, negative=short, magnitude=conviction)
-Scoring: pnl = signal * actual_return - |signal| * spread_fee
+Output: {"action": "buy"|"sell", "amount": float}
 """
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
     Aggregation,
-    AggregationWindow,
     ScheduledPrediction,
 )
 from crunch_node.crunch_config import (
@@ -27,179 +25,110 @@ from crunch_node.services.realtime_predict import (
     RealtimeServiceConfig,
 )
 
-# ── Type contracts ──────────────────────────────────────────────────
-# Input shape is defined by feed_normalizer="candle" → CandleInput
-# See crunch_node.feeds.normalizers.candle for the schema.
-# Uses default resolve_ground_truth which returns candle data.
 
-SPREAD_FEE = 0.0001  # 1 basis point spread cost
+class CostModel(BaseModel):
+    trading_fee_pct: float = Field(default=0.001, ge=0)
+    spread_pct: float = Field(default=0.0001, ge=0)
+    carry_annual_pct: float = Field(default=0.1095, ge=0)
+
+    def order_cost(self, size: float) -> float:
+        return (self.trading_fee_pct + self.spread_pct) * abs(size)
+
+    def carry_cost(self, size: float, seconds: float) -> float:
+        return self.carry_annual_pct * abs(size) * seconds / (365 * 86400)
 
 
-class GroundTruth(BaseModel):
-    """Actuals: candle data from entry and resolution times.
+class TradingConfig(BaseModel):
+    cost_model: CostModel = Field(default_factory=CostModel)
+    signal_mode: Literal["delta", "target", "order"] = "target"
+    max_position_size: float = 10.0
+    max_portfolio_size: float = 20.0
+    asset_price_mapping: dict[str, str] = Field(
+        default_factory=lambda: {
+            "BTC": "BTCUSDT",
+            "ETH": "ETHUSDT",
+        },
+        description="Map asset names to trading pair subjects for price lookup",
+    )
 
-    The default resolve_ground_truth returns both entry (at prediction time)
-    and resolved (at horizon time) candles so scoring can compute PnL.
-    """
-
-    model_config = ConfigDict(extra="allow")
-
-    symbol: str = "BTCUSDT"
-    asof_ts: int = 0
-    entry_candles_1m: list[dict] = Field(default_factory=list)
-    resolved_candles_1m: list[dict] = Field(default_factory=list)
+    @model_validator(mode="after")
+    def _validate_size_limits(self) -> TradingConfig:
+        if self.max_position_size <= 0:
+            raise ValueError("max_position_size must be positive")
+        if self.max_portfolio_size <= 0:
+            raise ValueError("max_portfolio_size must be positive")
+        if self.max_portfolio_size < self.max_position_size:
+            raise ValueError("max_portfolio_size must be >= max_position_size")
+        return self
 
 
 class InferenceOutput(BaseModel):
-    """What models must return: a directional trading signal.
+    """What models must return: a buy/sell order.
 
-    signal: float in [-1.0, 1.0]
-      - Positive = LONG (expect price increase)
-      - Negative = SHORT (expect price decrease)
-      - Zero = FLAT (no position)
-      - Magnitude = conviction / leverage scaling
+    action: "buy" or "sell"
+    amount: position size (notional units, must be >= 0)
     """
 
-    signal: float = Field(default=0.0, ge=-1.0, le=1.0)
-
-
-class ScoreResult(BaseModel):
-    """Per-prediction score output. PnL-based with spread cost."""
-
-    model_config = ConfigDict(extra="allow")
-
-    value: float = 0.0
-    pnl: float = 0.0
-    spread_cost: float = 0.0
-    actual_return: float = 0.0
-    signal_clamped: float = 0.0
-    direction_correct: bool = False
-    success: bool = True
-    failed_reason: str | None = None
-
-
-def score_prediction(
-    prediction: InferenceOutput,
-    ground_truth: GroundTruth,
-) -> ScoreResult:
-    """Score a trading signal against candle-based ground truth.
-
-    PnL = signal * actual_return - |signal| * spread_fee
-    """
-    if not prediction.signal and prediction.signal != 0.0:
-        return ScoreResult(
-            success=False,
-            failed_reason=f"Invalid signal: {prediction.signal!r}",
-        )
-
-    if not ground_truth.entry_candles_1m or not ground_truth.resolved_candles_1m:
-        return ScoreResult(
-            success=False,
-            failed_reason="missing entry or resolved candles",
-        )
-
-    entry_price = ground_truth.entry_candles_1m[-1].get("close", 0.0)
-    resolved_price = ground_truth.resolved_candles_1m[-1].get("close", 0.0)
-
-    if entry_price == 0:
-        return ScoreResult(
-            success=False,
-            failed_reason="entry price is zero",
-        )
-
-    actual_return = (resolved_price - entry_price) / entry_price
-    signal_clamped = max(-1.0, min(1.0, prediction.signal))
-
-    spread_cost = abs(signal_clamped) * SPREAD_FEE
-    pnl = signal_clamped * actual_return - spread_cost
-    direction_correct = (signal_clamped > 0) == (actual_return > 0)
-
-    return ScoreResult(
-        value=pnl,
-        pnl=pnl,
-        spread_cost=spread_cost,
-        actual_return=actual_return,
-        signal_clamped=signal_clamped,
-        direction_correct=direction_correct,
-    )
-
-
-# ── Typed scoring protocol ──────────────────────────────────────────
-
-
-class TradingScoringFunction(Protocol):
-    """Typed scoring contract for trading competitions.
-
-    Scoring functions must accept the pack's concrete types.
-    """
-
-    def __call__(
-        self, prediction: InferenceOutput, ground_truth: GroundTruth
-    ) -> ScoreResult: ...
-
-
-# ── CrunchConfig ────────────────────────────────────────────────────
+    action: str = "buy"
+    amount: float = Field(default=0.0, ge=0.0)
 
 
 class CrunchConfig(BaseCrunchConfig):
-    """Trading signal competition configuration.
+    """Trading competition configuration.
 
-    Multi-asset signal prediction with PnL scoring.
-    Models return signal [-1, 1], scored on realized return minus spread.
-
-    Input shape: CandleInput {symbol, asof_ts, candles_1m: [Candle]}
+    Models return buy/sell orders, scored via TradingEngine PnL simulation.
     """
 
     predict_service_class: type = RealtimePredictService
 
     feed_normalizer: str = "candle"
-    ground_truth_type: type[BaseModel] = GroundTruth
     output_type: type[BaseModel] = InferenceOutput
-    score_type: type[BaseModel] = ScoreResult
 
-    # Realtime service hooks (pre/post feed_update lifecycle)
     realtime_service: RealtimeServiceConfig = Field(
         default_factory=RealtimeServiceConfig
     )
 
-    scoring_function: TradingScoringFunction = score_prediction  # type: ignore[assignment]
+    trading: TradingConfig = Field(
+        default_factory=lambda: TradingConfig(
+            signal_mode="order",
+            max_position_size=1_000_000,
+            max_portfolio_size=1_000_000,
+            asset_price_mapping={
+                "BTC": "BTCUSDT",
+                "ETH": "ETHUSDT",
+            },
+        )
+    )
 
     aggregation: Aggregation = Field(
         default_factory=lambda: Aggregation(
-            windows={
-                "score_recent": AggregationWindow(hours=24),
-                "score_steady": AggregationWindow(hours=72),
-                "score_anchor": AggregationWindow(hours=168),
-            },
-            value_field="pnl",
-            ranking_key="score_recent",
+            windows={},
+            value_field="net_pnl",
+            ranking_key="net_pnl",
             ranking_direction="desc",
         )
     )
 
     metrics: list[str] = Field(
         default_factory=lambda: [
-            "ic",
-            "ic_sharpe",
+            "net_pnl",
             "hit_rate",
-            "mean_return",
             "max_drawdown",
             "sortino_ratio",
-            "turnover",
         ]
     )
 
     scheduled_predictions: list[ScheduledPrediction] = Field(
         default_factory=lambda: [
             ScheduledPrediction(
-                scope_key="trading-btcusdt-60s",
-                scope={"subject": "BTCUSDT"},
+                scope_key="trading-btc-60s",
+                scope={"subject": "BTC"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),
             ScheduledPrediction(
-                scope_key="trading-ethusdt-60s",
-                scope={"subject": "ETHUSDT"},
+                scope_key="trading-eth-60s",
+                scope={"subject": "ETH"},
                 prediction_interval_seconds=15,
                 resolve_horizon_seconds=60,
             ),

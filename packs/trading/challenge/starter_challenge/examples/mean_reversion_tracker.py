@@ -1,4 +1,4 @@
-"""Mean reversion trading signal: fades short-term overextension."""
+"""Mean reversion trading: buys dips, sells rips."""
 
 from __future__ import annotations
 
@@ -6,23 +6,25 @@ from starter_challenge.tracker import TrackerBase
 
 
 class MeanReversionTracker(TrackerBase):
-    """Shorts overextensions, longs pullbacks — classic mean reversion."""
+    """Buys when price dips below average, sells when it rises above."""
 
     def predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
     ) -> dict:
         prices = _extract_prices(self._get_data(subject))
         if len(prices) < 3:
-            return {"signal": 0.0}
+            return {"action": "buy", "amount": 0}
 
         lookback = min(20, len(prices))
         window = prices[-lookback:]
         average = sum(window) / lookback
         deviation = (window[-1] - average) / max(abs(average), 1e-9)
 
-        # Fade the deviation: overshoot → counter-signal
-        signal = max(-1.0, min(1.0, -deviation * 15.0))
-        return {"signal": round(signal, 4)}
+        size = round(abs(deviation) * 1000, 2)
+        if deviation < 0:
+            return {"action": "buy", "amount": size}
+        else:
+            return {"action": "sell", "amount": size}
 
 
 def _extract_prices(latest_data):

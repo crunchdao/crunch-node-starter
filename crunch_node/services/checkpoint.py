@@ -29,28 +29,16 @@ class CheckpointService:
         checkpoint_repository: DBCheckpointRepository,
         model_repository: DBModelRepository,
         config: CrunchConfig | None = None,
-        contract: CrunchConfig | None = None,
         interval_seconds: int = 7 * 24 * 3600,  # weekly
         merkle_service: MerkleService | None = None,
     ):
         self.snapshot_repository = snapshot_repository
         self.checkpoint_repository = checkpoint_repository
         self.model_repository = model_repository
-        if config is not None and contract is not None and config is not contract:
-            raise ValueError("Provide only one of config= or contract=")
-        self.config = config or contract or CrunchConfig()
+        self.config = config or CrunchConfig()
         self.interval_seconds = interval_seconds
         self.merkle_service = merkle_service
         self.logger = logging.getLogger(__name__)
-
-    @property
-    def contract(self) -> CrunchConfig:
-        """Backward-compatible alias for ``config``."""
-        return self.config
-
-    @contract.setter
-    def contract(self, value: CrunchConfig) -> None:
-        self.config = value
 
     def create_checkpoint(self) -> CheckpointRecord | None:
         now = datetime.now(UTC)

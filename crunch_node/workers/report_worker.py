@@ -63,6 +63,7 @@ _METRIC_DISPLAY_NAMES: dict[str, str] = {
     "ic": "IC",
     "ic_sharpe": "IC Sharpe",
     "mean_return": "Mean Return",
+    "net_pnl": "Net PnL",
     "hit_rate": "Hit Rate",
     "max_drawdown": "Max Drawdown",
     "sortino_ratio": "Sortino",
@@ -73,12 +74,18 @@ _METRIC_DISPLAY_NAMES: dict[str, str] = {
     "ensemble_correlation": "Ens. Corr",
 }
 
+_METRIC_FORMATS: dict[str, str] = {
+    "hit_rate": "decimal-2",
+    "sortino_ratio": "decimal-2",
+}
+
 _METRIC_TOOLTIPS: dict[str, str] = {
     "ic": "Information Coefficient — Spearman rank correlation between predictions and realized returns",
     "ic_sharpe": "IC Sharpe — mean(IC) / std(IC), rewards consistency",
     "mean_return": "Mean return of a long-short portfolio formed from signals",
-    "hit_rate": "Percentage of predictions with correct directional sign",
-    "max_drawdown": "Worst peak-to-trough on cumulative score",
+    "net_pnl": "Current net profit/loss including fees and carry costs",
+    "hit_rate": "Fraction of closed trades with positive realized PnL",
+    "max_drawdown": "Worst peak-to-trough drawdown on cumulative PnL",
     "sortino_ratio": "Like Sharpe but only penalizes downside volatility",
     "turnover": "Mean absolute change in signal between consecutive predictions",
     "model_correlation": "Mean pairwise Spearman correlation against other models",
@@ -88,109 +95,114 @@ _METRIC_TOOLTIPS: dict[str, str] = {
 }
 
 
-def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
-    """Auto-generate report schema from the CrunchConfig aggregation + metrics config."""
-    aggregation = contract.aggregation
-
-    # Leaderboard columns: Model column + one per aggregation window + one per active metric
-    columns: list[dict[str, Any]] = [
+def _build_trading_widgets() -> list[dict[str, Any]]:
+    """Build metrics widgets for trading competitions."""
+    return [
         {
             "id": 1,
-            "type": "MODEL",
-            "property": "model_id",
-            "format": None,
-            "displayName": "Model",
-            "tooltip": None,
-            "nativeConfiguration": {"type": "model", "statusProperty": "status"},
-            "order": 0,
+            "type": "CHART",
+            "displayName": "P&L Over Time",
+            "tooltip": "Net profit/loss per model including fees and carry costs",
+            "order": 10,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [{"name": "net_pnl", "label": "Net PnL"}],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 2,
+            "type": "CHART",
+            "displayName": "P&L Breakdown",
+            "tooltip": "Realized vs unrealized PnL, fees, and carry costs over time",
+            "order": 20,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "realized_pnl", "label": "Realized PnL"},
+                        {"name": "unrealized_pnl", "label": "Unrealized PnL"},
+                        {"name": "total_fees", "label": "Fees"},
+                        {"name": "total_carry_costs", "label": "Carry Costs"},
+                    ],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 3,
+            "type": "CHART",
+            "displayName": "Max Drawdown",
+            "tooltip": "Worst peak-to-trough drawdown on cumulative PnL",
+            "order": 30,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "max_drawdown", "label": "Max Drawdown"},
+                    ],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 4,
+            "type": "CHART",
+            "displayName": "Sortino Ratio",
+            "tooltip": "Like Sharpe but only penalizes downside volatility",
+            "order": 35,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "sortino_ratio", "label": "Sortino Ratio"},
+                    ],
+                    "format": "decimal-2",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 5,
+            "type": "CHART",
+            "displayName": "Open Positions",
+            "tooltip": "Number of open positions per model over time",
+            "order": 40,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "open_position_count", "label": "Positions"},
+                    ],
+                    "format": "decimal-0",
+                },
+                "displayEvolution": False,
+            },
         },
     ]
-    col_id = 2
-    for i, (window_name, window) in enumerate(aggregation.windows.items()):
-        display = (
-            getattr(window, "display_name", None)
-            or window_name.replace("_", " ").title()
-        )
-        tooltip = (
-            getattr(window, "tooltip", None) or f"Rolling score over {window.hours}h"
-        )
-        fmt = getattr(window, "format", None) or "decimal-2"
-        columns.append(
-            {
-                "id": col_id,
-                "type": "VALUE",
-                "property": window_name,
-                "format": fmt,
-                "displayName": display,
-                "tooltip": tooltip,
-                "nativeConfiguration": None,
-                "order": (i + 1) * 10,
-            }
-        )
-        col_id += 1
 
-    # Add columns for active metrics
-    for j, metric_name in enumerate(contract.metrics):
-        display = _METRIC_DISPLAY_NAMES.get(
-            metric_name, metric_name.replace("_", " ").title()
-        )
-        tooltip = _METRIC_TOOLTIPS.get(metric_name)
-        columns.append(
-            {
-                "id": col_id,
-                "type": "VALUE",
-                "property": metric_name,
-                "format": "decimal-4",
-                "displayName": display,
-                "tooltip": tooltip,
-                "nativeConfiguration": None,
-                "order": 100 + j * 10,
-            }
-        )
-        col_id += 1
 
-    # Add columns for custom score_type fields (e.g. net_pnl, drawdown_pct)
-    # Skip fields already covered by windows, metrics, or internal fields.
-    _skip_fields = {"value", "success", "failed_reason"}
-    existing_properties = {c["property"] for c in columns}
-    existing_properties.update(_skip_fields)
-    existing_properties.update(set(contract.metrics))
-
-    for k, field_name in enumerate(contract.score_type.model_fields):
-        if field_name in existing_properties:
-            continue
-        field_info = contract.score_type.model_fields[field_name]
-        # Only add numeric fields
-        origin = field_info.annotation
-        if origin not in (int, float):
-            continue
-        display = field_name.replace("_", " ").title()
-        columns.append(
-            {
-                "id": col_id,
-                "type": "VALUE",
-                "property": field_name,
-                "format": "decimal-4",
-                "displayName": display,
-                "tooltip": None,
-                "nativeConfiguration": None,
-                "order": 200 + k * 10,
-            }
-        )
-        col_id += 1
-
-    # Chart series from aggregation windows
-    series = [
-        {"name": name, "label": name.replace("_", " ").title()}
-        for name in aggregation.windows
-    ]
-
-    # Metric series for the metrics chart
-    metric_series = [
-        {"name": m, "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title())}
-        for m in contract.metrics
-    ]
-
+def _build_standard_widgets(
+    series: list[dict[str, str]],
+    metric_series: list[dict[str, str]],
+    contract: CrunchConfig,
+) -> list[dict[str, Any]]:
+    """Build metrics widgets for standard (non-trading) competitions."""
     widget_id = 1
     widgets: list[dict[str, Any]] = [
         {
@@ -210,7 +222,6 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
     ]
     widget_id += 1
 
-    # Add a metrics snapshot widget if metrics are active
     if contract.metrics:
         widgets.append(
             {
@@ -300,7 +311,6 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
         ]
     )
 
-    # Diversity radar chart — shows model uniqueness
     diversity_metrics = [
         m
         for m in contract.metrics
@@ -320,7 +330,6 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             }
             for m in diversity_metrics
         ]
-        # Also add diversity_score (computed)
         diversity_series.append({"name": "diversity_score", "label": "Diversity Score"})
         widgets.append(
             {
@@ -339,14 +348,13 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             }
         )
 
-    # Ensemble performance over time — only if ensembles are configured
     if contract.ensembles:
         ensemble_series = [
             {
                 "name": m,
                 "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title()),
             }
-            for m in contract.metrics[:5]  # top 5 metrics for the chart
+            for m in contract.metrics[:5]
         ]
         widgets.append(
             {
@@ -373,7 +381,6 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             }
         )
 
-    # Checkpoint reward history
     widgets.append(
         {
             "id": widget_id + 4,
@@ -394,6 +401,120 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
             },
         }
     )
+
+    return widgets
+
+
+def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
+    """Auto-generate report schema from the CrunchConfig aggregation + metrics config."""
+    aggregation = contract.aggregation
+
+    # Leaderboard columns: Model column + one per aggregation window + one per active metric
+    columns: list[dict[str, Any]] = [
+        {
+            "id": 1,
+            "type": "MODEL",
+            "property": "model_id",
+            "format": None,
+            "displayName": "Model",
+            "tooltip": None,
+            "nativeConfiguration": {"type": "model", "statusProperty": "status"},
+            "order": 0,
+        },
+    ]
+    col_id = 2
+    for i, (window_name, window) in enumerate(aggregation.windows.items()):
+        display = (
+            getattr(window, "display_name", None)
+            or window_name.replace("_", " ").title()
+        )
+        tooltip = (
+            getattr(window, "tooltip", None) or f"Rolling score over {window.hours}h"
+        )
+        fmt = getattr(window, "format", None) or "decimal-2"
+        columns.append(
+            {
+                "id": col_id,
+                "type": "VALUE",
+                "property": window_name,
+                "format": fmt,
+                "displayName": display,
+                "tooltip": tooltip,
+                "nativeConfiguration": None,
+                "order": (i + 1) * 10,
+            }
+        )
+        col_id += 1
+
+    # Add columns for active metrics
+    for j, metric_name in enumerate(contract.metrics):
+        display = _METRIC_DISPLAY_NAMES.get(
+            metric_name, metric_name.replace("_", " ").title()
+        )
+        tooltip = _METRIC_TOOLTIPS.get(metric_name)
+        fmt = _METRIC_FORMATS.get(metric_name, "decimal-4")
+        columns.append(
+            {
+                "id": col_id,
+                "type": "VALUE",
+                "property": metric_name,
+                "format": fmt,
+                "displayName": display,
+                "tooltip": tooltip,
+                "nativeConfiguration": None,
+                "order": 100 + j * 10,
+            }
+        )
+        col_id += 1
+
+    # Add columns for custom score_type fields (e.g. net_pnl, drawdown_pct)
+    # Skip fields already covered by windows, metrics, or internal fields.
+    _skip_fields = {"value", "success", "failed_reason"}
+    existing_properties = {c["property"] for c in columns}
+    existing_properties.update(_skip_fields)
+    existing_properties.update(set(contract.metrics))
+
+    for k, field_name in enumerate(contract.score_type.model_fields):
+        if field_name in existing_properties:
+            continue
+        field_info = contract.score_type.model_fields[field_name]
+        # Only add numeric fields
+        origin = field_info.annotation
+        if origin not in (int, float):
+            continue
+        display = field_name.replace("_", " ").title()
+        columns.append(
+            {
+                "id": col_id,
+                "type": "VALUE",
+                "property": field_name,
+                "format": "decimal-4",
+                "displayName": display,
+                "tooltip": None,
+                "nativeConfiguration": None,
+                "order": 200 + k * 10,
+            }
+        )
+        col_id += 1
+
+    # Chart series from aggregation windows
+    series = [
+        {"name": name, "label": name.replace("_", " ").title()}
+        for name in aggregation.windows
+    ]
+
+    # Metric series for the metrics chart
+    metric_series = [
+        {"name": m, "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title())}
+        for m in contract.metrics
+    ]
+
+    is_trading = getattr(contract, "trading", None) is not None
+
+    if is_trading:
+        widgets = _build_trading_widgets()
+    else:
+        widgets = _build_standard_widgets(series, metric_series, contract)
 
     schema = {
         "schema_version": "1",

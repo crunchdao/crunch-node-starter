@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
+
+from crunch_node.services.trading.costs import CostModel
+
+
+class TradingConfig(BaseModel):
+    cost_model: CostModel = Field(default_factory=CostModel)
+    signal_mode: Literal["delta", "target", "order"] = "target"
+    max_position_size: float = 10.0
+    max_portfolio_size: float = 20.0
+    asset_price_mapping: dict[str, str] = Field(
+        default_factory=lambda: {
+            "BTC": "BTCUSDT",
+            "ETH": "ETHUSDT",
+        },
+        description="Map asset names to trading pair subjects for price lookup",
+    )
+
+    @model_validator(mode="after")
+    def _validate_size_limits(self) -> TradingConfig:
+        if self.max_position_size <= 0:
+            raise ValueError("max_position_size must be positive")
+        if self.max_portfolio_size <= 0:
+            raise ValueError("max_portfolio_size must be positive")
+        if self.max_portfolio_size < self.max_position_size:
+            raise ValueError("max_portfolio_size must be >= max_position_size")
+        return self

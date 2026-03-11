@@ -12,11 +12,8 @@ from pydantic import BaseModel
 
 from crunch_node.crunch_config import CrunchConfig, ScoringFunction
 from crunch_node.db.repositories import (
-    DBCheckpointRepository,
     DBInputRepository,
     DBLeaderboardRepository,
-    DBMerkleCycleRepository,
-    DBMerkleNodeRepository,
     DBModelRepository,
     DBPredictionRepository,
     DBScoreRepository,
@@ -44,11 +41,9 @@ class ScoreService:
         snapshot_repository: DBSnapshotRepository | None = None,
         model_repository: DBModelRepository | None = None,
         leaderboard_repository: DBLeaderboardRepository | None = None,
-        merkle_cycle_repository: DBMerkleCycleRepository | None = None,
-        merkle_node_repository: DBMerkleNodeRepository | None = None,
-        checkpoint_repository: DBCheckpointRepository | None = None,
+        checkpoint_service: CheckpointService | None = None,
+        merkle_service: MerkleService | None = None,
         config: CrunchConfig | None = None,
-        contract: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
         **kwargs: Any,
     ):
@@ -64,44 +59,15 @@ class ScoreService:
         self.snapshot_repository = snapshot_repository
         self.model_repository = model_repository
         self.leaderboard_repository = leaderboard_repository
-        if config is not None and contract is not None and config is not contract:
-            raise ValueError("Provide only one of config= or contract=")
-        self.config = config or contract or CrunchConfig()
+        self.config = config or CrunchConfig()
 
-        # Merkle tamper evidence
-        if merkle_cycle_repository and merkle_node_repository:
-            self.merkle_service: MerkleService | None = MerkleService(
-                merkle_cycle_repository=merkle_cycle_repository,
-                merkle_node_repository=merkle_node_repository,
-            )
-        else:
-            self.merkle_service = None
-
-        # Checkpoint service (composed, not a separate container)
-        if checkpoint_repository and snapshot_repository and model_repository:
-            self._checkpoint_service: CheckpointService | None = CheckpointService(
-                snapshot_repository=snapshot_repository,
-                checkpoint_repository=checkpoint_repository,
-                model_repository=model_repository,
-                config=self.config,
-                interval_seconds=checkpoint_interval_seconds,
-                merkle_service=self.merkle_service,
-            )
-        else:
-            self._checkpoint_service = None
+        self.merkle_service = merkle_service
+        self._checkpoint_service = checkpoint_service
         self._last_checkpoint_at: datetime | None = None
 
+        self.trading_state_repository = kwargs.pop("trading_state_repository", None)
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
-
-    @property
-    def contract(self) -> CrunchConfig:
-        """Backward-compatible alias for ``config``."""
-        return self.config
-
-    @contract.setter
-    def contract(self, value: CrunchConfig) -> None:
-        self.config = value
 
     # ── scoring stub detection ──
 
@@ -296,24 +262,30 @@ class ScoreService:
     def score_and_snapshot(self) -> bool:
         now = datetime.now(UTC)
 
-        # 1. score predictions past their resolve horizon
-        scored = self._score_predictions(now)
-        if not scored:
-            self.logger.info("No predictions scored this cycle")
-            return False
+        if self.trading_state_repository is not None:
+            snapshots = self._build_trading_snapshots(now)
+            if not snapshots:
+                self.logger.info("No trading states yet, waiting for orders")
+                return False
+            for snap in snapshots:
+                self.snapshot_repository.save(snap)
+            self.logger.info("Wrote %d trading snapshots", len(snapshots))
+        else:
+            scored = self._score_predictions(now)
+            if not scored:
+                self.logger.info("No predictions scored this cycle")
+                return False
+            snapshots = self._write_snapshots(scored, now)
+            self._compute_ensembles(scored, now)
 
-        # 2. write snapshots (per-model period summary + multi-metric enrichment)
-        cycle_snapshots = self._write_snapshots(scored, now)
+        if self.merkle_service and snapshots:
+            try:
+                self.merkle_service.commit_cycle(snapshots, now)
+            except Exception as exc:
+                self.logger.warning("Merkle cycle commit failed: %s", exc)
 
-        # 3. compute ensembles (if configured)
-        self._compute_ensembles(scored, now)
-
-        # 4. rebuild leaderboard from snapshots
         self._rebuild_leaderboard()
-
-        # 5. create checkpoint if interval elapsed
         self._maybe_checkpoint(now)
-
         return True
 
     async def shutdown(self) -> None:
@@ -566,13 +538,6 @@ class ScoreService:
 
         self.logger.info("Wrote %d snapshots", len(by_model_scores))
 
-        # Merkle tamper evidence: commit cycle
-        if self.merkle_service and written_snapshots:
-            try:
-                self.merkle_service.commit_cycle(written_snapshots, now)
-            except Exception as exc:
-                self.logger.warning("Merkle cycle commit failed: %s", exc)
-
         return written_snapshots
 
     # ── 4. ensemble computation ──
@@ -750,6 +715,121 @@ class ScoreService:
                 {m: round(w, 3) for m, w in weights.items()},
             )
 
+    # ── trading scoring ──
+
+    def _build_trading_snapshots(self, now: datetime) -> list[SnapshotRecord]:
+        model_ids = self.trading_state_repository.get_all_model_ids()
+        if not model_ids:
+            return []
+
+        snapshots = []
+        for model_id in model_ids:
+            state = self.trading_state_repository.load_state(model_id)
+            if state is None:
+                continue
+
+            positions_data = state.get("positions", [])
+            trades_data = state.get("trades", [])
+            portfolio_fees = state.get("portfolio_fees", 0.0)
+            closed_carry = state.get("closed_carry", 0.0)
+
+            total_unrealized = 0.0
+            for p in positions_data:
+                entry = p["entry_price"]
+                current = p.get("current_price", entry)
+                size = p["size"]
+                if entry > 0:
+                    price_return = (current - entry) / entry
+                    if p["direction"] == "short":
+                        price_return = -price_return
+                    total_unrealized += size * price_return
+
+            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
+            total_carry = (
+                sum(p.get("accrued_carry", 0.0) for p in positions_data) + closed_carry
+            )
+            net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
+
+            result_summary: dict[str, Any] = {
+                "net_pnl": net_pnl,
+                "unrealized_pnl": total_unrealized,
+                "realized_pnl": total_realized,
+                "total_fees": portfolio_fees,
+                "total_carry_costs": total_carry,
+                "open_position_count": len(positions_data),
+            }
+
+            result_summary.update(
+                self._compute_trading_metrics(model_id, net_pnl, trades_data)
+            )
+
+            snapshots.append(
+                SnapshotRecord(
+                    id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                    model_id=model_id,
+                    period_start=now,
+                    period_end=now,
+                    prediction_count=len(positions_data),
+                    result_summary=result_summary,
+                )
+            )
+
+        return snapshots
+
+    def _compute_trading_metrics(
+        self,
+        model_id: str,
+        current_net_pnl: float,
+        trades: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        metrics: dict[str, float] = {}
+
+        pnl_series = self._get_pnl_history(model_id, current_net_pnl)
+
+        metrics["max_drawdown"] = self._max_drawdown(pnl_series)
+
+        profitable = sum(1 for t in trades if (t.get("realized_pnl") or 0.0) > 0)
+        metrics["hit_rate"] = profitable / len(trades) if trades else 0.0
+
+        metrics["sortino_ratio"] = self._sortino_ratio(pnl_series)
+
+        return metrics
+
+    def _get_pnl_history(self, model_id: str, current_net_pnl: float) -> list[float]:
+        historical = self.snapshot_repository.find(model_id=model_id)
+        pnl_series = [float(s.result_summary.get("net_pnl", 0.0)) for s in historical]
+        pnl_series.append(current_net_pnl)
+        return pnl_series
+
+    @staticmethod
+    def _max_drawdown(pnl_series: list[float]) -> float:
+        if len(pnl_series) < 2:
+            return 0.0
+        peak = pnl_series[0]
+        max_dd = 0.0
+        for pnl in pnl_series[1:]:
+            if pnl > peak:
+                peak = pnl
+            dd = peak - pnl
+            if dd > max_dd:
+                max_dd = dd
+        return max_dd
+
+    @staticmethod
+    def _sortino_ratio(pnl_series: list[float]) -> float:
+        if len(pnl_series) < 2:
+            return 0.0
+        returns = [pnl_series[i] - pnl_series[i - 1] for i in range(1, len(pnl_series))]
+        mean_return = sum(returns) / len(returns)
+        downside = [r for r in returns if r < 0]
+        if not downside:
+            return 0.0
+        downside_var = sum(r * r for r in downside) / len(downside)
+        downside_std = downside_var**0.5
+        if downside_std < 1e-12:
+            return 0.0
+        return mean_return / downside_std
+
     # ── 5. checkpoint ──
 
     def _maybe_checkpoint(self, now: datetime) -> None:
@@ -761,7 +841,9 @@ class ScoreService:
             # On first run, check if there's an existing checkpoint
             latest = self._checkpoint_service.checkpoint_repository.get_latest()
             self._last_checkpoint_at = (
-                latest.period_end if latest else datetime.min.replace(tzinfo=UTC)
+                self._ensure_utc(latest.period_end)
+                if latest
+                else datetime.min.replace(tzinfo=UTC)
             )
 
         elapsed = (now - self._last_checkpoint_at).total_seconds()

@@ -16,6 +16,7 @@ from crunch_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
+from crunch_node.services.checkpoint import CheckpointService
 from crunch_node.services.score import ScoreService
 
 now = datetime.now(UTC)
@@ -195,11 +196,20 @@ def _build_service(
     pred_repo = MemPredictionRepository(predictions or [])
     input_repo = MemInputRepository()
     snap_repo = MemSnapshotRepository()
+    model_repo = MemModelRepository()
     ckpt_repo = checkpoint_repo or MemCheckpointRepository()
 
     # Save inputs for immediate resolution
     for p in pred_repo.predictions:
         input_repo.save(_make_input(p))
+
+    checkpoint_service = CheckpointService(
+        snapshot_repository=snap_repo,
+        checkpoint_repository=ckpt_repo,
+        model_repository=model_repo,
+        config=CrunchConfig(crunch_pubkey="crunch_test"),
+        interval_seconds=checkpoint_interval,
+    )
 
     service = ScoreService(
         checkpoint_interval_seconds=checkpoint_interval,
@@ -209,9 +219,9 @@ def _build_service(
         prediction_repository=pred_repo,
         score_repository=MemScoreRepository(),
         snapshot_repository=snap_repo,
-        model_repository=MemModelRepository(),
+        model_repository=model_repo,
         leaderboard_repository=MemLeaderboardRepository(),
-        checkpoint_repository=ckpt_repo,
+        checkpoint_service=checkpoint_service,
         config=CrunchConfig(crunch_pubkey="crunch_test"),
     )
     return service, ckpt_repo

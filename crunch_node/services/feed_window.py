@@ -23,10 +23,12 @@ class FeedWindow:
         self,
         max_size: int = 120,
         normalizer: FeedNormalizer | None = None,
+        pair_to_asset: dict[str, str] | None = None,
     ):
         self._windows: dict[str, deque[FeedDataRecord]] = {}
         self._max_size = max_size
         self._normalizer = normalizer or get_normalizer()
+        self._pair_to_asset = pair_to_asset or {}
 
     def append(self, record: FeedDataRecord) -> None:
         subject = record.subject
@@ -35,9 +37,15 @@ class FeedWindow:
         self._windows[subject].append(record)
 
     def get_input(self, subject: str) -> dict[str, Any]:
-        """Return normalized input for the given subject."""
+        """Return normalized input for the given subject.
+
+        The ``symbol`` field in the output uses the asset name (e.g. "BTC")
+        rather than the trading pair (e.g. "BTCUSDT") so that models can look
+        up data by the same subject they receive in ``predict()``.
+        """
         records = list(self._windows.get(subject, []))
-        return self._normalizer.normalize(records, subject).model_dump()
+        asset_name = self._pair_to_asset.get(subject, subject)
+        return self._normalizer.normalize(records, asset_name).model_dump()
 
     def get_latest_ts(self, subject: str) -> int:
         """Return the timestamp of the most recent record for subject."""

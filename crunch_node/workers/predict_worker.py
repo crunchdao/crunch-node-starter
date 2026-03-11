@@ -32,6 +32,40 @@ from crunch_node.services.realtime_predict import RealtimePredictService
 logger = logging.getLogger(__name__)
 
 
+def _maybe_build_simulator_sink(config, session):
+    trading = getattr(config, "trading", None)
+    if trading is None:
+        return None
+
+    from crunch_node.db.trading_state_repository import TradingStateRepository
+    from crunch_node.services.trading.simulator import TradingEngine
+    from crunch_node.services.trading.sink import SimulatorSink
+
+    simulator = TradingEngine(
+        cost_model=trading.cost_model,
+        max_position_size=trading.max_position_size,
+        max_portfolio_size=trading.max_portfolio_size,
+    )
+    state_repo = TradingStateRepository(session)
+
+    model_ids = state_repo.get_all_model_ids()
+    for model_id in model_ids:
+        state = state_repo.load_state(model_id)
+        if state is not None:
+            simulator.load_state(model_id, state)
+            logger.info("Restored trading state for model %s", model_id)
+
+    sink = SimulatorSink(
+        simulator=simulator,
+        state_repository=state_repo,
+        trading_config=trading,
+        model_ids=model_ids,
+        signal_mode=trading.signal_mode,
+    )
+    logger.info("Trading engine enabled: %s", trading)
+    return sink
+
+
 def configure_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -127,7 +161,12 @@ async def main() -> None:
     feed_settings = FeedDataSettings.from_env()
     feed_repository = DBFeedRecordRepository(session)
 
-    feed_window = FeedWindow(max_size=120)
+    pair_to_asset: dict[str, str] = {}
+    trading = getattr(config, "trading", None)
+    if trading is not None:
+        pair_to_asset = {v: k for k, v in trading.asset_price_mapping.items()}
+
+    feed_window = FeedWindow(max_size=120, pair_to_asset=pair_to_asset)
     logger.info("Loading initial feed window from database")
     feed_window.load_from_db(feed_repository, feed_settings)
 
@@ -137,10 +176,21 @@ async def main() -> None:
     )
     repo_sink = RepositorySink(feed_repository)
 
+    sinks = [repo_sink, predict_sink]
+    simulator_sink = _maybe_build_simulator_sink(config, session)
+    if simulator_sink is not None:
+        sinks.append(simulator_sink)
+        if isinstance(predict_service, RealtimePredictService):
+            if predict_service.post_predict_hook is not None:
+                raise ValueError(
+                    "Cannot use both a custom post_predict_hook and trading engine"
+                )
+            predict_service.post_predict_hook = simulator_sink.on_predictions
+
     feed_service = FeedDataService(
         settings=feed_settings,
         feed_record_repository=feed_repository,
-        sinks=[repo_sink, predict_sink],
+        sinks=sinks,
     )
 
     logger.info(

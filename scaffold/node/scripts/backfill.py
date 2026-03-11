@@ -20,7 +20,7 @@ if _app_dir not in sys.path:
 import argparse
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 
 from crunch_node.db import create_session
 from crunch_node.db.feed_records import DBFeedRecordRepository

@@ -19,6 +19,8 @@ from crunch_node.db import (
     create_session,
 )
 from crunch_node.extensions.callable_resolver import resolve_callable
+from crunch_node.merkle.service import MerkleService
+from crunch_node.services.checkpoint import CheckpointService
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.score import ScoreService
 
@@ -47,6 +49,29 @@ def build_service() -> ScoreService:
 
     session = create_session()
 
+    snapshot_repo = DBSnapshotRepository(session)
+    model_repo = DBModelRepository(session)
+
+    merkle_service = MerkleService(
+        merkle_cycle_repository=DBMerkleCycleRepository(session),
+        merkle_node_repository=DBMerkleNodeRepository(session),
+    )
+
+    checkpoint_service = CheckpointService(
+        snapshot_repository=snapshot_repo,
+        checkpoint_repository=DBCheckpointRepository(session),
+        model_repository=model_repo,
+        config=config,
+        interval_seconds=runtime_settings.checkpoint_interval_seconds,
+        merkle_service=merkle_service,
+    )
+
+    trading_state_repo = None
+    if getattr(config, "trading", None) is not None:
+        from crunch_node.db.trading_state_repository import TradingStateRepository
+
+        trading_state_repo = TradingStateRepository(session)
+
     return ScoreService(
         checkpoint_interval_seconds=runtime_settings.checkpoint_interval_seconds,
         score_interval_seconds=runtime_settings.score_interval_seconds,
@@ -55,13 +80,13 @@ def build_service() -> ScoreService:
         input_repository=DBInputRepository(session),
         prediction_repository=DBPredictionRepository(session),
         score_repository=DBScoreRepository(session),
-        snapshot_repository=DBSnapshotRepository(session),
-        model_repository=DBModelRepository(session),
+        snapshot_repository=snapshot_repo,
+        model_repository=model_repo,
         leaderboard_repository=DBLeaderboardRepository(session),
-        checkpoint_repository=DBCheckpointRepository(session),
-        merkle_cycle_repository=DBMerkleCycleRepository(session),
-        merkle_node_repository=DBMerkleNodeRepository(session),
+        checkpoint_service=checkpoint_service,
+        merkle_service=merkle_service,
         config=config,
+        trading_state_repository=trading_state_repo,
     )
 
 
@@ -72,10 +97,8 @@ async def main() -> None:
 
     service = build_service()
 
-    # Validate scoring IO at startup — catches field-name mismatches
-    # between InferenceOutput, GroundTruth, and the scoring function
-    # before any real predictions are scored.
-    service.validate_scoring_io()
+    if service.trading_state_repository is None:
+        service.validate_scoring_io()
 
     await service.run()
 

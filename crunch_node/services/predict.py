@@ -41,7 +41,6 @@ class PredictService:
         self,
         feed_reader: FeedReader | None = None,
         config: CrunchConfig | None = None,
-        contract: CrunchConfig | None = None,
         input_repository: DBInputRepository | None = None,
         model_repository: DBModelRepository | None = None,
         prediction_repository: DBPredictionRepository | None = None,
@@ -56,9 +55,7 @@ class PredictService:
         **kwargs,
     ):
         self.feed_reader = feed_reader
-        if config is not None and contract is not None and config is not contract:
-            raise ValueError("Provide only one of config= or contract=")
-        self.config = config or contract or CrunchConfig()
+        self.config = config or CrunchConfig()
 
         self.input_repository = input_repository
         self.model_repository = model_repository
@@ -92,15 +89,6 @@ class PredictService:
             logger=self.logger,
         )
         self.stop_event = asyncio.Event()
-
-    @property
-    def contract(self) -> CrunchConfig:
-        """Backward-compatible alias for ``config``."""
-        return self.config
-
-    @contract.setter
-    def contract(self, value: CrunchConfig) -> None:
-        self.config = value
 
     # ── 1. get data ──
 
