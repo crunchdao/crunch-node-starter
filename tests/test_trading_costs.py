@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from crunch_node.services.trading.costs import CostModel
+from extensions.trading.costs import CostModel
 
 
 class TestCostModel:

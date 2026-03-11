@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 class TestTradingStateRow:
     def test_row_creation(self):
-        from crunch_node.db.tables.trading import TradingStateRow
+        from extensions.trading.tables import TradingStateRow
 
         row = TradingStateRow(
             model_id="model_1",
@@ -30,6 +30,6 @@ class TestTradingStateRow:
         assert row.portfolio_fees == 0.0005
 
     def test_row_has_table_name(self):
-        from crunch_node.db.tables.trading import TradingStateRow
+        from extensions.trading.tables import TradingStateRow
 
         assert TradingStateRow.__tablename__ == "trading_portfolio_state"

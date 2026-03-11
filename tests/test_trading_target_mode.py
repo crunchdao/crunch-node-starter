@@ -5,10 +5,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from crunch_node.services.trading.config import TradingConfig
-from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingEngine
-from crunch_node.services.trading.sink import SimulatorSink
+from extensions.trading.config import TradingConfig
+from extensions.trading.costs import CostModel
+from extensions.trading.simulator import TradingEngine
+from extensions.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)

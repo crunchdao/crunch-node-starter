@@ -95,108 +95,6 @@ _METRIC_TOOLTIPS: dict[str, str] = {
 }
 
 
-def _build_trading_widgets() -> list[dict[str, Any]]:
-    """Build metrics widgets for trading competitions."""
-    return [
-        {
-            "id": 1,
-            "type": "CHART",
-            "displayName": "P&L Over Time",
-            "tooltip": "Net profit/loss per model including fees and carry costs",
-            "order": 10,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {
-                    "series": [{"name": "net_pnl", "label": "Net PnL"}],
-                    "format": "decimal-4",
-                },
-                "displayEvolution": False,
-            },
-        },
-        {
-            "id": 2,
-            "type": "CHART",
-            "displayName": "P&L Breakdown",
-            "tooltip": "Realized vs unrealized PnL, fees, and carry costs over time",
-            "order": 20,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {
-                    "series": [
-                        {"name": "realized_pnl", "label": "Realized PnL"},
-                        {"name": "unrealized_pnl", "label": "Unrealized PnL"},
-                        {"name": "total_fees", "label": "Fees"},
-                        {"name": "total_carry_costs", "label": "Carry Costs"},
-                    ],
-                    "format": "decimal-4",
-                },
-                "displayEvolution": False,
-            },
-        },
-        {
-            "id": 3,
-            "type": "CHART",
-            "displayName": "Max Drawdown",
-            "tooltip": "Worst peak-to-trough drawdown on cumulative PnL",
-            "order": 30,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {
-                    "series": [
-                        {"name": "max_drawdown", "label": "Max Drawdown"},
-                    ],
-                    "format": "decimal-4",
-                },
-                "displayEvolution": False,
-            },
-        },
-        {
-            "id": 4,
-            "type": "CHART",
-            "displayName": "Sortino Ratio",
-            "tooltip": "Like Sharpe but only penalizes downside volatility",
-            "order": 35,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {
-                    "series": [
-                        {"name": "sortino_ratio", "label": "Sortino Ratio"},
-                    ],
-                    "format": "decimal-2",
-                },
-                "displayEvolution": False,
-            },
-        },
-        {
-            "id": 5,
-            "type": "CHART",
-            "displayName": "Open Positions",
-            "tooltip": "Number of open positions per model over time",
-            "order": 40,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {
-                    "series": [
-                        {"name": "open_position_count", "label": "Positions"},
-                    ],
-                    "format": "decimal-0",
-                },
-                "displayEvolution": False,
-            },
-        },
-    ]
-
-
 def _build_standard_widgets(
     series: list[dict[str, str]],
     metric_series: list[dict[str, str]],
@@ -509,10 +407,8 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
         for m in contract.metrics
     ]
 
-    is_trading = getattr(contract, "trading", None) is not None
-
-    if is_trading:
-        widgets = _build_trading_widgets()
+    if contract.build_trading_widgets is not None:
+        widgets = contract.build_trading_widgets()
     else:
         widgets = _build_standard_widgets(series, metric_series, contract)
 
