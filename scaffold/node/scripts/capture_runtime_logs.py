@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 
 SERVICES = (
@@ -58,7 +58,7 @@ def main() -> int:
             continue
         parsed = _parse_line(row)
         payload = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "service": parsed["service"],
             "message": parsed["message"],
         }
