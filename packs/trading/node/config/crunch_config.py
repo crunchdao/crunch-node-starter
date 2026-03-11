@@ -13,16 +13,16 @@ import extensions.trading.tables  # noqa: F401
 from extensions.trading.config import TradingConfig
 from extensions.trading.costs import CostModel
 from extensions.trading.factories import (
+    build_prediction_sink,
     build_score_snapshots,
-    build_simulator_sink,
     build_trading_widgets,
 )
 from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
     Aggregation,
+    BuildPredictionSink,
     BuildScoreSnapshots,
-    BuildSimulatorSink,
     BuildWidgets,
     ScheduledPrediction,
 )
@@ -57,7 +57,7 @@ class CrunchConfig(BaseCrunchConfig):
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
 
-    build_simulator_sink: BuildSimulatorSink | None = build_simulator_sink
+    build_prediction_sink: BuildPredictionSink | None = build_prediction_sink
     build_score_snapshots: BuildScoreSnapshots | None = build_score_snapshots
     build_trading_widgets: BuildWidgets | None = build_trading_widgets
 

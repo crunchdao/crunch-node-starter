@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 
 from extensions.trading.costs import CostModel
 from extensions.trading.factories import (
+    build_prediction_sink,
     build_score_snapshots,
-    build_simulator_sink,
     build_trading_widgets,
 )
 from extensions.trading.sink import SimulatorSink
@@ -21,13 +21,13 @@ def _mock_config():
     return config
 
 
-def test_build_simulator_sink_returns_simulator_sink():
+def test_build_prediction_sink_returns_simulator_sink():
     session = MagicMock()
     config = _mock_config()
 
     session.exec.return_value.all.return_value = []
 
-    sink = build_simulator_sink(session=session, config=config)
+    sink = build_prediction_sink(session=session, config=config)
 
     assert isinstance(sink, SimulatorSink)
     assert hasattr(sink, "on_record")

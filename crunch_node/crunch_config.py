@@ -236,8 +236,8 @@ class EnsembleModelFilter(Protocol):
 
 
 @runtime_checkable
-class BuildSimulatorSink(Protocol):
-    """Factory that builds a simulator sink for the predict worker.
+class BuildPredictionSink(Protocol):
+    """Factory that builds a prediction sink for the predict worker.
 
     The returned object must have ``on_record`` (async, receives feed ticks)
     and ``on_predictions`` (sync, post-predict hook) methods.
@@ -766,7 +766,7 @@ class CrunchConfig(BaseModel):
     aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
     build_emission: BuildEmission = default_build_emission
 
-    build_simulator_sink: BuildSimulatorSink | None = None
+    build_prediction_sink: BuildPredictionSink | None = None
     build_score_snapshots: BuildScoreSnapshots | None = None
     build_trading_widgets: BuildWidgets | None = None
     feed_subject_mapping: dict[str, str] = Field(

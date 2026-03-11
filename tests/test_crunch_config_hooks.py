@@ -4,9 +4,9 @@ from crunch_node.crunch_config import CrunchConfig
 
 
 class TestHookFieldDefaults:
-    def test_build_simulator_sink_defaults_to_none(self):
+    def test_build_prediction_sink_defaults_to_none(self):
         config = CrunchConfig()
-        assert config.build_simulator_sink is None
+        assert config.build_prediction_sink is None
 
     def test_build_score_snapshots_defaults_to_none(self):
         config = CrunchConfig()
@@ -22,12 +22,12 @@ class TestHookFieldDefaults:
 
 
 class TestHookFieldsAcceptValues:
-    def test_build_simulator_sink_accepts_callable(self):
+    def test_build_prediction_sink_accepts_callable(self):
         def my_sink(*, session, config):
             return "sink"
 
-        config = CrunchConfig(build_simulator_sink=my_sink)
-        assert config.build_simulator_sink is my_sink
+        config = CrunchConfig(build_prediction_sink=my_sink)
+        assert config.build_prediction_sink is my_sink
 
     def test_build_score_snapshots_accepts_callable(self):
         def my_snapshots(*, session, config, snapshot_repository):

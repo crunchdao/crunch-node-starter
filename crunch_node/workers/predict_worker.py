@@ -138,13 +138,13 @@ async def main() -> None:
     repo_sink = RepositorySink(feed_repository)
 
     sinks = [repo_sink, predict_sink]
-    simulator_sink = None
-    if config.build_simulator_sink is not None:
-        simulator_sink = config.build_simulator_sink(session=session, config=config)
-        logger.info("Simulator sink enabled via build_simulator_sink hook")
+    prediction_sink = None
+    if config.build_prediction_sink is not None:
+        prediction_sink = config.build_prediction_sink(session=session, config=config)
+        logger.info("Prediction sink enabled via build_prediction_sink hook")
 
-    if simulator_sink is not None:
-        sinks.append(simulator_sink)
+    if prediction_sink is not None:
+        sinks.append(prediction_sink)
         if isinstance(predict_service, RealtimePredictService):
             if predict_service.post_predict_hook is not None:
                 raise ValueError(

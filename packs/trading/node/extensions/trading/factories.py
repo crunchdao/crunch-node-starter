@@ -14,7 +14,7 @@ from extensions.trading.state_repository import TradingStateRepository
 logger = logging.getLogger(__name__)
 
 
-def build_simulator_sink(*, session, config) -> SimulatorSink:
+def build_prediction_sink(*, session, config) -> SimulatorSink:
     trading: TradingConfig = config.trading
 
     simulator = TradingEngine(
