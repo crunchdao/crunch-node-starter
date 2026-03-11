@@ -5,10 +5,10 @@
   },
   "logs": {
     "containerNames": [
-      "crunch-node-trading-score-worker",
-      "crunch-node-trading-predict-worker",
-      "crunch-node-trading-report-worker",
-      "crunch-node-trading-model-orchestrator"
+      "crunch-node-starter-challenge-score-worker",
+      "crunch-node-starter-challenge-predict-worker",
+      "crunch-node-starter-challenge-report-worker",
+      "crunch-node-starter-challenge-model-orchestrator"
     ]
   }
 }
