@@ -14,7 +14,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -117,7 +117,7 @@ def main() -> int:
     print("[verify-e2e] Trading mode — checking for snapshots instead of scores")
 
     deadline = time.time() + timeout_seconds
-    since = datetime.now(UTC) - timedelta(hours=1)
+    since = datetime.now(timezone.utc) - timedelta(hours=1)
 
     last_error: str | None = None
 
@@ -138,7 +138,7 @@ def main() -> int:
             if not models:
                 raise RuntimeError("no models registered yet")
 
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             all_model_ids = ",".join(m["model_id"] for m in models)
             predictions = _get_json(
                 base_url,

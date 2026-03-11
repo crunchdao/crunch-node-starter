@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -228,7 +228,7 @@ class BacktestClient:
                 continue
             date_str = entry.get("date", "")
             try:
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
             if start_dt <= file_date <= end_dt:
@@ -404,7 +404,7 @@ class BacktestRunner:
         for parquet_file in sorted(data_dir.glob("*.parquet")):
             date_str = parquet_file.stem
             try:
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC)
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
             if start_dt <= file_date <= end_dt:
@@ -437,7 +437,7 @@ class BacktestRunner:
             if hasattr(current_ts, "to_pydatetime"):
                 current_ts = current_ts.to_pydatetime()
             if current_ts.tzinfo is None:
-                current_ts = current_ts.replace(tzinfo=UTC)
+                current_ts = current_ts.replace(tzinfo=timezone.utc)
 
             # Build window for feed_update()
             window_df = df.iloc[max(0, i - window_size + 1) : i + 1]
@@ -592,7 +592,7 @@ def _compute_metrics(predictions: list[dict[str, Any]]) -> dict[str, float]:
     if hasattr(now, "timestamp"):
         pass  # already datetime
     else:
-        now = datetime.fromtimestamp(now, tz=UTC)
+        now = datetime.fromtimestamp(now, tz=timezone.utc)
 
     windows = {
         "score_recent": timedelta(hours=24),
@@ -651,7 +651,7 @@ def _ts_ge(ts, cutoff: datetime) -> bool:
     """Check if timestamp >= cutoff, handling mixed types."""
     if hasattr(ts, "timestamp"):
         return ts >= cutoff
-    return datetime.fromtimestamp(ts, tz=UTC) >= cutoff
+    return datetime.fromtimestamp(ts, tz=timezone.utc) >= cutoff
 
 
 def _default_scoring_fn() -> Callable[[dict, dict], dict]:
@@ -681,12 +681,12 @@ def _parse_date(value) -> datetime:
     """Parse a date string or pass through datetime."""
     if isinstance(value, datetime):
         if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
+            return value.replace(tzinfo=timezone.utc)
         return value
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
         try:
             dt = datetime.strptime(value, fmt)
-            return dt.replace(tzinfo=UTC)
+            return dt.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     raise ValueError(f"Cannot parse date: {value!r}")

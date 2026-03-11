@@ -14,7 +14,7 @@ import json
 import os
 import sys
 import time
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -254,7 +254,7 @@ def main() -> int:
     )
 
     deadline = time.time() + timeout_seconds
-    since = datetime.now(UTC) - timedelta(hours=1)
+    since = datetime.now(timezone.utc) - timedelta(hours=1)
     round_triggered = False
     last_error: str | None = None
 
@@ -295,7 +295,7 @@ def main() -> int:
                 raise RuntimeError("no models in report DB after tournament round")
 
             model_id = models[0]["model_id"]
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             predictions = _get_json(
                 base_url,
                 "/reports/predictions",

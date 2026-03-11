@@ -20,7 +20,7 @@ if _app_dir not in sys.path:
 import argparse
 import asyncio
 import logging
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 
 from crunch_node.db import create_session
 from crunch_node.db.feed_records import DBFeedRecordRepository
@@ -32,7 +32,7 @@ def parse_datetime(value):
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
         try:
             dt = datetime.strptime(value, fmt)
-            return dt.replace(tzinfo=UTC)
+            return dt.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     raise argparse.ArgumentTypeError(
