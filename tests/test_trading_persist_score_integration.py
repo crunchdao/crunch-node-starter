@@ -91,7 +91,7 @@ class TestPersistToScoreFlow:
         )
 
         now = datetime.now(UTC)
-        ts_ms = int(now.timestamp() * 1000)
+        ts_ms = int(now.timestamp())
 
         asyncio.run(sink.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))
 
@@ -150,7 +150,7 @@ class TestPersistToScoreFlow:
             trading_config=DEFAULT_TRADING_CONFIG,
         )
         now = datetime.now(UTC)
-        ts_ms = int(now.timestamp() * 1000)
+        ts_ms = int(now.timestamp())
 
         asyncio.run(sink1.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))
 

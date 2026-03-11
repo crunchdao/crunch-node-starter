@@ -28,7 +28,7 @@ class TestFullFlow:
         )
 
         now = datetime.now(UTC)
-        ts_ms = int(now.timestamp() * 1000)
+        ts_ms = int(now.timestamp())
 
         sim.apply_order("model_1", "BTC", "long", 1.0, price=50000.0, timestamp=now)
 
@@ -82,7 +82,7 @@ class TestFullFlow:
         )
 
         now = datetime.now(UTC)
-        ts_ms = int(now.timestamp() * 1000)
+        ts_ms = int(now.timestamp())
 
         feed_record = FeedDataRecord(
             source="binance",
