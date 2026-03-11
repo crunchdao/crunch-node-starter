@@ -207,7 +207,7 @@ def _build_service(
         snapshot_repository=snap_repo,
         checkpoint_repository=ckpt_repo,
         model_repository=model_repo,
-        contract=CrunchConfig(crunch_pubkey="crunch_test"),
+        config=CrunchConfig(crunch_pubkey="crunch_test"),
         interval_seconds=checkpoint_interval,
     )
 
@@ -222,7 +222,7 @@ def _build_service(
         model_repository=model_repo,
         leaderboard_repository=MemLeaderboardRepository(),
         checkpoint_service=checkpoint_service,
-        contract=CrunchConfig(crunch_pubkey="crunch_test"),
+        config=CrunchConfig(crunch_pubkey="crunch_test"),
     )
     return service, ckpt_repo
 
@@ -302,7 +302,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
             # No checkpoint_repository
-            contract=CrunchConfig(),
+            config=CrunchConfig(),
         )
 
         # Should not raise

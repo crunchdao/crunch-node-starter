@@ -221,7 +221,7 @@ class RealtimePredictService(PredictService):
             resolve_seconds = int(schedule.resolve_horizon_seconds or 0)
             scope = {
                 "scope_key": str(config.get("scope_key") or "default-scope"),
-                **self.contract.scope.model_dump(),
+                **self.config.scope.model_dump(),
                 **(config.get("scope_template") or {}),
                 "resolve_horizon_seconds": resolve_seconds,
             }

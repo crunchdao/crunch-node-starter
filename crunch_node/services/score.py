@@ -43,7 +43,7 @@ class ScoreService:
         leaderboard_repository: DBLeaderboardRepository | None = None,
         checkpoint_service: CheckpointService | None = None,
         merkle_service: MerkleService | None = None,
-        contract: CrunchConfig | None = None,
+        config: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
         **kwargs: Any,
     ):
@@ -59,7 +59,7 @@ class ScoreService:
         self.snapshot_repository = snapshot_repository
         self.model_repository = model_repository
         self.leaderboard_repository = leaderboard_repository
-        self.contract = contract or CrunchConfig()
+        self.config = config or CrunchConfig()
 
         self.merkle_service = merkle_service
         self._checkpoint_service = checkpoint_service
@@ -140,7 +140,7 @@ class ScoreService:
         or model_config on the type.
         """
         try:
-            return self.contract.output_type.model_validate(raw)
+            return self.config.output_type.model_validate(raw)
         except Exception as exc:
             self.logger.warning(
                 "output_type coercion failed (%s), wrapping raw dict",
@@ -148,13 +148,13 @@ class ScoreService:
             )
             # Fallback: construct with extra fields allowed
             try:
-                return self.contract.output_type.model_construct(**raw)
+                return self.config.output_type.model_construct(**raw)
             except Exception:
-                return self.contract.output_type()
+                return self.config.output_type()
 
     def _coerce_ground_truth(self, raw: dict[str, Any]) -> BaseModel:
         """Parse a raw ground truth dict into a typed ``ground_truth_type`` instance."""
-        gt_type = self.contract.get_ground_truth_type()
+        gt_type = self.config.get_ground_truth_type()
         try:
             return gt_type.model_validate(raw)
         except Exception as exc:
@@ -174,8 +174,8 @@ class ScoreService:
         but ``output_type`` only defines ``value``) before any real predictions
         are scored.  Raises on hard errors; logs warnings on soft issues.
         """
-        output_type = self.contract.output_type
-        ground_truth_type = self.contract.get_ground_truth_type()
+        output_type = self.config.output_type
+        ground_truth_type = self.config.get_ground_truth_type()
 
         # Build a sample prediction from output_type defaults
         try:
@@ -225,17 +225,17 @@ class ScoreService:
         # Validate the result
         result_dict = result.model_dump() if isinstance(result, BaseModel) else result
         try:
-            self.contract.score_type.model_validate(result_dict)
+            self.config.score_type.model_validate(result_dict)
         except Exception as exc:
             raise RuntimeError(
                 f"Scoring function returned {result!r} which does not match "
-                f"{self.contract.score_type.__name__}: {exc}"
+                f"{self.config.score_type.__name__}: {exc}"
             ) from exc
 
         self.logger.info(
             "Scoring IO validation passed: %s → scoring → %s",
             output_type.__name__,
-            self.contract.score_type.__name__,
+            self.config.score_type.__name__,
         )
 
     async def run(self) -> None:
@@ -340,7 +340,7 @@ class ScoreService:
             return None
 
         # Check that resolved data is near the horizon, not stale
-        staleness_fraction = self.contract.max_ground_truth_staleness_fraction
+        staleness_fraction = self.config.max_ground_truth_staleness_fraction
         if staleness_fraction > 0:
             last_record = records[-1]
             horizon_ts = prediction.resolvable_at.timestamp()
@@ -362,7 +362,7 @@ class ScoreService:
                 )
                 return None
 
-        actuals = self.contract.resolve_ground_truth(records, prediction)
+        actuals = self.config.resolve_ground_truth(records, prediction)
         if actuals is None:
             return None
         # Coerce to dict if resolve_ground_truth returned a BaseModel
@@ -398,7 +398,7 @@ class ScoreService:
             result_dict = (
                 result.model_dump() if isinstance(result, BaseModel) else result
             )
-            validated = self.contract.score_type.model_validate(result_dict)
+            validated = self.config.score_type.model_validate(result_dict)
 
             score = ScoreRecord(
                 id=f"SCR_{prediction.id}",
@@ -494,10 +494,10 @@ class ScoreService:
 
         for model_id, results in by_model_scores.items():
             # Baseline aggregation
-            summary = self.contract.aggregate_snapshot(results)
+            summary = self.config.aggregate_snapshot(results)
 
             # Multi-metric enrichment
-            if self.contract.metrics:
+            if self.config.metrics:
                 ctx = MetricsContext(
                     model_id=model_id,
                     window_start=metrics_context_base.window_start,
@@ -505,8 +505,8 @@ class ScoreService:
                     all_model_predictions=metrics_context_base.all_model_predictions,
                     ensemble_predictions=metrics_context_base.ensemble_predictions,
                 )
-                metric_results = self.contract.compute_metrics(
-                    self.contract.metrics,
+                metric_results = self.config.compute_metrics(
+                    self.config.metrics,
                     by_model_preds.get(model_id, []),
                     by_model_score_dicts.get(model_id, []),
                     ctx,
@@ -544,7 +544,7 @@ class ScoreService:
 
     def _compute_ensembles(self, scored: list[ScoreRecord], now: datetime) -> None:
         """Compute ensemble predictions for all enabled ensemble configs."""
-        if not self.contract.ensembles:
+        if not self.config.ensembles:
             return
 
         from crunch_node.metrics.context import MetricsContext
@@ -590,7 +590,7 @@ class ScoreService:
 
         ensemble_predictions_map: dict[str, list[dict[str, Any]]] = {}
 
-        for ens_config in self.contract.ensembles:
+        for ens_config in self.config.ensembles:
             if not ens_config.enabled:
                 continue
 
@@ -642,7 +642,7 @@ class ScoreService:
                     result_dict = (
                         result.model_dump() if isinstance(result, BaseModel) else result
                     )
-                    validated = self.contract.score_type.model_validate(result_dict)
+                    validated = self.config.score_type.model_validate(result_dict)
                     score = ScoreRecord(
                         id=f"SCR_{ep.id}",
                         prediction_id=ep.id,
@@ -671,10 +671,10 @@ class ScoreService:
             if ens_scored and self.snapshot_repository:
                 ens_model_id = ensemble_model_id(ens_config.name)
                 results = [s.result for s in ens_scored]
-                summary = self.contract.aggregate_snapshot(results)
+                summary = self.config.aggregate_snapshot(results)
 
                 # Compute metrics for the ensemble too
-                if self.contract.metrics:
+                if self.config.metrics:
                     ctx = MetricsContext(
                         model_id=ens_model_id,
                         window_start=min(
@@ -688,8 +688,8 @@ class ScoreService:
                         {"result": s.result, "scored_at": s.scored_at}
                         for s in ens_scored
                     ]
-                    metric_results = self.contract.compute_metrics(
-                        self.contract.metrics,
+                    metric_results = self.config.compute_metrics(
+                        self.config.metrics,
                         ens_pred_dicts,
                         ens_score_dicts,
                         ctx,
@@ -875,7 +875,7 @@ class ScoreService:
         self, snapshots: list[SnapshotRecord], models: dict
     ) -> list[dict[str, Any]]:
         now = datetime.now(UTC)
-        aggregation = self.contract.aggregation
+        aggregation = self.config.aggregation
 
         # Group snapshots by model
         by_model: dict[str, list[SnapshotRecord]] = {}
@@ -936,8 +936,8 @@ class ScoreService:
         return entries
 
     def _rank(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        key = self.contract.aggregation.ranking_key
-        reverse = self.contract.aggregation.ranking_direction == "desc"
+        key = self.config.aggregation.ranking_key
+        reverse = self.config.aggregation.ranking_direction == "desc"
 
         def sort_key(e: dict[str, Any]) -> float:
             score = e.get("score")

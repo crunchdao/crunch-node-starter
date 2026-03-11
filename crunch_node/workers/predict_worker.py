@@ -113,7 +113,7 @@ def build_predict_service(session, config, runtime_settings) -> PredictService:
 
     kwargs = dict(
         feed_reader=FeedReader.from_env(),
-        contract=config,
+        config=config,
         input_repository=DBInputRepository(session),
         model_repository=DBModelRepository(session),
         prediction_repository=DBPredictionRepository(session),

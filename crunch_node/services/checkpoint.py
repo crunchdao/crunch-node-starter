@@ -28,14 +28,14 @@ class CheckpointService:
         snapshot_repository: DBSnapshotRepository,
         checkpoint_repository: DBCheckpointRepository,
         model_repository: DBModelRepository,
-        contract: CrunchConfig | None = None,
+        config: CrunchConfig | None = None,
         interval_seconds: int = 7 * 24 * 3600,  # weekly
         merkle_service: MerkleService | None = None,
     ):
         self.snapshot_repository = snapshot_repository
         self.checkpoint_repository = checkpoint_repository
         self.model_repository = model_repository
-        self.contract = contract or CrunchConfig()
+        self.config = config or CrunchConfig()
         self.interval_seconds = interval_seconds
         self.merkle_service = merkle_service
         self.logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class CheckpointService:
             return None
 
         models = self.model_repository.fetch_all()
-        aggregation = self.contract.aggregation
+        aggregation = self.config.aggregation
 
         # Aggregate snapshots per model
         by_model: dict[str, list] = {}
@@ -102,11 +102,11 @@ class CheckpointService:
             entry["rank"] = idx
 
         # Build emission checkpoint → protocol format for on-chain submission
-        emission = self.contract.build_emission(
+        emission = self.config.build_emission(
             ranked_entries,
-            crunch_pubkey=self.contract.crunch_pubkey,
-            compute_provider=self.contract.compute_provider,
-            data_provider=self.contract.data_provider,
+            crunch_pubkey=self.config.crunch_pubkey,
+            compute_provider=self.config.compute_provider,
+            data_provider=self.config.data_provider,
         )
 
         checkpoint = CheckpointRecord(

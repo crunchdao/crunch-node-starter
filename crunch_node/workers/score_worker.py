@@ -61,7 +61,7 @@ def build_service() -> ScoreService:
         snapshot_repository=snapshot_repo,
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=model_repo,
-        contract=config,
+        config=config,
         interval_seconds=runtime_settings.checkpoint_interval_seconds,
         merkle_service=merkle_service,
     )
@@ -85,7 +85,7 @@ def build_service() -> ScoreService:
         leaderboard_repository=DBLeaderboardRepository(session),
         checkpoint_service=checkpoint_service,
         merkle_service=merkle_service,
-        contract=config,
+        config=config,
         trading_state_repository=trading_state_repo,
     )
 
