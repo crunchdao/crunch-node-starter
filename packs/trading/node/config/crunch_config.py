@@ -9,10 +9,10 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
-import extensions.trading.tables  # noqa: F401
-from extensions.trading.config import TradingConfig
-from extensions.trading.costs import CostModel
-from extensions.trading.factories import (
+import extensions.tables  # noqa: F401
+from extensions.config import TradingConfig
+from extensions.costs import CostModel
+from extensions.factories import (
     build_prediction_sink,
     build_score_snapshots,
     build_trading_widgets,

@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from extensions.trading.costs import CostModel
+from extensions.costs import CostModel
 
 
 class TradingConfig(BaseModel):

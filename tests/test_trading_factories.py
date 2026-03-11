@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from extensions.trading.costs import CostModel
-from extensions.trading.factories import (
+from extensions.costs import CostModel
+from extensions.factories import (
     build_prediction_sink,
     build_score_snapshots,
     build_trading_widgets,
 )
-from extensions.trading.sink import SimulatorSink
+from extensions.sink import SimulatorSink
 
 
 def _mock_config():

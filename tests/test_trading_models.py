@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from extensions.trading.models import Position, Trade
+from extensions.models import Position, Trade
 
 
 class TestPositionUnrealizedPnl:

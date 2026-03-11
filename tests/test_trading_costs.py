@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from extensions.trading.costs import CostModel
+from extensions.costs import CostModel
 
 
 class TestCostModel:

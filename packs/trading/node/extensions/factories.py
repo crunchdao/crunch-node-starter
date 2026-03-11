@@ -6,10 +6,10 @@ from datetime import datetime
 from typing import Any
 
 from crunch_node.entities.prediction import SnapshotRecord
-from extensions.trading.config import TradingConfig
-from extensions.trading.simulator import TradingEngine
-from extensions.trading.sink import SimulatorSink
-from extensions.trading.state_repository import TradingStateRepository
+from extensions.config import TradingConfig
+from extensions.simulator import TradingEngine
+from extensions.sink import SimulatorSink
+from extensions.state_repository import TradingStateRepository
 
 logger = logging.getLogger(__name__)
 

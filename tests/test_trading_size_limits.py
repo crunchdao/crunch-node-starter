@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from extensions.trading.costs import CostModel
-from extensions.trading.simulator import TradingEngine
+from extensions.costs import CostModel
+from extensions.simulator import TradingEngine
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 
