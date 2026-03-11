@@ -266,14 +266,14 @@ class TestScoreService(unittest.TestCase):
         self.assertEqual(len(service.score_repository.scores), 1)
 
     def test_rank_ascending(self):
-        contract = CrunchConfig(
+        config = CrunchConfig(
             aggregation=Aggregation(
                 windows={"loss": AggregationWindow(hours=24)},
                 ranking_key="loss",
                 ranking_direction="asc",
             )
         )
-        service = _build_service(config=contract)
+        service = _build_service(config=config)
 
         ranked = service._rank_leaderboard(
             [
@@ -332,8 +332,8 @@ class TestCoerceOutput(unittest.TestCase):
             model_config = ConfigDict(extra="allow")
             value: float = 0.0
 
-        contract = CrunchConfig(output_type=FlexOutput)
-        service = _build_service(config=contract)
+        config = CrunchConfig(output_type=FlexOutput)
+        service = _build_service(config=config)
         result = service._coerce_output({"value": 0.5, "confidence": 0.9})
         self.assertAlmostEqual(result.value, 0.5)
 
@@ -344,8 +344,8 @@ class TestCoerceOutput(unittest.TestCase):
             order_type: str = "HOLD"
             leverage: float = Field(default=1.0)
 
-        contract = CrunchConfig(output_type=TradingOutput)
-        service = _build_service(config=contract)
+        config = CrunchConfig(output_type=TradingOutput)
+        service = _build_service(config=config)
 
         # Model returns partial output — defaults should fill in
         result = service._coerce_output({"order_type": "LONG"})
@@ -364,8 +364,8 @@ class TestCoerceOutput(unittest.TestCase):
         class StrictOutput(BaseModel):
             value: float = Field(ge=0.0, le=1.0)
 
-        contract = CrunchConfig(output_type=StrictOutput)
-        service = _build_service(config=contract)
+        config = CrunchConfig(output_type=StrictOutput)
+        service = _build_service(config=config)
 
         # value=999 violates ge/le constraint — should fall back to model_construct
         with self.assertLogs("crunch_node.services.score", level="WARNING"):
@@ -390,7 +390,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             captured["confidence"] = prediction.confidence
             return {"value": 0.0, "success": True, "failed_reason": None}
 
-        contract = CrunchConfig(output_type=CustomOutput)
+        config = CrunchConfig(output_type=CustomOutput)
         service = ScoreService(
             checkpoint_interval_seconds=60,
             scoring_function=capturing_scorer,
@@ -418,7 +418,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             snapshot_repository=MemSnapshotRepository(),
             model_repository=MemModelRepository(),
             leaderboard_repository=MemLeaderboardRepository(),
-            config=contract,
+            config=config,
         )
 
         service.score_and_snapshot()

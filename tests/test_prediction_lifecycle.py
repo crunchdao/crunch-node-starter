@@ -282,12 +282,12 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
         self.checkpoint_repo = MemCheckpointRepository()
         self.model_repo = MemModelRepository()
         self.lb_repo = MemLeaderboardRepository()
-        self.contract = CrunchConfig(crunch_pubkey="test_crunch_pubkey")
+        self.config = CrunchConfig(crunch_pubkey="test_crunch_pubkey")
 
         self.predict_service = RealtimePredictService(
             checkpoint_interval_seconds=60,
             feed_reader=FakeFeedReader({"symbol": "BTC", "asof_ts": 100}),
-            config=self.contract,
+            config=self.config,
             input_repository=self.input_repo,
             model_repository=self.model_repo,
             prediction_repository=self.pred_repo,
@@ -304,14 +304,14 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
             snapshot_repository=self.snapshot_repo,
             model_repository=self.model_repo,
             leaderboard_repository=self.lb_repo,
-            config=self.contract,
+            config=self.config,
         )
 
         self.checkpoint_service = CheckpointService(
             snapshot_repository=self.snapshot_repo,
             checkpoint_repository=self.checkpoint_repo,
             model_repository=self.model_repo,
-            config=self.contract,
+            config=self.config,
         )
 
     @staticmethod
