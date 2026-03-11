@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any
 
 from crunch_node.entities.prediction import SnapshotRecord
-
 from extensions.trading.config import TradingConfig
 from extensions.trading.simulator import TradingEngine
 from extensions.trading.sink import SimulatorSink
@@ -75,9 +74,7 @@ def build_score_snapshots(
                         price_return = -price_return
                     total_unrealized += size * price_return
 
-            total_realized = sum(
-                t.get("realized_pnl", 0.0) or 0.0 for t in trades_data
-            )
+            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
             total_carry = (
                 sum(p.get("accrued_carry", 0.0) for p in positions_data) + closed_carry
             )

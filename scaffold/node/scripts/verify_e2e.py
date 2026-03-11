@@ -12,7 +12,7 @@ import os
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 import requests
 
@@ -341,7 +341,7 @@ def main() -> int:
         print("[verify-e2e] Tournament mode detected — will trigger rounds via API")
 
     deadline = time.time() + timeout_seconds
-    since = datetime.now(timezone.utc) - timedelta(hours=1)
+    since = datetime.now(UTC) - timedelta(hours=1)
 
     last_error: str | None = None
     tournament_round_triggered = False
@@ -376,7 +376,7 @@ def main() -> int:
                 raise RuntimeError("no models registered yet")
 
             # Check for scored predictions + leaderboard across ALL models
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             all_model_ids = ",".join(m["model_id"] for m in models)
             predictions = _get_json(
                 base_url,

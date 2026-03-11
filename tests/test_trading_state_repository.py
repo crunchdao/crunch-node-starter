@@ -49,8 +49,8 @@ class TestTradingStateRepository:
         session.commit.assert_called_once()
 
     def test_save_state_updates_existing(self):
-        from extensions.trading.tables import TradingStateRow
         from extensions.trading.state_repository import TradingStateRepository
+        from extensions.trading.tables import TradingStateRow
 
         existing_row = TradingStateRow(
             model_id="m1",
@@ -82,8 +82,8 @@ class TestTradingStateRepository:
         assert result is None
 
     def test_load_state_returns_dict(self):
-        from extensions.trading.tables import TradingStateRow
         from extensions.trading.state_repository import TradingStateRepository
+        from extensions.trading.tables import TradingStateRow
 
         row = TradingStateRow(
             model_id="m1",

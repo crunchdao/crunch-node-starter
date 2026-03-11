@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from unittest.mock import MagicMock
 
 from crunch_node.entities.prediction import SnapshotRecord
@@ -23,8 +23,8 @@ class TestTradingScoring:
         snap = SnapshotRecord(
             id="SNAP_m1_test",
             model_id="m1",
-            period_start=datetime.now(timezone.utc),
-            period_end=datetime.now(timezone.utc),
+            period_start=datetime.now(UTC),
+            period_end=datetime.now(UTC),
             prediction_count=1,
             result_summary={"net_pnl": 0.01},
         )

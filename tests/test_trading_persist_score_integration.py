@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from extensions.trading.config import TradingConfig
+from extensions.trading.costs import CostModel
+from extensions.trading.simulator import TradingEngine
+from extensions.trading.sink import SimulatorSink
 
 from crunch_node.entities.prediction import (
     InputRecord,
@@ -13,10 +17,6 @@ from crunch_node.entities.prediction import (
     SnapshotRecord,
 )
 from crunch_node.feeds.contracts import FeedDataRecord
-from extensions.trading.config import TradingConfig
-from extensions.trading.costs import CostModel
-from extensions.trading.simulator import TradingEngine
-from extensions.trading.sink import SimulatorSink
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 DEFAULT_TRADING_CONFIG = TradingConfig(cost_model=ZERO_COST)
@@ -68,7 +68,7 @@ class InMemoryTradingStateRepository:
             ],
             "portfolio_fees": portfolio_fees,
             "closed_carry": closed_carry,
-            "updated_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(UTC),
         }
 
     def load_state(self, model_id):
@@ -103,9 +103,7 @@ def _make_build_snapshots_fn(state_repo):
                     total_unrealized += size * price_return
 
             trades_data = state.get("trades", [])
-            total_realized = sum(
-                t.get("realized_pnl", 0.0) or 0.0 for t in trades_data
-            )
+            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
             portfolio_fees = state.get("portfolio_fees", 0.0)
             closed_carry = state.get("closed_carry", 0.0)
             total_carry = (
@@ -148,7 +146,7 @@ class TestPersistToScoreFlow:
             trading_config=DEFAULT_TRADING_CONFIG,
         )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts_ms = int(now.timestamp())
 
         asyncio.run(sink.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))
@@ -207,7 +205,7 @@ class TestPersistToScoreFlow:
             state_repository=state_repo,
             trading_config=DEFAULT_TRADING_CONFIG,
         )
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ts_ms = int(now.timestamp())
 
         asyncio.run(sink1.on_record(_feed_record("BTCUSDT", 50000.0, ts_ms)))

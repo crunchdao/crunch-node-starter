@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import pytest
-
 from extensions.trading.models import Position, Trade
 
 

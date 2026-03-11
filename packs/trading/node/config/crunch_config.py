@@ -9,6 +9,14 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
+import extensions.trading.tables  # noqa: F401
+from extensions.trading.config import TradingConfig
+from extensions.trading.costs import CostModel
+from extensions.trading.factories import (
+    build_score_snapshots,
+    build_simulator_sink,
+    build_trading_widgets,
+)
 from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
@@ -25,15 +33,6 @@ from crunch_node.services.realtime_predict import (
     RealtimePredictService,
     RealtimeServiceConfig,
 )
-from extensions.trading.config import TradingConfig
-from extensions.trading.costs import CostModel
-from extensions.trading.factories import (
-    build_simulator_sink,
-    build_score_snapshots,
-    build_trading_widgets,
-)
-
-import extensions.trading.tables  # noqa: F401
 
 
 class InferenceOutput(BaseModel):

@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-
 from extensions.trading.config import TradingConfig
 from extensions.trading.costs import CostModel
 from extensions.trading.simulator import TradingEngine

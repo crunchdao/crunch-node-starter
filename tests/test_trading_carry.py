@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from extensions.trading.costs import CostModel
 from extensions.trading.simulator import TradingEngine
 

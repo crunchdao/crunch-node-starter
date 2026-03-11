@@ -5,8 +5,8 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from extensions.trading.tables import TradingStateRow
 from extensions.trading.models import Position, Trade
+from extensions.trading.tables import TradingStateRow
 
 
 class TradingStateRepository:
