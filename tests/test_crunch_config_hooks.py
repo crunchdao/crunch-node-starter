@@ -23,14 +23,14 @@ class TestHookFieldDefaults:
 
 class TestHookFieldsAcceptValues:
     def test_build_simulator_sink_accepts_callable(self):
-        def my_sink(session, config):
+        def my_sink(*, session, config):
             return "sink"
 
         config = CrunchConfig(build_simulator_sink=my_sink)
         assert config.build_simulator_sink is my_sink
 
     def test_build_score_snapshots_accepts_callable(self):
-        def my_snapshots(session, config, repo):
+        def my_snapshots(*, session, config, snapshot_repository):
             return lambda now: []
 
         config = CrunchConfig(build_score_snapshots=my_snapshots)

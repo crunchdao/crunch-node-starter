@@ -235,6 +235,37 @@ class EnsembleModelFilter(Protocol):
     def __call__(self, model_id: str, metrics: dict[str, float]) -> bool: ...
 
 
+@runtime_checkable
+class BuildSimulatorSink(Protocol):
+    """Factory that builds a simulator sink for the predict worker.
+
+    The returned object must have ``on_record`` (async, receives feed ticks)
+    and ``on_predictions`` (sync, post-predict hook) methods.
+    """
+
+    def __call__(self, *, session: Any, config: Any) -> Any: ...
+
+
+@runtime_checkable
+class BuildScoreSnapshots(Protocol):
+    """Factory that returns a snapshot builder for the score worker.
+
+    Returns a callable ``(now: datetime) -> list[SnapshotRecord]`` that
+    reads external state and produces snapshots for the leaderboard.
+    """
+
+    def __call__(
+        self, *, session: Any, config: Any, snapshot_repository: Any
+    ) -> Callable[[datetime], list[Any]]: ...
+
+
+@runtime_checkable
+class BuildWidgets(Protocol):
+    """Factory that returns metrics widget config for the report UI."""
+
+    def __call__(self) -> list[dict[str, Any]]: ...
+
+
 class PredictionScope(BaseModel):
     """What defines a single prediction context — passed to model.predict()."""
 
@@ -735,29 +766,9 @@ class CrunchConfig(BaseModel):
     aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
     build_emission: BuildEmission = default_build_emission
 
-    build_simulator_sink: Callable[..., Any] | None = Field(
-        default=None,
-        description=(
-            "Factory callable that builds a simulator sink for the predict worker. "
-            "Signature: (session, config) -> sink object with on_record() and on_predictions() methods. "
-            "When None, no simulator sink is wired."
-        ),
-    )
-    build_score_snapshots: Callable[..., Any] | None = Field(
-        default=None,
-        description=(
-            "Factory callable that builds trading snapshots for the score worker. "
-            "Signature: (session, config, snapshot_repository) -> callable(now) -> list[SnapshotRecord]. "
-            "When None, the standard prediction-based scoring path is used."
-        ),
-    )
-    build_trading_widgets: Callable[..., Any] | None = Field(
-        default=None,
-        description=(
-            "Factory callable that returns metrics widget config for the report UI. "
-            "Signature: () -> list[dict]. When None, standard widgets are built."
-        ),
-    )
+    build_simulator_sink: BuildSimulatorSink | None = None
+    build_score_snapshots: BuildScoreSnapshots | None = None
+    build_trading_widgets: BuildWidgets | None = None
     feed_subject_mapping: dict[str, str] = Field(
         default_factory=dict,
         description="Map feed subjects to model-facing names (e.g. BTCUSDT -> BTC)",
