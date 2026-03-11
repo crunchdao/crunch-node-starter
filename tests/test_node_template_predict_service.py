@@ -289,7 +289,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
                 return {FakeModelRun("m1"): FakePredictionResult()}
 
         runner = CapturingRunner()
-        contract = CrunchConfig(
+        config = CrunchConfig(
             call_method=CallMethodConfig(
                 method="trade",
                 args=[
@@ -316,7 +316,7 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
         service = _make_service(
             prediction_repo=repo,
             runner=runner,
-            config=contract,
+            config=config,
         )
 
         await service.process_tick(raw_input={"symbol": "BTC"}, now=datetime.now(UTC))
@@ -327,12 +327,12 @@ class TestRealtimePredictService(unittest.IsolatedAsyncioTestCase):
     async def test_default_call_method_is_predict(self):
         """Default CallMethodConfig calls 'predict' with (subject, horizon, step)."""
 
-        contract = CrunchConfig()
-        self.assertEqual(contract.call_method.method, "predict")
-        self.assertEqual(len(contract.call_method.args), 3)
-        self.assertEqual(contract.call_method.args[0].name, "subject")
-        self.assertEqual(contract.call_method.args[1].name, "resolve_horizon_seconds")
-        self.assertEqual(contract.call_method.args[2].name, "step_seconds")
+        config = CrunchConfig()
+        self.assertEqual(config.call_method.method, "predict")
+        self.assertEqual(len(config.call_method.args), 3)
+        self.assertEqual(config.call_method.args[0].name, "subject")
+        self.assertEqual(config.call_method.args[1].name, "resolve_horizon_seconds")
+        self.assertEqual(config.call_method.args[2].name, "step_seconds")
 
 
 if __name__ == "__main__":

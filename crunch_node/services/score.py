@@ -44,7 +44,6 @@ class ScoreService:
         checkpoint_service: CheckpointService | None = None,
         merkle_service: MerkleService | None = None,
         config: CrunchConfig | None = None,
-        contract: CrunchConfig | None = None,
         score_interval_seconds: int | None = None,
         **kwargs: Any,
     ):
@@ -60,9 +59,7 @@ class ScoreService:
         self.snapshot_repository = snapshot_repository
         self.model_repository = model_repository
         self.leaderboard_repository = leaderboard_repository
-        if config is not None and contract is not None and config is not contract:
-            raise ValueError("Provide only one of config= or contract=")
-        self.config = config or contract or CrunchConfig()
+        self.config = config or CrunchConfig()
 
         self.merkle_service = merkle_service
         self._checkpoint_service = checkpoint_service
@@ -71,15 +68,6 @@ class ScoreService:
         self.trading_state_repository = kwargs.pop("trading_state_repository", None)
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
-
-    @property
-    def contract(self) -> CrunchConfig:
-        """Backward-compatible alias for ``config``."""
-        return self.config
-
-    @contract.setter
-    def contract(self, value: CrunchConfig) -> None:
-        self.config = value
 
     # ── scoring stub detection ──
 
