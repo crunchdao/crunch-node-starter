@@ -9,7 +9,10 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from collections.abc import Callable
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
     Aggregation,
@@ -24,6 +27,13 @@ from crunch_node.services.realtime_predict import (
 )
 from extensions.trading.config import TradingConfig
 from extensions.trading.costs import CostModel
+from extensions.trading.factories import (
+    build_simulator_sink,
+    build_score_snapshots,
+    build_trading_widgets,
+)
+
+import extensions.trading.tables  # noqa: F401
 
 
 class InferenceOutput(BaseModel):
@@ -47,6 +57,10 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
+
+    build_simulator_sink: Callable[..., Any] | None = build_simulator_sink
+    build_score_snapshots: Callable[..., Any] | None = build_score_snapshots
+    build_trading_widgets: Callable[..., Any] | None = build_trading_widgets
 
     realtime_service: RealtimeServiceConfig = Field(
         default_factory=RealtimeServiceConfig
@@ -98,3 +112,11 @@ class CrunchConfig(BaseCrunchConfig):
             ),
         ]
     )
+
+    @model_validator(mode="after")
+    def _derive_feed_subject_mapping(self) -> CrunchConfig:
+        if not self.feed_subject_mapping:
+            self.feed_subject_mapping = {
+                v: k for k, v in self.trading.asset_price_mapping.items()
+            }
+        return self
