@@ -76,7 +76,7 @@ class TestOnRecord:
             subject="BTCUSDT",
             kind="candle",
             granularity="1m",
-            ts_event=int(now.timestamp() * 1000),
+            ts_event=int(now.timestamp()),
             values={"close": 51000.0},
         )
         asyncio.run(sink.on_record(record))
@@ -102,7 +102,7 @@ class TestOnRecord:
             subject="BTCUSDT",
             kind="candle",
             granularity="1m",
-            ts_event=int(now.timestamp() * 1000),
+            ts_event=int(now.timestamp()),
             values={"close": 51000.0},
         )
         asyncio.run(sink.on_record(record))
