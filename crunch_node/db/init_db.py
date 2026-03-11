@@ -146,6 +146,10 @@ def _run_alembic_upgrade(alembic_dir: Path | None = None) -> None:
 def migrate() -> None:
     """Run Alembic migrations and upsert prediction configs.
     Safe to run on every boot — never drops data."""
+    from crunch_node.config_loader import load_config
+
+    load_config()
+
     alembic_dir = _find_alembic_dir()
     if alembic_dir is not None:
         print(f"➡️  Running Alembic migrations from {alembic_dir} ...")

@@ -31,6 +31,9 @@ RUN pip install --no-cache-dir ./challenge
 # Operator config (CrunchConfig override, prediction schedules, callables)
 COPY --chown=appuser:appgroup node/config ./config
 
+# Pack extensions (trading engine, custom services, etc.)
+COPY --chown=appuser:appgroup node/extensions ./extensions
+
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
