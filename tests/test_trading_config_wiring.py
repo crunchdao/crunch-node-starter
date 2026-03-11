@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from packs.trading.node.config.crunch_config import CostModel, CrunchConfig, TradingConfig
+from packs.trading.node.config.crunch_config import (
+    CostModel,
+    CrunchConfig,
+    TradingConfig,
+)
 
 
 class TestTradingConfigWiring:
