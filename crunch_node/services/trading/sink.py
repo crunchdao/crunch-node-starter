@@ -36,7 +36,7 @@ class SimulatorSink:
         if price is None:
             return
         self._last_price[record.subject] = price
-        ts = datetime.fromtimestamp(record.ts_event / 1000, tz=UTC)
+        ts = datetime.fromtimestamp(record.ts_event, tz=UTC)
         asset = self._pair_to_asset.get(record.subject, record.subject)
         self._simulator.mark_to_market(asset, price, ts)
 

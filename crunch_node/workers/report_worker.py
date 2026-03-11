@@ -95,6 +95,316 @@ _METRIC_TOOLTIPS: dict[str, str] = {
 }
 
 
+def _build_trading_widgets() -> list[dict[str, Any]]:
+    """Build metrics widgets for trading competitions."""
+    return [
+        {
+            "id": 1,
+            "type": "CHART",
+            "displayName": "P&L Over Time",
+            "tooltip": "Net profit/loss per model including fees and carry costs",
+            "order": 10,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [{"name": "net_pnl", "label": "Net PnL"}],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 2,
+            "type": "CHART",
+            "displayName": "P&L Breakdown",
+            "tooltip": "Realized vs unrealized PnL, fees, and carry costs per model",
+            "order": 20,
+            "endpointUrl": "/reports/models/summary",
+            "nativeConfiguration": {
+                "type": "bar",
+                "xAxis": {"name": "model_id"},
+                "yAxis": {
+                    "series": [
+                        {"name": "realized_pnl", "label": "Realized PnL"},
+                        {"name": "unrealized_pnl", "label": "Unrealized PnL"},
+                        {"name": "total_fees", "label": "Fees"},
+                        {"name": "total_carry_costs", "label": "Carry Costs"},
+                    ],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 3,
+            "type": "CHART",
+            "displayName": "Max Drawdown",
+            "tooltip": "Worst peak-to-trough drawdown on cumulative PnL",
+            "order": 30,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "max_drawdown", "label": "Max Drawdown"},
+                    ],
+                    "format": "decimal-4",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 4,
+            "type": "CHART",
+            "displayName": "Sortino Ratio",
+            "tooltip": "Like Sharpe but only penalizes downside volatility",
+            "order": 35,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "sortino_ratio", "label": "Sortino Ratio"},
+                    ],
+                    "format": "decimal-2",
+                },
+                "displayEvolution": False,
+            },
+        },
+        {
+            "id": 5,
+            "type": "CHART",
+            "displayName": "Open Positions",
+            "tooltip": "Number of open positions per model over time",
+            "order": 40,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {
+                    "series": [
+                        {"name": "open_position_count", "label": "Positions"},
+                    ],
+                    "format": "decimal-0",
+                },
+                "displayEvolution": False,
+            },
+        },
+    ]
+
+
+def _build_standard_widgets(
+    series: list[dict[str, str]],
+    metric_series: list[dict[str, str]],
+    contract: CrunchConfig,
+) -> list[dict[str, Any]]:
+    """Build metrics widgets for standard (non-trading) competitions."""
+    widget_id = 1
+    widgets: list[dict[str, Any]] = [
+        {
+            "id": widget_id,
+            "type": "CHART",
+            "displayName": "Score Metrics",
+            "tooltip": None,
+            "order": 10,
+            "endpointUrl": "/reports/models/metrics",
+            "nativeConfiguration": {
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
+                "yAxis": {"series": series, "format": "decimal-2"},
+                "displayEvolution": False,
+            },
+        },
+    ]
+    widget_id += 1
+
+    if contract.metrics:
+        widgets.append(
+            {
+                "id": widget_id,
+                "type": "CHART",
+                "displayName": "Multi-Metric Overview",
+                "tooltip": "Portfolio-level metrics computed per model over scoring windows",
+                "order": 15,
+                "endpointUrl": "/reports/snapshots",
+                "nativeConfiguration": {
+                    "type": "bar",
+                    "xAxis": {"name": "model_id"},
+                    "yAxis": {"series": metric_series, "format": "decimal-4"},
+                    "displayEvolution": False,
+                },
+            }
+        )
+        widget_id += 1
+
+    widgets.extend(
+        [
+            {
+                "id": widget_id,
+                "type": "CHART",
+                "displayName": "Predictions",
+                "tooltip": None,
+                "order": 30,
+                "endpointUrl": "/reports/predictions",
+                "nativeConfiguration": {
+                    "type": "line",
+                    "xAxis": {"name": "performed_at"},
+                    "yAxis": {
+                        "series": [{"name": "score_value"}],
+                        "format": "decimal-2",
+                    },
+                    "alertConfig": {
+                        "reasonField": "score_failed_reason",
+                        "field": "score_success",
+                    },
+                    "filterConfig": [
+                        {
+                            "type": "select",
+                            "label": "Subject",
+                            "property": "subject",
+                            "autoSelectFirst": True,
+                        },
+                        {
+                            "type": "select",
+                            "label": "Horizon",
+                            "property": "horizon",
+                            "autoSelectFirst": True,
+                        },
+                    ],
+                    "groupByProperty": "param",
+                    "displayEvolution": False,
+                },
+            },
+            {
+                "id": widget_id + 1,
+                "type": "CHART",
+                "displayName": "Rolling score by parameters",
+                "tooltip": None,
+                "order": 20,
+                "endpointUrl": "/reports/models/params",
+                "nativeConfiguration": {
+                    "type": "line",
+                    "xAxis": {"name": "performed_at"},
+                    "yAxis": {"series": series, "format": "decimal-2"},
+                    "filterConfig": [
+                        {
+                            "type": "select",
+                            "label": "Subject",
+                            "property": "subject",
+                            "autoSelectFirst": True,
+                        },
+                        {
+                            "type": "select",
+                            "label": "Horizon",
+                            "property": "horizon",
+                            "autoSelectFirst": True,
+                        },
+                    ],
+                    "groupByProperty": "param",
+                    "displayEvolution": False,
+                },
+            },
+        ]
+    )
+
+    diversity_metrics = [
+        m
+        for m in contract.metrics
+        if m
+        in (
+            "model_correlation",
+            "ensemble_correlation",
+            "contribution",
+            "fnc",
+        )
+    ]
+    if diversity_metrics:
+        diversity_series = [
+            {
+                "name": m,
+                "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title()),
+            }
+            for m in diversity_metrics
+        ]
+        diversity_series.append({"name": "diversity_score", "label": "Diversity Score"})
+        widgets.append(
+            {
+                "id": widget_id + 2,
+                "type": "CHART",
+                "displayName": "Model Diversity",
+                "tooltip": "How unique each model is relative to the ensemble",
+                "order": 25,
+                "endpointUrl": "/reports/diversity",
+                "nativeConfiguration": {
+                    "type": "bar",
+                    "xAxis": {"name": "model_id"},
+                    "yAxis": {"series": diversity_series, "format": "decimal-4"},
+                    "displayEvolution": False,
+                },
+            }
+        )
+
+    if contract.ensembles:
+        ensemble_series = [
+            {
+                "name": m,
+                "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title()),
+            }
+            for m in contract.metrics[:5]
+        ]
+        widgets.append(
+            {
+                "id": widget_id + 3,
+                "type": "CHART",
+                "displayName": "Ensemble Performance",
+                "tooltip": "Ensemble metrics over time — is the collective getting smarter?",
+                "order": 16,
+                "endpointUrl": "/reports/ensemble/history",
+                "nativeConfiguration": {
+                    "type": "line",
+                    "xAxis": {"name": "period_end"},
+                    "yAxis": {"series": ensemble_series, "format": "decimal-4"},
+                    "filterConfig": [
+                        {
+                            "type": "select",
+                            "label": "Ensemble",
+                            "property": "ensemble_name",
+                            "autoSelectFirst": True,
+                        },
+                    ],
+                    "displayEvolution": False,
+                },
+            }
+        )
+
+    widgets.append(
+        {
+            "id": widget_id + 4,
+            "type": "CHART",
+            "displayName": "Reward History",
+            "tooltip": "Reward distribution per checkpoint period",
+            "order": 40,
+            "endpointUrl": "/reports/checkpoints/rewards",
+            "nativeConfiguration": {
+                "type": "bar",
+                "xAxis": {"name": "period_end"},
+                "yAxis": {
+                    "series": [{"name": "reward_pct", "label": "Reward %"}],
+                    "format": "decimal-2",
+                },
+                "groupByProperty": "model_name",
+                "displayEvolution": False,
+            },
+        }
+    )
+
+    return widgets
+
+
 def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
     """Auto-generate report schema from the CrunchConfig aggregation + metrics config."""
     aggregation = contract.aggregation
@@ -199,209 +509,12 @@ def auto_report_schema(contract: CrunchConfig) -> dict[str, Any]:
         for m in contract.metrics
     ]
 
-    widget_id = 1
-    widgets: list[dict[str, Any]] = [
-        {
-            "id": widget_id,
-            "type": "CHART",
-            "displayName": "Score Metrics",
-            "tooltip": None,
-            "order": 10,
-            "endpointUrl": "/reports/models/metrics",
-            "nativeConfiguration": {
-                "type": "line",
-                "xAxis": {"name": "performed_at"},
-                "yAxis": {"series": series, "format": "decimal-2"},
-                "displayEvolution": False,
-            },
-        },
-    ]
-    widget_id += 1
+    is_trading = getattr(contract, "trading", None) is not None
 
-    # Add a metrics snapshot widget if metrics are active
-    if contract.metrics:
-        widgets.append(
-            {
-                "id": widget_id,
-                "type": "CHART",
-                "displayName": "Multi-Metric Overview",
-                "tooltip": "Portfolio-level metrics computed per model over scoring windows",
-                "order": 15,
-                "endpointUrl": "/reports/snapshots",
-                "nativeConfiguration": {
-                    "type": "bar",
-                    "xAxis": {"name": "model_id"},
-                    "yAxis": {"series": metric_series, "format": "decimal-4"},
-                    "displayEvolution": False,
-                },
-            }
-        )
-        widget_id += 1
-
-    widgets.extend(
-        [
-            {
-                "id": widget_id,
-                "type": "CHART",
-                "displayName": "Predictions",
-                "tooltip": None,
-                "order": 30,
-                "endpointUrl": "/reports/predictions",
-                "nativeConfiguration": {
-                    "type": "line",
-                    "xAxis": {"name": "performed_at"},
-                    "yAxis": {
-                        "series": [{"name": "score_value"}],
-                        "format": "decimal-2",
-                    },
-                    "alertConfig": {
-                        "reasonField": "score_failed_reason",
-                        "field": "score_success",
-                    },
-                    "filterConfig": [
-                        {
-                            "type": "select",
-                            "label": "Subject",
-                            "property": "subject",
-                            "autoSelectFirst": True,
-                        },
-                        {
-                            "type": "select",
-                            "label": "Horizon",
-                            "property": "horizon",
-                            "autoSelectFirst": True,
-                        },
-                    ],
-                    "groupByProperty": "param",
-                    "displayEvolution": False,
-                },
-            },
-            {
-                "id": widget_id + 1,
-                "type": "CHART",
-                "displayName": "Rolling score by parameters",
-                "tooltip": None,
-                "order": 20,
-                "endpointUrl": "/reports/models/params",
-                "nativeConfiguration": {
-                    "type": "line",
-                    "xAxis": {"name": "performed_at"},
-                    "yAxis": {"series": series, "format": "decimal-2"},
-                    "filterConfig": [
-                        {
-                            "type": "select",
-                            "label": "Subject",
-                            "property": "subject",
-                            "autoSelectFirst": True,
-                        },
-                        {
-                            "type": "select",
-                            "label": "Horizon",
-                            "property": "horizon",
-                            "autoSelectFirst": True,
-                        },
-                    ],
-                    "groupByProperty": "param",
-                    "displayEvolution": False,
-                },
-            },
-        ]
-    )
-
-    # Diversity radar chart — shows model uniqueness
-    diversity_metrics = [
-        m
-        for m in contract.metrics
-        if m
-        in (
-            "model_correlation",
-            "ensemble_correlation",
-            "contribution",
-            "fnc",
-        )
-    ]
-    if diversity_metrics:
-        diversity_series = [
-            {
-                "name": m,
-                "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title()),
-            }
-            for m in diversity_metrics
-        ]
-        # Also add diversity_score (computed)
-        diversity_series.append({"name": "diversity_score", "label": "Diversity Score"})
-        widgets.append(
-            {
-                "id": widget_id + 2,
-                "type": "CHART",
-                "displayName": "Model Diversity",
-                "tooltip": "How unique each model is relative to the ensemble",
-                "order": 25,
-                "endpointUrl": "/reports/diversity",
-                "nativeConfiguration": {
-                    "type": "bar",
-                    "xAxis": {"name": "model_id"},
-                    "yAxis": {"series": diversity_series, "format": "decimal-4"},
-                    "displayEvolution": False,
-                },
-            }
-        )
-
-    # Ensemble performance over time — only if ensembles are configured
-    if contract.ensembles:
-        ensemble_series = [
-            {
-                "name": m,
-                "label": _METRIC_DISPLAY_NAMES.get(m, m.replace("_", " ").title()),
-            }
-            for m in contract.metrics[:5]  # top 5 metrics for the chart
-        ]
-        widgets.append(
-            {
-                "id": widget_id + 3,
-                "type": "CHART",
-                "displayName": "Ensemble Performance",
-                "tooltip": "Ensemble metrics over time — is the collective getting smarter?",
-                "order": 16,
-                "endpointUrl": "/reports/ensemble/history",
-                "nativeConfiguration": {
-                    "type": "line",
-                    "xAxis": {"name": "period_end"},
-                    "yAxis": {"series": ensemble_series, "format": "decimal-4"},
-                    "filterConfig": [
-                        {
-                            "type": "select",
-                            "label": "Ensemble",
-                            "property": "ensemble_name",
-                            "autoSelectFirst": True,
-                        },
-                    ],
-                    "displayEvolution": False,
-                },
-            }
-        )
-
-    # Checkpoint reward history
-    widgets.append(
-        {
-            "id": widget_id + 4,
-            "type": "CHART",
-            "displayName": "Reward History",
-            "tooltip": "Reward distribution per checkpoint period",
-            "order": 40,
-            "endpointUrl": "/reports/checkpoints/rewards",
-            "nativeConfiguration": {
-                "type": "bar",
-                "xAxis": {"name": "period_end"},
-                "yAxis": {
-                    "series": [{"name": "reward_pct", "label": "Reward %"}],
-                    "format": "decimal-2",
-                },
-                "groupByProperty": "model_name",
-                "displayEvolution": False,
-            },
-        }
-    )
+    if is_trading:
+        widgets = _build_trading_widgets()
+    else:
+        widgets = _build_standard_widgets(series, metric_series, contract)
 
     schema = {
         "schema_version": "1",
