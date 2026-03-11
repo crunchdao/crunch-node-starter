@@ -51,9 +51,12 @@ services:
     environment:
       <<: *common-db-env
       PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /app/dev:/app:/app/challenge
     stdin_open: false
     tty: false
     command: ["python", "-m", "crunch_node.db.init_db"]
+    volumes:
+      - ${DEV_SOURCE_PATH:-/dev/null}:/app/dev/crunch_node:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,12 +98,13 @@ services:
       FEED_BACKFILL_MINUTES: ${FEED_BACKFILL_MINUTES:-180}
       FEED_RECORD_TTL_DAYS: ${FEED_RECORD_TTL_DAYS:-90}
       FEED_RETENTION_CHECK_SECONDS: ${FEED_RETENTION_CHECK_SECONDS:-3600}
-      PYTHONPATH: /app:/app/challenge
+      PYTHONPATH: /app/dev:/app:/app/challenge
     restart: always
     stop_grace_period: 30s
     command: ["python", "-m", "crunch_node.workers.predict_worker"]
     volumes:
       - ../challenge:/app/challenge
+      - ${DEV_SOURCE_PATH:-/dev/null}:/app/dev/crunch_node:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,12 +128,13 @@ services:
       FEED_KIND: ${FEED_KIND:-candle}
       FEED_GRANULARITY: ${FEED_GRANULARITY:-1s}
       SCORING_FUNCTION: ${SCORING_FUNCTION}
-      PYTHONPATH: /app:/app/challenge
+      PYTHONPATH: /app/dev:/app:/app/challenge
     restart: always
     stop_grace_period: 30s
     command: ["python", "-m", "crunch_node.workers.score_worker"]
     volumes:
       - ../challenge:/app/challenge
+      - ${DEV_SOURCE_PATH:-/dev/null}:/app/dev/crunch_node:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -148,7 +153,7 @@ services:
       API_KEY: ${API_KEY:-}
       API_READ_AUTH: ${API_READ_AUTH:-false}
       API_ROUTES_DIR: /app/api
-      PYTHONPATH: /app:/app/challenge
+      PYTHONPATH: /app/dev:/app:/app/challenge
     restart: always
     stop_grace_period: 15s
     command: ["python", "-m", "crunch_node.workers.report_worker"]
@@ -157,6 +162,7 @@ services:
     volumes:
       - ../challenge:/app/challenge
       - ./api:/app/api
+      - ${DEV_SOURCE_PATH:-/dev/null}:/app/dev/crunch_node:ro
     depends_on:
       postgres:
         condition: service_healthy
