@@ -228,7 +228,9 @@ class BacktestClient:
                 continue
             date_str = entry.get("date", "")
             try:
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
             except ValueError:
                 continue
             if start_dt <= file_date <= end_dt:
@@ -404,7 +406,9 @@ class BacktestRunner:
         for parquet_file in sorted(data_dir.glob("*.parquet")):
             date_str = parquet_file.stem
             try:
-                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                file_date = datetime.strptime(date_str, "%Y-%m-%d").replace(
+                    tzinfo=timezone.utc
+                )
             except ValueError:
                 continue
             if start_dt <= file_date <= end_dt:
