@@ -119,12 +119,12 @@ def _build_trading_widgets() -> list[dict[str, Any]]:
             "id": 2,
             "type": "CHART",
             "displayName": "P&L Breakdown",
-            "tooltip": "Realized vs unrealized PnL, fees, and carry costs per model",
+            "tooltip": "Realized vs unrealized PnL, fees, and carry costs over time",
             "order": 20,
-            "endpointUrl": "/reports/models/summary",
+            "endpointUrl": "/reports/models/metrics",
             "nativeConfiguration": {
-                "type": "bar",
-                "xAxis": {"name": "model_id"},
+                "type": "line",
+                "xAxis": {"name": "performed_at"},
                 "yAxis": {
                     "series": [
                         {"name": "realized_pnl", "label": "Realized PnL"},
