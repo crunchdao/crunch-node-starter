@@ -66,11 +66,11 @@ def build_service() -> ScoreService:
         merkle_service=merkle_service,
     )
 
-    trading_state_repo = None
-    if getattr(config, "trading", None) is not None:
-        from crunch_node.db.trading_state_repository import TradingStateRepository
-
-        trading_state_repo = TradingStateRepository(session)
+    build_snapshots_fn = None
+    if config.build_score_snapshots is not None:
+        build_snapshots_fn = config.build_score_snapshots(
+            session=session, config=config, snapshot_repository=snapshot_repo
+        )
 
     return ScoreService(
         checkpoint_interval_seconds=runtime_settings.checkpoint_interval_seconds,
@@ -86,7 +86,7 @@ def build_service() -> ScoreService:
         checkpoint_service=checkpoint_service,
         merkle_service=merkle_service,
         config=config,
-        trading_state_repository=trading_state_repo,
+        build_snapshots_fn=build_snapshots_fn,
     )
 
 
@@ -97,7 +97,7 @@ async def main() -> None:
 
     service = build_service()
 
-    if service.trading_state_repository is None:
+    if service._build_snapshots_fn is None:
         service.validate_scoring_io()
 
     await service.run()

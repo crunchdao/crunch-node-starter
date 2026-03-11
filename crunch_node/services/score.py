@@ -65,7 +65,7 @@ class ScoreService:
         self._checkpoint_service = checkpoint_service
         self._last_checkpoint_at: datetime | None = None
 
-        self.trading_state_repository = kwargs.pop("trading_state_repository", None)
+        self._build_snapshots_fn = kwargs.pop("build_snapshots_fn", None)
         self.logger = logging.getLogger(__name__)
         self.stop_event = asyncio.Event()
 
@@ -262,8 +262,8 @@ class ScoreService:
     def score_and_snapshot(self) -> bool:
         now = datetime.now(UTC)
 
-        if self.trading_state_repository is not None:
-            snapshots = self._build_trading_snapshots(now)
+        if self._build_snapshots_fn is not None:
+            snapshots = self._build_snapshots_fn(now)
             if not snapshots:
                 self.logger.info("No trading states yet, waiting for orders")
                 return False
@@ -714,121 +714,6 @@ class ScoreService:
                 len(ens_preds),
                 {m: round(w, 3) for m, w in weights.items()},
             )
-
-    # ── trading scoring ──
-
-    def _build_trading_snapshots(self, now: datetime) -> list[SnapshotRecord]:
-        model_ids = self.trading_state_repository.get_all_model_ids()
-        if not model_ids:
-            return []
-
-        snapshots = []
-        for model_id in model_ids:
-            state = self.trading_state_repository.load_state(model_id)
-            if state is None:
-                continue
-
-            positions_data = state.get("positions", [])
-            trades_data = state.get("trades", [])
-            portfolio_fees = state.get("portfolio_fees", 0.0)
-            closed_carry = state.get("closed_carry", 0.0)
-
-            total_unrealized = 0.0
-            for p in positions_data:
-                entry = p["entry_price"]
-                current = p.get("current_price", entry)
-                size = p["size"]
-                if entry > 0:
-                    price_return = (current - entry) / entry
-                    if p["direction"] == "short":
-                        price_return = -price_return
-                    total_unrealized += size * price_return
-
-            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
-            total_carry = (
-                sum(p.get("accrued_carry", 0.0) for p in positions_data) + closed_carry
-            )
-            net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
-
-            result_summary: dict[str, Any] = {
-                "net_pnl": net_pnl,
-                "unrealized_pnl": total_unrealized,
-                "realized_pnl": total_realized,
-                "total_fees": portfolio_fees,
-                "total_carry_costs": total_carry,
-                "open_position_count": len(positions_data),
-            }
-
-            result_summary.update(
-                self._compute_trading_metrics(model_id, net_pnl, trades_data)
-            )
-
-            snapshots.append(
-                SnapshotRecord(
-                    id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
-                    model_id=model_id,
-                    period_start=now,
-                    period_end=now,
-                    prediction_count=len(positions_data),
-                    result_summary=result_summary,
-                )
-            )
-
-        return snapshots
-
-    def _compute_trading_metrics(
-        self,
-        model_id: str,
-        current_net_pnl: float,
-        trades: list[dict[str, Any]],
-    ) -> dict[str, float]:
-        metrics: dict[str, float] = {}
-
-        pnl_series = self._get_pnl_history(model_id, current_net_pnl)
-
-        metrics["max_drawdown"] = self._max_drawdown(pnl_series)
-
-        profitable = sum(1 for t in trades if (t.get("realized_pnl") or 0.0) > 0)
-        metrics["hit_rate"] = profitable / len(trades) if trades else 0.0
-
-        metrics["sortino_ratio"] = self._sortino_ratio(pnl_series)
-
-        return metrics
-
-    def _get_pnl_history(self, model_id: str, current_net_pnl: float) -> list[float]:
-        historical = self.snapshot_repository.find(model_id=model_id)
-        pnl_series = [float(s.result_summary.get("net_pnl", 0.0)) for s in historical]
-        pnl_series.append(current_net_pnl)
-        return pnl_series
-
-    @staticmethod
-    def _max_drawdown(pnl_series: list[float]) -> float:
-        if len(pnl_series) < 2:
-            return 0.0
-        peak = pnl_series[0]
-        max_dd = 0.0
-        for pnl in pnl_series[1:]:
-            if pnl > peak:
-                peak = pnl
-            dd = peak - pnl
-            if dd > max_dd:
-                max_dd = dd
-        return max_dd
-
-    @staticmethod
-    def _sortino_ratio(pnl_series: list[float]) -> float:
-        if len(pnl_series) < 2:
-            return 0.0
-        returns = [pnl_series[i] - pnl_series[i - 1] for i in range(1, len(pnl_series))]
-        mean_return = sum(returns) / len(returns)
-        downside = [r for r in returns if r < 0]
-        if not downside:
-            return 0.0
-        downside_var = sum(r * r for r in downside) / len(downside)
-        downside_std = downside_var**0.5
-        if downside_std < 1e-12:
-            return 0.0
-        return mean_return / downside_std
 
     # ── 5. checkpoint ──
 

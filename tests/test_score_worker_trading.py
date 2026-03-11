@@ -10,7 +10,7 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.resolve_callable")
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
-    def test_trading_state_repo_wired_when_trading_config_present(
+    def test_build_snapshots_fn_wired_when_hook_present(
         self,
         mock_runtime,
         mock_ext,
@@ -19,10 +19,9 @@ class TestScoreWorkerTrading:
         mock_session,
         mock_config,
     ):
-        from crunch_node.services.trading.config import TradingConfig
-
+        factory = MagicMock(return_value=MagicMock())
         config = MagicMock()
-        config.trading = TradingConfig()
+        config.build_score_snapshots = factory
         config.scoring_function = None
         mock_config.return_value = config
         mock_session.return_value = MagicMock()
@@ -37,7 +36,8 @@ class TestScoreWorkerTrading:
 
         service = build_service()
 
-        assert service.trading_state_repository is not None
+        factory.assert_called_once()
+        assert service._build_snapshots_fn is not None
 
     @patch("crunch_node.workers.score_worker.load_config")
     @patch("crunch_node.workers.score_worker.create_session")
@@ -45,7 +45,7 @@ class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.resolve_callable")
     @patch("crunch_node.workers.score_worker.ExtensionSettings")
     @patch("crunch_node.workers.score_worker.RuntimeSettings")
-    def test_no_trading_state_repo_when_no_trading_config(
+    def test_no_build_snapshots_fn_when_hook_absent(
         self,
         mock_runtime,
         mock_ext,
@@ -54,12 +54,8 @@ class TestScoreWorkerTrading:
         mock_session,
         mock_config,
     ):
-        config = MagicMock(
-            spec=[
-                "scoring_function",
-                "performance",
-            ]
-        )
+        config = MagicMock()
+        config.build_score_snapshots = None
         config.scoring_function = None
         mock_config.return_value = config
         mock_session.return_value = MagicMock()
@@ -74,4 +70,4 @@ class TestScoreWorkerTrading:
 
         service = build_service()
 
-        assert service.trading_state_repository is None
+        assert service._build_snapshots_fn is None
