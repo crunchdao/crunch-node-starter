@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -733,6 +734,34 @@ class CrunchConfig(BaseModel):
     )
     aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
     build_emission: BuildEmission = default_build_emission
+
+    build_simulator_sink: Callable[..., Any] | None = Field(
+        default=None,
+        description=(
+            "Factory callable that builds a simulator sink for the predict worker. "
+            "Signature: (session, config) -> sink object with on_record() and on_predictions() methods. "
+            "When None, no simulator sink is wired."
+        ),
+    )
+    build_score_snapshots: Callable[..., Any] | None = Field(
+        default=None,
+        description=(
+            "Factory callable that builds trading snapshots for the score worker. "
+            "Signature: (session, config, snapshot_repository) -> callable(now) -> list[SnapshotRecord]. "
+            "When None, the standard prediction-based scoring path is used."
+        ),
+    )
+    build_trading_widgets: Callable[..., Any] | None = Field(
+        default=None,
+        description=(
+            "Factory callable that returns metrics widget config for the report UI. "
+            "Signature: () -> list[dict]. When None, standard widgets are built."
+        ),
+    )
+    feed_subject_mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map feed subjects to model-facing names (e.g. BTCUSDT -> BTC)",
+    )
 
     def get_ground_truth_type(self) -> type[BaseModel]:
         """Return the effective ground truth type.
