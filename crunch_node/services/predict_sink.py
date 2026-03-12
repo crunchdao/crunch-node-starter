@@ -4,19 +4,28 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from crunch_node.feeds import FeedDataRecord
 
 if TYPE_CHECKING:
     from crunch_node.services.feed_window import FeedWindow
-    from crunch_node.services.realtime_predict import RealtimePredictService
+
+
+@runtime_checkable
+class TickProcessor(Protocol):
+    async def process_tick(
+        self,
+        *,
+        raw_input: dict[str, Any] | None = None,
+        feed_timing: dict[str, int] | None = None,
+    ) -> bool: ...
 
 
 class PredictSink:
     def __init__(
         self,
-        predict_service: RealtimePredictService,
+        predict_service: TickProcessor,
         feed_window: FeedWindow,
     ):
         self.predict_service = predict_service
