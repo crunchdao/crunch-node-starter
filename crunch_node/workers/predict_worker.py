@@ -74,7 +74,9 @@ def build_service() -> PredictService:
     return build_predict_service(session, config, runtime_settings)
 
 
-def build_predict_service(session, config: CrunchConfig, runtime_settings) -> PredictService:
+def build_predict_service(
+    session, config: CrunchConfig, runtime_settings
+) -> PredictService:
     service_class = _resolve_service_class(config)
     logger.info("Using predict service: %s", service_class.__name__)
 
