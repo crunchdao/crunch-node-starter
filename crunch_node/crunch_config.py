@@ -413,16 +413,6 @@ class PerformanceConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    # Pipeline timing instrumentation
-    timing_enabled: bool = Field(
-        default=True,
-        description="Enable pipeline timing instrumentation for performance analysis",
-    )
-    timing_buffer_size: int = Field(
-        default=10000,
-        ge=100,
-        description="Maximum number of timing records to keep in memory buffer",
-    )
     timing_endpoint_enabled: bool = Field(
         default=True,
         description="Expose /timing-metrics HTTP endpoint for analysis",

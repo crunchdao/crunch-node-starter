@@ -185,7 +185,5 @@ class CrunchConfig(BaseCrunchConfig):
 
     # ── Performance monitoring ──────────────────────────────────────
     performance: PerformanceConfig = PerformanceConfig(
-        timing_enabled=True,
-        timing_buffer_size=10000,
         timing_endpoint_enabled=True,
     )
