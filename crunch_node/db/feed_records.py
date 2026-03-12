@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import func
-from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session, delete, select
 
 from crunch_node.db.tables import FeedIngestionStateRow, FeedRecordRow
@@ -20,15 +18,7 @@ class DBFeedRecordRepository:
     def rollback(self) -> None:
         self._session.rollback()
 
-    def append_records(
-        self, records: Iterable[FeedRecord], *, record_persist_timing: bool = False
-    ) -> tuple[int, int | None]:
-        """Append feed records to the database.
-
-        Returns (count, feed_persisted_us) where feed_persisted_us is the
-        timestamp when records were persisted (only if record_persist_timing=True).
-        """
-        rows_to_update = []
+    def append_records(self, records: Iterable[FeedRecord]) -> int:
         count = 0
         for record in records:
             row = self._domain_to_row(record)
@@ -36,30 +26,15 @@ class DBFeedRecordRepository:
 
             if existing is None:
                 self._session.add(row)
-                if record_persist_timing:
-                    rows_to_update.append(row)
             else:
                 existing.values_jsonb = row.values_jsonb
                 existing.meta_jsonb = row.meta_jsonb
                 existing.ts_ingested = row.ts_ingested
-                if record_persist_timing:
-                    rows_to_update.append(existing)
 
             count += 1
 
         self._session.commit()
-
-        feed_persisted_us = None
-        if record_persist_timing and rows_to_update:
-            feed_persisted_us = time.time_ns() // 1000
-            for row in rows_to_update:
-                meta = dict(row.meta_jsonb or {})
-                meta.setdefault("timing", {})["feed_persisted_us"] = feed_persisted_us
-                row.meta_jsonb = meta
-                flag_modified(row, "meta_jsonb")
-            self._session.commit()
-
-        return (count, feed_persisted_us)
+        return count
 
     def fetch_records(
         self,
