@@ -110,7 +110,7 @@ class TestTournamentPredictServiceHierarchy(unittest.TestCase):
         """TournamentPredictService works without a feed_reader."""
         service = make_service()
         self.assertIsInstance(service, TournamentPredictService)
-        self.assertIsNone(service.feed_reader)
+        self.assertFalse(hasattr(service, "feed_reader"))
 
 
 # ── run() is a no-op ──

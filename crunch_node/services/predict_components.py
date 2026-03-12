@@ -16,6 +16,7 @@ from typing import Any
 
 from crunch_node.entities.model import Model
 from crunch_node.entities.prediction import PredictionRecord, PredictionStatus
+from crunch_node.id_prefixes import ABSENT_PREDICTION_PREFIX, PREDICTION_PREFIX
 
 try:
     from model_runner_client.grpc.generated.commons_pb2 import (
@@ -161,12 +162,16 @@ class PredictionRecordFactory:
         config_id: str | None = None,
         timing_data: dict[str, Any] | None = None,
     ) -> PredictionRecord:
-        suffix = "ABS" if status == PredictionStatus.ABSENT else "PRE"
+        prefix = (
+            ABSENT_PREDICTION_PREFIX
+            if status == PredictionStatus.ABSENT
+            else PREDICTION_PREFIX
+        )
         safe_key = "".join(
             ch if ch.isalnum() or ch in "-_" else "_" for ch in scope_key
         )
         pred_id = (
-            f"{suffix}_{model_id}_{safe_key}_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}"
+            f"{prefix}{model_id}_{safe_key}_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}"
         )
 
         meta = {}
@@ -202,7 +207,7 @@ class PredictionKernel:
         model_runner_node_port: int = 9091,
         model_runner_timeout_seconds: float = 60,
         crunch_id: str = "starter-challenge",
-        base_classname: str = "tracker.TrackerBase",
+        base_classname: str = "cruncher.ModelBaseClass",
         gateway_cert_dir: str | None = None,
         secure_cert_dir: str | None = None,
         logger: logging.Logger | None = None,

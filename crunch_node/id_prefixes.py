@@ -1,0 +1,9 @@
+"""Centralized ID prefix constants for all record types."""
+
+INPUT_PREFIX = "INP_"
+SCORE_PREFIX = "SCR_"
+CHECKPOINT_PREFIX = "CKP_"
+SNAPSHOT_PREFIX = "SNAP_"
+LEADERBOARD_PREFIX = "LBR_"
+PREDICTION_PREFIX = "PRE_"
+ABSENT_PREDICTION_PREFIX = "ABS_"

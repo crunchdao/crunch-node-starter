@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from crunch_node.db.protocols import FeedRecordRepository
 from crunch_node.entities.feed_record import FeedIngestionState, FeedRecord
 from crunch_node.feeds.base import DataFeed
 from crunch_node.feeds.contracts import FeedDataRecord, FeedFetchRequest
@@ -31,7 +32,9 @@ class BackfillResult:
 
 
 class BackfillService:
-    def __init__(self, feed: DataFeed, repository, job_repository=None) -> None:
+    def __init__(
+        self, feed: DataFeed, repository: FeedRecordRepository, job_repository=None
+    ) -> None:
         self.feed = feed
         self.repository = repository
         self.job_repository = job_repository

@@ -20,7 +20,7 @@ from crunch_node.db import (
 )
 from crunch_node.extensions.callable_resolver import resolve_callable
 from crunch_node.merkle.service import MerkleService
-from crunch_node.services.checkpoint import CheckpointService
+from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.score import ScoreService
 
@@ -61,9 +61,16 @@ def build_service() -> ScoreService:
         snapshot_repository=snapshot_repo,
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=model_repo,
-        config=config,
+        emission=EmissionConfig(
+            build_emission=config.build_emission,
+            crunch_pubkey=config.crunch_pubkey,
+            compute_provider=config.compute_provider,
+            data_provider=config.data_provider,
+        ),
         interval_seconds=runtime_settings.checkpoint_interval_seconds,
         merkle_service=merkle_service,
+        ranking_key=config.aggregation.ranking_key,
+        ranking_direction=config.aggregation.ranking_direction,
     )
 
     build_snapshots_fn = None

@@ -29,7 +29,7 @@ make test
 ```
 
 Three test files track your progress:
-- `test_tracker.py` — TrackerBase behavior
+- `test_tracker.py` — ModelBaseClass behavior
 - `test_examples.py` — example models match `InferenceOutput` contract
 - `test_scoring.py` — scoring function correctness. Has `xfail` markers for stubs — remove after implementing real scoring.
 
@@ -57,9 +57,9 @@ call_method = CallMethodConfig(
 This sends ONE feature dict as JSON to `model.predict(features)`. The engine
 calls each model once per sample in the batch.
 
-**Tracker** — edit `challenge/starter_challenge/tracker.py`:
+**Tracker** — edit `challenge/starter_challenge/cruncher.py`:
 ```python
-class TrackerBase:
+class ModelBaseClass:
     def predict(self, features: dict) -> dict:
         """Process a single feature sample and return a prediction.
 
@@ -82,7 +82,7 @@ Edit `challenge/starter_challenge/examples/`. Build ~3-5 simple models:
 - **Contract-compliant** — return format matches `InferenceOutput`
 
 ```python
-class MyModel(TrackerBase):
+class MyModel(ModelBaseClass):
     def predict(self, features: dict) -> dict:
         # your logic for this sample
         return {"prediction": some_value}

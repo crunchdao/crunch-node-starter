@@ -327,7 +327,7 @@ def check_model_submissions():
             if (
                 d.is_dir()
                 and not d.name.startswith((".", "_"))
-                and (d / "tracker.py").exists()
+                and (d / "cruncher.py").exists()
             ):
                 pkg_name = d.name
                 break
@@ -344,7 +344,7 @@ def check_model_submissions():
 
     for sub_dir in sub_dirs:
         name = sub_dir.name
-        for filename in ("main.py", "tracker.py"):
+        for filename in ("main.py", "cruncher.py"):
             fpath = sub_dir / filename
             if not fpath.exists():
                 if filename == "main.py":
@@ -358,7 +358,7 @@ def check_model_submissions():
                     f"[{name}] {filename} no '{pkg_name}' imports",
                     len(bad) == 0,
                     f"Found {bad} — model-runner containers don't have the "
-                    f"challenge package. Use inline classes or local tracker.py.",
+                    f"challenge package. Use inline classes or local cruncher.py.",
                 )
 
 

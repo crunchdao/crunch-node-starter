@@ -143,7 +143,7 @@ Data flows through **11 transformation stages** from external feed to stored pre
 │                                                                                            ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐    │
 │  │  STAGE 8: Model.feed_update(data) - State update                                                 │    │
-│  │  scaffold/challenge/starter_challenge/tracker.py                                                 │    │
+│  │  scaffold/challenge/starter_challenge/cruncher.py                                                 │    │
 │  │                                                                                                   │    │
 │  │  def feed_update(self, data: dict[str, Any]) -> None:                                            │    │
 │  │      # data = {"symbol": "BTC", "asof_ts": ..., "candles_1m": [...]}                             │    │
@@ -158,7 +158,7 @@ Data flows through **11 transformation stages** from external feed to stored pre
 │                                                                                            ▼               │
 │  ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐    │
 │  │  STAGE 9: Model.predict(subject, resolve_horizon_seconds, step_seconds) → dict                   │    │
-│  │  scaffold/challenge/starter_challenge/tracker.py:50                                              │    │
+│  │  scaffold/challenge/starter_challenge/cruncher.py:50                                              │    │
 │  │                                                                                                   │    │
 │  │  def predict(self, subject: str, resolve_horizon_seconds: int, step_seconds: int) -> dict:       │    │
 │  │      # Access latest data via self._get_data(subject)                                            │    │

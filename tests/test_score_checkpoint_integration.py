@@ -6,7 +6,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import CrunchConfig
+from crunch_node.crunch_config import CrunchConfig, default_build_emission
 from crunch_node.entities.prediction import (
     CheckpointRecord,
     CheckpointStatus,
@@ -16,7 +16,7 @@ from crunch_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
-from crunch_node.services.checkpoint import CheckpointService
+from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
 from crunch_node.services.score import ScoreService
 
 now = datetime.now(UTC)
@@ -207,7 +207,10 @@ def _build_service(
         snapshot_repository=snap_repo,
         checkpoint_repository=ckpt_repo,
         model_repository=model_repo,
-        config=CrunchConfig(crunch_pubkey="crunch_test"),
+        emission=EmissionConfig(
+            build_emission=default_build_emission,
+            crunch_pubkey="crunch_test",
+        ),
         interval_seconds=checkpoint_interval,
     )
 

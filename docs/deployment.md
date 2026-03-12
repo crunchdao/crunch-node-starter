@@ -168,7 +168,7 @@ lsof -nP -iTCP:5432 -sTCP:LISTEN   # postgres
 ```
 
 ### Model failures (BAD_IMPLEMENTATION)
-- Check `MODEL_BASE_CLASSNAME=tracker.TrackerBase` in `.local.env`
+- Check `MODEL_BASE_CLASSNAME=cruncher.ModelBaseClass` in `.local.env`
 - Verify challenge package in `pyproject.toml` under `[tool.uv.sources]`
 - Run `make check-models` for detailed diagnostics
 

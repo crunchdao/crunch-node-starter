@@ -23,7 +23,7 @@ graph TD
         NODE --> DC["docker-compose.yml"]
         NODE --> DF["Dockerfile"]
 
-        CHAL --> TRACKER["starter_challenge/<br/>tracker.py"]
+        CHAL --> TRACKER["starter_challenge/<br/>cruncher.py"]
         CHAL --> SCORING["starter_challenge/<br/>scoring.py"]
         CHAL --> EXAMPLES["starter_challenge/<br/>examples/"]
         CHAL --> BACKTEST["starter_challenge/<br/>backtest.py"]
@@ -51,7 +51,7 @@ scaffold/
 │   └── .local.env             ← Environment configuration
 └── challenge/
     ├── starter_challenge/
-    │   ├── tracker.py         ← Model interface (participants implement this)
+    │   ├── cruncher.py        ← Model interface (participants implement this)
     │   ├── scoring.py         ← Local self-eval scoring
     │   ├── backtest.py        ← Backtest harness
     │   ├── config.py          ← Baked-in coordinator URL + defaults
@@ -85,7 +85,7 @@ Either set `scoring_function` directly on the config (supports stateful scoring)
 
 ### Step 4: Build Challenge
 In `challenge/starter_challenge/`:
-- Define `TrackerBase` subclass interface in `tracker.py`
+- Define `ModelBaseClass` subclass interface in `cruncher.py`
 - Implement local self-eval scoring in `scoring.py`
 - Build quickstarter examples in `examples/`
 - Set up backtest harness in `backtest.py`

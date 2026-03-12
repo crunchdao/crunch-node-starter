@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.tracker import TrackerBase
+from starter_challenge.cruncher import ModelBaseClass
 
 
-class ContrarianTracker(TrackerBase):
+class ContrarianTracker(ModelBaseClass):
     """Predicts the opposite return of the most recent candle."""
 
     def _predict(
