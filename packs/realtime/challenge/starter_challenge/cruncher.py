@@ -1,3 +1,15 @@
+"""Base tracker for prediction competitions.
+
+Models receive candle data via ``feed_update()`` and must return
+a directional prediction from ``predict()``.
+
+The ``predict()`` return value must match ``PredictionOutput``::
+
+    {"value": 0.5}    # bullish with moderate conviction
+    {"value": -1.0}   # max-conviction bearish
+    {"value": 0.0}    # no prediction / flat
+"""
+
 from __future__ import annotations
 
 import logging
@@ -6,23 +18,16 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class TrackerBase:
-    """Base class for participant models.
+class ModelBaseClass:
+    """Base class for prediction models.
 
-    Subclass this and implement ``_predict()`` (or override ``predict()``)
-    to compete.  The ``feed_update()`` method receives market data on every
-    feed update — use it to maintain internal state (indicators, history, etc.).
-
-    The ``predict()`` wrapper logs inputs and outputs automatically.
+    Subclass this and implement ``predict()`` to compete.
+    Use ``feed_update()`` to maintain internal state (indicators, history, etc.).
     """
 
     def __init__(self) -> None:
         self._latest_data_by_subject: dict[str, dict[str, Any]] = {}
         self._model_name = type(self).__name__
-
-    def tick(self, data: dict[str, Any]) -> None:
-        """Called by the model runner on each feed update. Delegates to ``feed_update``."""
-        self.feed_update(data)
 
     def feed_update(self, data: dict[str, Any]) -> None:
         """Receive latest market data. Override to maintain state.
@@ -32,7 +37,17 @@ class TrackerBase:
         is stored under the key ``"_default"``.
 
         Args:
-            data: Feed data dict (shape matches ``RawInput``).
+            data: Feed data dict with shape::
+
+                {
+                    "symbol": "BTCUSDT",
+                    "asof_ts": 1700000000,
+                    "candles_1m": [
+                        {"ts": ..., "open": ..., "high": ...,
+                         "low": ..., "close": ..., "volume": ...},
+                        ...
+                    ]
+                }
         """
         subject_key = (
             data.get("symbol", "_default") if isinstance(data, dict) else "_default"
@@ -68,14 +83,14 @@ class TrackerBase:
         """Return a prediction for the given scope.
 
         Args:
-            subject: Asset being predicted (e.g. "BTCUSDT", "ETHUSDT").
+            subject: Asset being predicted (e.g. "BTCUSDT").
             resolve_horizon_seconds: How far ahead ground truth is resolved (seconds).
             step_seconds: Time step between predictions (seconds).
 
         Returns:
-            Dict matching ``InferenceOutput`` fields.
-            Default starter expects ``{"value": float}`` where positive
-            means bullish and negative means bearish.
+            Dict matching ``PredictionOutput`` fields.
+            Expects ``{"value": float}`` where positive means bullish
+            and negative means bearish, magnitude = conviction.
         """
         result = self._predict(subject, resolve_horizon_seconds, step_seconds)
         logger.info(

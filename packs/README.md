@@ -45,7 +45,7 @@ trading/
 └── challenge/
     └── starter_challenge/
         ├── scoring.py                ← PnL = signal * return - spread
-        ├── tracker.py                ← predict() returns {"signal": float}
+        ├── cruncher.py               ← predict() returns {"signal": float}
         └── examples/
             ├── momentum_tracker.py
             ├── mean_reversion_tracker.py
@@ -71,7 +71,7 @@ tournament/
 └── challenge/
     └── starter_challenge/
         ├── scoring.py                ← negative squared residual
-        ├── tracker.py                ← predict() returns {"prediction": float}
+        ├── cruncher.py               ← predict() returns {"prediction": float}
         └── examples/
             ├── feature_momentum_tracker.py
             ├── linear_combo_tracker.py
@@ -87,7 +87,7 @@ Add a directory here with only the files that differ from `scaffold/`:
 
 1. Start with `node/config/crunch_config.py` — define your types + schedule
 2. Add `challenge/starter_challenge/scoring.py` — must match your ScoreResult shape
-3. Add `challenge/starter_challenge/tracker.py` if predict() signature changes
+3. Add `challenge/starter_challenge/cruncher.py` if predict() signature changes
 4. Add examples and tests
 5. Override `.local.env.example` if feed config differs
 

@@ -38,7 +38,7 @@ class RuntimeSettings:
             crunch_id=os.getenv("CRUNCH_ID", "starter-challenge"),
             crunch_pubkey=os.getenv("CRUNCH_PUBKEY", ""),
             network=os.getenv("NETWORK", "devnet"),
-            base_classname=os.getenv("MODEL_BASE_CLASSNAME", "tracker.TrackerBase"),
+            base_classname=os.getenv("MODEL_BASE_CLASSNAME", "cruncher.ModelBaseClass"),
             feed_provider=os.getenv("FEED_PROVIDER", "binance"),
             feed_record_ttl_days=int(os.getenv("FEED_RECORD_TTL_DAYS", "90")),
             gateway_cert_dir=os.getenv("GATEWAY_CERT_DIR"),
