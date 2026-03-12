@@ -19,7 +19,6 @@ class FeedRecord:
     values: dict[str, Any]  # contract.raw_input_type
     meta: dict[str, Any] = field(default_factory=dict)  # contract.meta_type (Meta)
     ts_ingested: datetime = field(default_factory=_utc_now)
-    _timing: dict[str, Any] = field(default_factory=dict)  # Performance timing data
 
 
 @dataclass

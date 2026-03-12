@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 
 from sqlalchemy import func
-from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session, delete, select
 
 from crunch_node.db.tables import FeedIngestionStateRow, FeedRecordRow
@@ -37,40 +35,6 @@ class DBFeedRecordRepository:
 
         self._session.commit()
         return count
-
-    def append_records_with_timing(
-        self, records: Iterable[FeedRecord]
-    ) -> tuple[int, int | None]:
-        rows_to_update: list[FeedRecordRow] = []
-        count = 0
-        for record in records:
-            row = self._domain_to_row(record)
-            existing = self._session.get(FeedRecordRow, row.id)
-
-            if existing is None:
-                self._session.add(row)
-                rows_to_update.append(row)
-            else:
-                existing.values_jsonb = row.values_jsonb
-                existing.meta_jsonb = row.meta_jsonb
-                existing.ts_ingested = row.ts_ingested
-                rows_to_update.append(existing)
-
-            count += 1
-
-        self._session.commit()
-
-        feed_persisted_us = None
-        if rows_to_update:
-            feed_persisted_us = time.time_ns() // 1000
-            for row in rows_to_update:
-                meta = dict(row.meta_jsonb or {})
-                meta.setdefault("timing", {})["feed_persisted_us"] = feed_persisted_us
-                row.meta_jsonb = meta
-                flag_modified(row, "meta_jsonb")
-            self._session.commit()
-
-        return (count, feed_persisted_us)
 
     def fetch_records(
         self,

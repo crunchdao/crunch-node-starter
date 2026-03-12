@@ -234,8 +234,7 @@ class RepositorySink:
         feed_normalized_us = time.time_ns() // 1000
         domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
-        # Stage 3: Persistence (with timing recorded after commit)
-        _, feed_persisted_us = self._repository.append_records_with_timing([domain])
+        self._repository.append_records([domain])
 
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:

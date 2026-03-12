@@ -551,7 +551,7 @@ def check_metrics_collection(workspace: str) -> tuple[bool, str]:
     if not data.get("enabled", False):
         return (
             False,
-            "Timing metrics collection disabled — set timing_enabled=True in PerformanceConfig",
+            "Timing metrics collection disabled — set timing_endpoint_enabled=True in PerformanceConfig",
         )
 
     # 4. Check if any records were collected
