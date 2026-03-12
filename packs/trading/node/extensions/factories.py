@@ -109,7 +109,9 @@ class TradingStrategy:
         return snapshots
 
     def rollback(self) -> None:
-        pass
+        rollback = getattr(self._snapshot_repo, "rollback", None)
+        if callable(rollback):
+            rollback()
 
 
 def build_score_snapshots(*, session, config, snapshot_repository) -> TradingStrategy:

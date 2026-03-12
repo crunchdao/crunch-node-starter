@@ -127,9 +127,8 @@ class TestPersistToScoreFlow:
         result = score_service.score_and_snapshot()
         assert result is True
 
-        snapshots = strategy.produce_snapshots(now)
-        assert len(snapshots) == 1
-        snap = snapshots[0]
+        snapshot_repo.save.assert_called_once()
+        snap = snapshot_repo.save.call_args[0][0]
         assert snap.model_id == "model_1"
         assert snap.result_summary["unrealized_pnl"] == pytest.approx(0.0)
         assert snap.result_summary["net_pnl"] == pytest.approx(0.0)
