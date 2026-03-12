@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from crunch_node.services.scoring_strategy import ScoringStrategy
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -267,7 +270,7 @@ class BuildScoreSnapshots(Protocol):
 
     def __call__(
         self, *, session: Any, config: CrunchConfig, snapshot_repository: Any
-    ) -> Any: ...
+    ) -> ScoringStrategy: ...
 
 
 @runtime_checkable
