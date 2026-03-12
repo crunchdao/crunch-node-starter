@@ -96,8 +96,8 @@ class TestCreateSubmission(unittest.TestCase):
                 challenge = Path(tmpdir) / "challenge"
                 pkg = challenge / "my_pkg"
                 pkg.mkdir(parents=True)
-                tracker = pkg / "cruncher.py"
-                tracker.write_text("class BaseClass:\n    pass\n")
+                cruncher = pkg / "cruncher.py"
+                cruncher.write_text("class BaseClass:\n    pass\n")
 
                 example = pkg / "examples"
                 example.mkdir()
@@ -109,7 +109,7 @@ class TestCreateSubmission(unittest.TestCase):
                     "        return {'value': 0.0}\n"
                 )
 
-                sub_id = sync_examples.create_submission(model_file, tracker, "my_pkg")
+                sub_id = sync_examples.create_submission(model_file, cruncher, "my_pkg")
 
                 self.assertEqual(sub_id, "cool-model")
                 sub_dir = sync_examples.SUBMISSIONS_DIR / "cool-model"

@@ -72,13 +72,15 @@ def submission_id_from_filename(filename: str) -> str:
     return filename.removesuffix(".py").replace("_", "-")
 
 
-def create_submission(example_path: Path, tracker_path: Path, package_name: str) -> str:
+def create_submission(
+    example_path: Path, cruncher_path: Path, package_name: str
+) -> str:
     """Create a standalone submission directory from a challenge example."""
     sub_id = submission_id_from_filename(example_path.name)
     sub_dir = SUBMISSIONS_DIR / sub_id
     sub_dir.mkdir(parents=True, exist_ok=True)
 
-    shutil.copy2(tracker_path, sub_dir / "cruncher.py")
+    shutil.copy2(cruncher_path, sub_dir / "cruncher.py")
 
     # Copy and rewrite example as main.py
     source = example_path.read_text()
@@ -141,13 +143,13 @@ def main() -> None:
     result = find_challenge_package()
     if result:
         pkg_dir, pkg_name = result
-        tracker_path = pkg_dir / "cruncher.py"
+        cruncher_path = pkg_dir / "cruncher.py"
         examples = find_examples(pkg_dir / "examples")
 
         if examples:
             print(f"  Found challenge package: {pkg_name} ({len(examples)} example(s))")
             for example in examples:
-                sub_id = create_submission(example, tracker_path, pkg_name)
+                sub_id = create_submission(example, cruncher_path, pkg_name)
                 all_submissions.append(sub_id)
                 print(f"    {example.name} → {sub_id}")
         else:

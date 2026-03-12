@@ -36,7 +36,7 @@ Single source of truth for competition behavior:
 
 ## Tournament Model Contract
 
-Models extend `TrackerBase` and implement:
+Models extend `BaseClass` and implement:
 
 ```python
 def predict(self, features: dict) -> dict:

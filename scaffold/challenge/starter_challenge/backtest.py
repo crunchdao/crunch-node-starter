@@ -290,7 +290,7 @@ class BacktestClient:
 
 
 class BacktestRunner:
-    """Replays historical data through a TrackerBase model, scores predictions."""
+    """Replays historical data through a BaseClass model, scores predictions."""
 
     def __init__(
         self,
