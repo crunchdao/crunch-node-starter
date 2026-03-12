@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 from extensions.costs import CostModel
 from extensions.factories import (
+    TradingStrategy,
     build_prediction_sink,
     build_score_snapshots,
     build_trading_widgets,
@@ -34,7 +35,7 @@ def test_build_prediction_sink_returns_simulator_sink():
     assert hasattr(sink, "on_predictions")
 
 
-def test_build_score_snapshots_returns_callable():
+def test_build_score_snapshots_returns_trading_strategy():
     session = MagicMock()
     config = _mock_config()
     snapshot_repository = MagicMock()
@@ -43,7 +44,9 @@ def test_build_score_snapshots_returns_callable():
         session=session, config=config, snapshot_repository=snapshot_repository
     )
 
-    assert callable(result)
+    assert isinstance(result, TradingStrategy)
+    assert hasattr(result, "produce_snapshots")
+    assert hasattr(result, "rollback")
 
 
 def test_build_trading_widgets_returns_non_empty_list_of_dicts():

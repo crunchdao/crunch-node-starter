@@ -260,15 +260,14 @@ class BuildPredictionSink(Protocol):
 
 @runtime_checkable
 class BuildScoreSnapshots(Protocol):
-    """Factory that returns a snapshot builder for the score worker.
+    """Factory that returns a ScoringStrategy for the score worker.
 
-    The returned callable is invoked each scoring cycle with the current
-    timestamp and must produce the snapshot records for that cycle.
+    The returned object must implement produce_snapshots(now) and rollback().
     """
 
     def __call__(
         self, *, session: Any, config: CrunchConfig, snapshot_repository: Any
-    ) -> Callable[[datetime], list[SnapshotRecord]]: ...
+    ) -> Any: ...
 
 
 @runtime_checkable
