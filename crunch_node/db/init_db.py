@@ -36,7 +36,7 @@ def load_scheduled_prediction_configs() -> list[dict[str, Any]]:
     from crunch_node.config_loader import load_config
 
     config = load_config()
-    predictions = getattr(config, "scheduled_predictions", [])
+    predictions = config.scheduled_predictions
     if not predictions:
         return []
 

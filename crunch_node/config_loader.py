@@ -15,14 +15,15 @@ from __future__ import annotations
 import importlib
 import logging
 import os
-from typing import Any
+
+from crunch_node.crunch_config import CrunchConfig
 
 logger = logging.getLogger(__name__)
 
-_cached_config: Any = None
+_cached_config: CrunchConfig | None = None
 
 
-def load_config() -> Any:
+def load_config() -> CrunchConfig:
     """Load and cache the CrunchConfig instance.
 
     Returns a CrunchConfig (or subclass) from the first successful source.
@@ -36,7 +37,7 @@ def load_config() -> Any:
     return config
 
 
-def _resolve_config() -> Any:
+def _resolve_config() -> CrunchConfig:
     """Try each config source in priority order."""
 
     # 1. Explicit env var
@@ -57,8 +58,6 @@ def _resolve_config() -> Any:
         return config
 
     # 3. Engine default
-    from crunch_node.crunch_config import CrunchConfig
-
     if found:
         logger.warning(
             "Operator config found at config.crunch_config but failed to "
@@ -71,7 +70,7 @@ def _resolve_config() -> Any:
     return CrunchConfig()
 
 
-def _try_load(path: str) -> tuple[Any, bool]:
+def _try_load(path: str) -> tuple[CrunchConfig | None, bool]:
     """Try to import a config from a dotted path.
 
     Returns ``(config, found)`` where *found* is True when the module and

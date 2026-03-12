@@ -15,12 +15,9 @@ from crunch_node.db.repositories import (
 )
 from crunch_node.entities.model import Model
 from crunch_node.entities.prediction import (
-    InputRecord,
     PredictionRecord,
     PredictionStatus,
 )
-from crunch_node.id_prefixes import INPUT_PREFIX
-from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.predict_components import (
     ModelConcurrentRunner,
     ModelRegistry,
@@ -40,7 +37,6 @@ class PredictService:
 
     def __init__(
         self,
-        feed_reader: FeedReader | None = None,
         config: CrunchConfig | None = None,
         input_repository: DBInputRepository | None = None,
         model_repository: DBModelRepository | None = None,
@@ -55,7 +51,6 @@ class PredictService:
         secure_cert_dir: str | None = None,
         **kwargs,
     ):
-        self.feed_reader = feed_reader
         self.config = config or CrunchConfig()
 
         self.input_repository = input_repository
@@ -91,39 +86,6 @@ class PredictService:
         )
         self.stop_event = asyncio.Event()
 
-    # ── 1. get data ──
-
-    def get_data(self, now: datetime) -> InputRecord:
-        """Fetch input from feed reader, save to DB.
-
-        The feed reader's normalizer validates and shapes the data.
-        No additional validation is performed here.
-        """
-        if self.feed_reader is None:
-            raise RuntimeError(
-                "PredictService.get_data requires a feed_reader; "
-                "non-feed modes should provide raw_input directly"
-            )
-
-        raw = self.feed_reader.get_input(now)
-        feed_timing = raw.pop("_feed_timing", None)
-
-        record = InputRecord(
-            id=f"{INPUT_PREFIX}{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
-            raw_data=raw,
-            received_at=now,
-        )
-
-        if feed_timing:
-            record._timing.update(feed_timing)
-
-        if self.input_repository is not None:
-            self.input_repository.save(record)
-
-        return record
-
-    # ── 2. store predictions ──
-
     async def _call_models(self, scope: dict[str, Any]) -> dict:
         """Send call to model runner using the configured method name."""
         method = self.config.call_method.method
@@ -133,14 +95,6 @@ class PredictService:
             scope_defaults=self.config.scope.model_dump(),
         )
         return await self._kernel.call(method, args)
-
-    async def _feed_update_models(self, inference_input: dict[str, Any]) -> None:
-        """Send latest data to all models."""
-        responses = await self._kernel.call(
-            "feed_update", self._kernel.encode_feed_update(inference_input)
-        )
-        for model_run, _ in responses.items():
-            self.register_model(self._to_model(model_run))
 
     def _build_record(
         self,
@@ -302,11 +256,6 @@ class PredictService:
                 getattr(model_run, "deployment_id", "unknown-deployment")
             ),
         )
-
-    # ── proto encoding compatibility wrappers ──
-
-    def _encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
-        return self._kernel.encode_feed_update(inference_input)
 
     @classmethod
     def _get_variant_type(cls, type_name: str) -> Any:
