@@ -28,9 +28,15 @@ CHALLENGE_DIR = BASE_DIR / "challenge"
 @pytest.fixture(scope="module")
 def crunch_config():
     """Load the scaffold's CrunchConfig (config/ override)."""
-    from config.crunch_config import CrunchConfig
+    import importlib
 
-    return CrunchConfig()
+    sys.path.insert(0, str(NODE_DIR))
+    try:
+        mod = importlib.import_module("config.crunch_config")
+        importlib.reload(mod)
+        return mod.CrunchConfig()
+    finally:
+        sys.path.remove(str(NODE_DIR))
 
 
 @pytest.fixture(scope="module")
