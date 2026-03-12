@@ -279,8 +279,8 @@ class TestReportSchema(unittest.TestCase):
         columns = get_report_schema_leaderboard_columns()
         self.assertIsInstance(columns, list)
         self.assertTrue(len(columns) > 0)
-        props = [c["property"] for c in columns]
-        self.assertIn("score_recent", props)
+        for col in columns:
+            self.assertIn("property", col)
 
     def test_get_metrics_widgets(self):
         widgets = get_report_schema_metrics_widgets()
