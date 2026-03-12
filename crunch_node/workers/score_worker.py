@@ -75,9 +75,7 @@ def build_service() -> ScoreService:
 
         ensemble_strategy = PredictionEnsembleStrategy(
             config=config,
-            scoring_function=scoring_strategy.scoring_function,
-            feed_reader=scoring_strategy.feed_reader,
-            input_repository=scoring_strategy.input_repository,
+            scorer=scoring_strategy,
             prediction_repository=scoring_strategy.prediction_repository,
             score_repository=scoring_strategy.score_repository,
             snapshot_repository=scoring_strategy.snapshot_repository,
@@ -117,7 +115,7 @@ def build_service() -> ScoreService:
         leaderboard_service=leaderboard_service,
         merkle_service=merkle_service,
         checkpoint_service=checkpoint_service,
-        score_interval_seconds=runtime_settings.score_interval_seconds or 60,
+        score_interval_seconds=runtime_settings.score_interval_seconds,
     )
 
 

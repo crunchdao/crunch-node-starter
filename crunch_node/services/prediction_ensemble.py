@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from crunch_node.crunch_config import CrunchConfig, ScoringFunction
+from crunch_node.crunch_config import CrunchConfig
 from crunch_node.entities.prediction import (
     PredictionStatus,
     ScoreRecord,
@@ -23,7 +22,9 @@ from crunch_node.services.ensemble import (
     inverse_variance,
     is_ensemble_model,
 )
-from crunch_node.services.feed_reader import FeedReader
+
+if TYPE_CHECKING:
+    from crunch_node.services.prediction_scorer import PredictionScorer
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +33,13 @@ class PredictionEnsembleStrategy:
     def __init__(
         self,
         config: CrunchConfig,
-        scoring_function: ScoringFunction | Callable,
-        feed_reader: FeedReader | None = None,
-        input_repository=None,
+        scorer: PredictionScorer,
         prediction_repository=None,
         score_repository=None,
         snapshot_repository=None,
     ):
         self.config = config
-        self.scoring_function = scoring_function
-        self.feed_reader = feed_reader
-        self.input_repository = input_repository
+        self.scorer = scorer
         self.prediction_repository = prediction_repository
         self.score_repository = score_repository
         self.snapshot_repository = snapshot_repository
@@ -136,11 +133,11 @@ class PredictionEnsembleStrategy:
 
             ens_scored: list[ScoreRecord] = []
             for ep in ens_preds:
-                actuals_dict = self._resolve_actuals(ep)
+                actuals_dict = self.scorer._resolve_actuals(ep)
                 if actuals_dict is not None:
-                    typed_output = self._coerce_output(ep.inference_output)
-                    typed_gt = self._coerce_ground_truth(actuals_dict)
-                    result = self.scoring_function(typed_output, typed_gt)
+                    typed_output = self.scorer._coerce_output(ep.inference_output)
+                    typed_gt = self.scorer._coerce_ground_truth(actuals_dict)
+                    result = self.scorer.scoring_function(typed_output, typed_gt)
                     result_dict = (
                         result.model_dump()
                         if isinstance(result, BaseModel)
@@ -219,93 +216,3 @@ class PredictionEnsembleStrategy:
 
         return written_snapshots
 
-    def _coerce_output(self, raw: dict[str, Any]) -> BaseModel:
-        try:
-            return self.config.output_type.model_validate(raw)
-        except Exception as exc:
-            logger.warning(
-                "output_type coercion failed (%s), wrapping raw dict", exc
-            )
-            try:
-                return self.config.output_type.model_construct(**raw)
-            except Exception:
-                return self.config.output_type()
-
-    def _coerce_ground_truth(self, raw: dict[str, Any]) -> BaseModel:
-        gt_type = self.config.get_ground_truth_type()
-        try:
-            return gt_type.model_validate(raw)
-        except Exception as exc:
-            logger.warning(
-                "ground_truth_type coercion failed (%s), wrapping raw dict", exc
-            )
-            try:
-                return gt_type.model_construct(**raw)
-            except Exception:
-                return gt_type()
-
-    def _resolve_actuals(self, prediction) -> dict[str, Any] | None:
-        if prediction.resolvable_at is None:
-            return None
-
-        if prediction.resolvable_at <= prediction.performed_at:
-            if self.input_repository is None:
-                raise RuntimeError(
-                    "resolve_horizon_seconds=0 requires an input_repository "
-                    "to look up ground truth from the prediction's input"
-                )
-            inp = self.input_repository.get(prediction.input_id)
-            if inp is None:
-                logger.warning(
-                    "Input %s not found for prediction %s — skipping",
-                    prediction.input_id,
-                    prediction.id,
-                )
-                return None
-            return inp.raw_data
-
-        if self.feed_reader is None:
-            return None
-
-        scope = prediction.scope or {}
-        records = self.feed_reader.fetch_window(
-            start=prediction.performed_at,
-            end=prediction.resolvable_at,
-            source=scope.get("source"),
-            subject=scope.get("subject"),
-            kind=scope.get("kind"),
-            granularity=scope.get("granularity"),
-        )
-
-        if not records:
-            return None
-
-        staleness_fraction = self.config.max_ground_truth_staleness_fraction
-        if staleness_fraction > 0:
-            last_record = records[-1]
-            horizon_ts = prediction.resolvable_at.timestamp()
-            performed_ts = prediction.performed_at.timestamp()
-            resolved_ts = last_record.ts_event.timestamp()
-
-            horizon_seconds = horizon_ts - performed_ts
-            staleness_seconds = horizon_ts - resolved_ts
-            max_staleness = horizon_seconds * staleness_fraction
-
-            if staleness_seconds > max_staleness:
-                logger.warning(
-                    "Ground truth too stale for prediction %s: "
-                    "last record is %.1fs before horizon "
-                    "(max allowed: %.1fs = %.0f%% of horizon)",
-                    prediction.id,
-                    staleness_seconds,
-                    max_staleness,
-                    staleness_fraction * 100,
-                )
-                return None
-
-        actuals = self.config.resolve_ground_truth(records, prediction)
-        if actuals is None:
-            return None
-        if isinstance(actuals, BaseModel):
-            actuals = actuals.model_dump()
-        return actuals

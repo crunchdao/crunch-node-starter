@@ -16,6 +16,7 @@ from crunch_node.entities.prediction import (
     SnapshotRecord,
 )
 from crunch_node.services.prediction_ensemble import PredictionEnsembleStrategy
+from crunch_node.services.prediction_scorer import PredictionScorer
 
 
 NOW = datetime(2026, 3, 12, 12, 0, 0, tzinfo=UTC)
@@ -76,13 +77,21 @@ def _make_strategy(
     input_repo = MagicMock()
     input_repo.get.return_value = MagicMock(raw_data={"value": 1.0})
 
+    scorer = PredictionScorer(
+        scoring_function=_scoring_fn,
+        input_repository=input_repo,
+        prediction_repository=pred_repo,
+        score_repository=score_repo,
+        snapshot_repository=snap_repo,
+        config=config,
+    )
+
     return PredictionEnsembleStrategy(
         config=config,
-        scoring_function=_scoring_fn,
+        scorer=scorer,
         prediction_repository=pred_repo,
         snapshot_repository=snap_repo,
         score_repository=score_repo,
-        input_repository=input_repo,
     )
 
 
