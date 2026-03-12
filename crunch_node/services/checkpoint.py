@@ -53,6 +53,7 @@ class CheckpointService:
         self.ranking_key = ranking_key
         self.ranking_direction = ranking_direction
         self.logger = logging.getLogger(__name__)
+        self._last_checkpoint_at: datetime | None = None
 
     def create_checkpoint(self) -> CheckpointRecord | None:
         now = datetime.now(UTC)
@@ -163,3 +164,33 @@ class CheckpointService:
             now.isoformat(),
         )
         return checkpoint
+
+    def maybe_checkpoint(self, now: datetime) -> CheckpointRecord | None:
+        """Create a checkpoint if enough time has elapsed since the last one."""
+        if self._last_checkpoint_at is None:
+            latest = self.checkpoint_repository.get_latest()
+            self._last_checkpoint_at = (
+                self._ensure_utc(latest.period_end)
+                if latest
+                else datetime.min.replace(tzinfo=UTC)
+            )
+
+        elapsed = (now - self._last_checkpoint_at).total_seconds()
+        if elapsed < self.interval_seconds:
+            return None
+
+        try:
+            checkpoint = self.create_checkpoint()
+            if checkpoint is not None:
+                self._last_checkpoint_at = now
+            return checkpoint
+        except Exception as exc:
+            self.logger.exception("Checkpoint creation failed: %s", exc)
+            return None
+
+    @staticmethod
+    def _ensure_utc(dt: datetime) -> datetime:
+        """Ensure a datetime is timezone-aware (assume UTC if naive)."""
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt
