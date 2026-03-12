@@ -10,7 +10,7 @@ from crunch_node.entities.feed_record import FeedIngestionState, FeedRecord
 
 @runtime_checkable
 class FeedRecordRepository(Protocol):
-    """Shared interface for DBFeedRecordRepository and ParquetBackfillSink."""
+    """Minimal feed-record storage interface used by backfill and ingestion."""
 
     def append_records(self, records: Iterable[FeedRecord]) -> int: ...
 
