@@ -25,7 +25,10 @@ from crunch_node.db import (
 from crunch_node.merkle.service import MerkleService
 
 # Re-export for backward compatibility (tests import from here)
-from crunch_node.services.checkpoint import CheckpointService  # noqa: F401
+from crunch_node.services.checkpoint import (  # noqa: F401
+    CheckpointService,
+    EmissionConfig,
+)
 
 
 def configure_logging() -> None:
@@ -56,12 +59,14 @@ def build_service() -> CheckpointService:
         snapshot_repository=DBSnapshotRepository(session),
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=DBModelRepository(session),
-        build_emission=config.build_emission,
+        emission=EmissionConfig(
+            build_emission=config.build_emission,
+            crunch_pubkey=crunch_pubkey or config.crunch_pubkey,
+            compute_provider=compute_provider or config.compute_provider,
+            data_provider=data_provider or config.data_provider,
+        ),
         interval_seconds=interval,
         merkle_service=merkle_service,
-        crunch_pubkey=crunch_pubkey or config.crunch_pubkey,
-        compute_provider=compute_provider or config.compute_provider,
-        data_provider=data_provider or config.data_provider,
         ranking_key=config.aggregation.ranking_key,
         ranking_direction=config.aggregation.ranking_direction,
     )

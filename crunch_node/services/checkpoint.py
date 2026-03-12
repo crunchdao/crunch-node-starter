@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -15,6 +15,14 @@ from crunch_node.db.repositories import (
 )
 from crunch_node.entities.prediction import CheckpointRecord, CheckpointStatus
 from crunch_node.merkle.service import MerkleService
+
+
+@dataclass
+class EmissionConfig:
+    build_emission: BuildEmission
+    crunch_pubkey: str = ""
+    compute_provider: str | None = None
+    data_provider: str | None = None
 
 
 class CheckpointService:
@@ -29,24 +37,18 @@ class CheckpointService:
         snapshot_repository: DBSnapshotRepository,
         checkpoint_repository: DBCheckpointRepository,
         model_repository: DBModelRepository,
-        build_emission: BuildEmission,
+        emission: EmissionConfig,
         interval_seconds: int = 7 * 24 * 3600,  # weekly
         merkle_service: MerkleService | None = None,
-        crunch_pubkey: str = "",
-        compute_provider: str | None = None,
-        data_provider: str | None = None,
         ranking_key: str = "score_recent",
         ranking_direction: str = "desc",
     ):
         self.snapshot_repository = snapshot_repository
         self.checkpoint_repository = checkpoint_repository
         self.model_repository = model_repository
-        self._build_emission = build_emission
+        self.emission = emission
         self.interval_seconds = interval_seconds
         self.merkle_service = merkle_service
-        self.crunch_pubkey = crunch_pubkey
-        self.compute_provider = compute_provider
-        self.data_provider = data_provider
         self.ranking_key = ranking_key
         self.ranking_direction = ranking_direction
         self.logger = logging.getLogger(__name__)
@@ -109,11 +111,11 @@ class CheckpointService:
         for idx, entry in enumerate(ranked_entries, start=1):
             entry["rank"] = idx
 
-        emission = self._build_emission(
+        emission = self.emission.build_emission(
             ranked_entries,
-            crunch_pubkey=self.crunch_pubkey,
-            compute_provider=self.compute_provider,
-            data_provider=self.data_provider,
+            crunch_pubkey=self.emission.crunch_pubkey,
+            compute_provider=self.emission.compute_provider,
+            data_provider=self.emission.data_provider,
         )
 
         checkpoint = CheckpointRecord(

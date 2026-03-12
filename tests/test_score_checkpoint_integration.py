@@ -16,7 +16,7 @@ from crunch_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
-from crunch_node.services.checkpoint import CheckpointService
+from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
 from crunch_node.services.score import ScoreService
 
 now = datetime.now(UTC)
@@ -207,9 +207,11 @@ def _build_service(
         snapshot_repository=snap_repo,
         checkpoint_repository=ckpt_repo,
         model_repository=model_repo,
-        build_emission=default_build_emission,
+        emission=EmissionConfig(
+            build_emission=default_build_emission,
+            crunch_pubkey="crunch_test",
+        ),
         interval_seconds=checkpoint_interval,
-        crunch_pubkey="crunch_test",
     )
 
     service = ScoreService(

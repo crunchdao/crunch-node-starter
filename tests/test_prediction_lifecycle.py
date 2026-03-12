@@ -28,7 +28,7 @@ from crunch_node.entities.prediction import (
 )
 from crunch_node.services.realtime_predict import RealtimePredictService
 from crunch_node.services.score import ScoreService
-from crunch_node.workers.checkpoint_worker import CheckpointService
+from crunch_node.workers.checkpoint_worker import CheckpointService, EmissionConfig
 
 # ── shared in-memory repositories ──
 
@@ -315,8 +315,10 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
             snapshot_repository=self.snapshot_repo,
             checkpoint_repository=self.checkpoint_repo,
             model_repository=self.model_repo,
-            build_emission=default_build_emission,
-            crunch_pubkey=self.config.crunch_pubkey,
+            emission=EmissionConfig(
+                build_emission=default_build_emission,
+                crunch_pubkey=self.config.crunch_pubkey,
+            ),
         )
 
     @staticmethod
