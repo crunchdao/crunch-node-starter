@@ -175,17 +175,26 @@ class TestPersistToScoreFlow:
 
         snapshot_repo = MagicMock()
         snapshot_repo.find = MagicMock(return_value=[])
-        leaderboard_repo = MagicMock()
 
-        score_service = ScoreService(
-            checkpoint_interval_seconds=300,
-            scoring_function=lambda p, g: MagicMock(),
-            snapshot_repository=snapshot_repo,
-            model_repository=MagicMock(fetch_all=MagicMock(return_value={})),
-            leaderboard_repository=leaderboard_repo,
-            prediction_repository=MagicMock(find=MagicMock(return_value=[])),
-            build_snapshots_fn=_make_build_snapshots_fn(state_repo),
-        )
+        build_fn = _make_build_snapshots_fn(state_repo)
+
+        class TradingStrategy:
+            def __init__(self, build_fn, snapshot_repository):
+                self._build_fn = build_fn
+                self.snapshot_repository = snapshot_repository
+
+            def produce_snapshots(self, now):
+                snapshots = self._build_fn(now)
+                if snapshots:
+                    for snap in snapshots:
+                        self.snapshot_repository.save(snap)
+                return snapshots or []
+
+            def rollback(self):
+                pass
+
+        strategy = TradingStrategy(build_fn, snapshot_repo)
+        score_service = ScoreService(scoring_strategy=strategy)
 
         result = score_service.score_and_snapshot()
         assert result is True

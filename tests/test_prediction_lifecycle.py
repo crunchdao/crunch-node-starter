@@ -26,9 +26,12 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
     ScoreRecord,
 )
+from crunch_node.crunch_config import Aggregation
+from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
+from crunch_node.services.leaderboard import LeaderboardService
+from crunch_node.services.prediction_scorer import PredictionScorer
 from crunch_node.services.realtime_predict import RealtimePredictService
 from crunch_node.services.score import ScoreService
-from crunch_node.workers.checkpoint_worker import CheckpointService, EmissionConfig
 
 # ── shared in-memory repositories ──
 
@@ -298,17 +301,21 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
             runner=FakeRunner({"m1": {"value": 0.7}, "m2": {"value": 0.3}}),
         )
 
-        self.score_service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=self._score_fn,
             feed_reader=FakeFeedReader({"symbol": "BTC", "asof_ts": 100}),
             input_repository=self.input_repo,
             prediction_repository=self.pred_repo,
             score_repository=self.score_repo,
             snapshot_repository=self.snapshot_repo,
+            config=self.config,
+        )
+
+        leaderboard_service = LeaderboardService(
+            snapshot_repository=self.snapshot_repo,
             model_repository=self.model_repo,
             leaderboard_repository=self.lb_repo,
-            config=self.config,
+            aggregation=Aggregation(),
         )
 
         self.checkpoint_service = CheckpointService(
@@ -319,6 +326,12 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
                 build_emission=default_build_emission,
                 crunch_pubkey=self.config.crunch_pubkey,
             ),
+        )
+
+        self.score_service = ScoreService(
+            scoring_strategy=scorer,
+            leaderboard_service=leaderboard_service,
+            checkpoint_service=self.checkpoint_service,
         )
 
     @staticmethod
