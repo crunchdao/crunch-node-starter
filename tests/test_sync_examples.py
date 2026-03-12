@@ -17,15 +17,15 @@ import sync_examples  # noqa: E402
 
 
 class TestRewriteImports(unittest.TestCase):
-    def test_rewrites_package_tracker_import(self):
-        source = "from starter_challenge.tracker import TrackerBase"
+    def test_rewrites_package_cruncher_import(self):
+        source = "from starter_challenge.cruncher import BaseClass"
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertEqual(result, "from tracker import TrackerBase")
+        self.assertEqual(result, "from cruncher import BaseClass")
 
     def test_rewrites_package_direct_import(self):
-        source = "from starter_challenge import TrackerBase"
+        source = "from starter_challenge import BaseClass"
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertEqual(result, "from tracker import TrackerBase")
+        self.assertEqual(result, "from cruncher import BaseClass")
 
     def test_preserves_unrelated_imports(self):
         source = "from math import sqrt\nimport os"
@@ -36,20 +36,20 @@ class TestRewriteImports(unittest.TestCase):
         source = (
             "from __future__ import annotations\n"
             "\n"
-            "from starter_challenge.tracker import TrackerBase\n"
+            "from starter_challenge.cruncher import BaseClass\n"
             "\n"
-            "class MyModel(TrackerBase):\n"
+            "class MyModel(BaseClass):\n"
             "    pass\n"
         )
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertIn("from tracker import TrackerBase", result)
+        self.assertIn("from cruncher import BaseClass", result)
         self.assertIn("from __future__ import annotations", result)
         self.assertNotIn("starter_challenge", result)
 
     def test_different_package_name(self):
-        source = "from my_trading_challenge.tracker import TrackerBase"
+        source = "from my_trading_challenge.cruncher import BaseClass"
         result = sync_examples.rewrite_imports(source, "my_trading_challenge")
-        self.assertEqual(result, "from tracker import TrackerBase")
+        self.assertEqual(result, "from cruncher import BaseClass")
 
 
 class TestSubmissionIdFromFilename(unittest.TestCase):
@@ -96,15 +96,15 @@ class TestCreateSubmission(unittest.TestCase):
                 challenge = Path(tmpdir) / "challenge"
                 pkg = challenge / "my_pkg"
                 pkg.mkdir(parents=True)
-                tracker = pkg / "tracker.py"
-                tracker.write_text("class TrackerBase:\n    pass\n")
+                tracker = pkg / "cruncher.py"
+                tracker.write_text("class BaseClass:\n    pass\n")
 
                 example = pkg / "examples"
                 example.mkdir()
                 model_file = example / "cool_model.py"
                 model_file.write_text(
-                    "from my_pkg.tracker import TrackerBase\n\n"
-                    "class CoolModel(TrackerBase):\n"
+                    "from my_pkg.cruncher import BaseClass\n\n"
+                    "class CoolModel(BaseClass):\n"
                     "    def predict(self, subject, resolve_horizon_seconds, step_seconds):\n"
                     "        return {'value': 0.0}\n"
                 )
@@ -114,17 +114,15 @@ class TestCreateSubmission(unittest.TestCase):
                 self.assertEqual(sub_id, "cool-model")
                 sub_dir = sync_examples.SUBMISSIONS_DIR / "cool-model"
                 self.assertTrue((sub_dir / "main.py").exists())
-                self.assertTrue((sub_dir / "tracker.py").exists())
+                self.assertTrue((sub_dir / "cruncher.py").exists())
                 self.assertTrue((sub_dir / "requirements.txt").exists())
 
-                # Verify import was rewritten
                 main_content = (sub_dir / "main.py").read_text()
-                self.assertIn("from tracker import TrackerBase", main_content)
+                self.assertIn("from cruncher import BaseClass", main_content)
                 self.assertNotIn("my_pkg", main_content)
 
-                # Verify tracker was copied
-                tracker_content = (sub_dir / "tracker.py").read_text()
-                self.assertIn("class TrackerBase", tracker_content)
+                cruncher_content = (sub_dir / "cruncher.py").read_text()
+                self.assertIn("class BaseClass", cruncher_content)
             finally:
                 sync_examples.SUBMISSIONS_DIR = orig_submissions
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.tracker import TrackerBase
+from starter_challenge.cruncher import BaseClass
 
 
-class MomentumTracker(TrackerBase):
+class MomentumTracker(BaseClass):
     """Predicts the next return will match recent momentum."""
 
     def _predict(

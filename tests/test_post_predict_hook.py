@@ -289,7 +289,7 @@ class TestPredictWorkerWiring(unittest.TestCase):
         mock_settings.model_runner_node_port = 9091
         mock_settings.model_runner_timeout_seconds = 60
         mock_settings.crunch_id = "test"
-        mock_settings.base_classname = "tracker.TrackerBase"
+        mock_settings.base_classname = "cruncher.BaseClass"
         mock_settings.gateway_cert_dir = None
         mock_settings.secure_cert_dir = None
         mock_settings.checkpoint_interval_seconds = 3600

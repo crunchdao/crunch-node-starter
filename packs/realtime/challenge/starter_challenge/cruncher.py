@@ -18,7 +18,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class TrackerBase:
+class BaseClass:
     """Base class for prediction models.
 
     Subclass this and implement ``predict()`` to compete.

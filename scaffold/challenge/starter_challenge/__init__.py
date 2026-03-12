@@ -1,4 +1,4 @@
 from .backtest import BacktestClient, BacktestResult, BacktestRunner
-from .tracker import TrackerBase
+from .cruncher import BaseClass
 
-__all__ = ["TrackerBase", "BacktestClient", "BacktestRunner", "BacktestResult"]
+__all__ = ["BaseClass", "BacktestClient", "BacktestRunner", "BacktestResult"]

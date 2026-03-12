@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Auto-discover challenge examples and register them as orchestrator submissions.
 
-Scans /app/challenge for a Python package that contains both ``tracker.py``
+Scans /app/challenge for a Python package that contains both ``cruncher.py``
 (the participant base class) and an ``examples/`` directory.  Each example
 file becomes a standalone orchestrator submission with rewritten imports so
 it runs without the challenge package installed.
@@ -26,13 +26,13 @@ CRUNCH_ID = os.environ.get("CRUNCH_ID", "starter-challenge")
 
 
 def find_challenge_package() -> tuple[Path, str] | None:
-    """Find the challenge package (directory with tracker.py + examples/)."""
+    """Find the challenge package (directory with cruncher.py + examples/)."""
     if not CHALLENGE_DIR.is_dir():
         return None
     for pkg_dir in sorted(CHALLENGE_DIR.iterdir()):
         if not pkg_dir.is_dir() or pkg_dir.name.startswith((".", "_")):
             continue
-        if (pkg_dir / "tracker.py").exists() and (pkg_dir / "examples").is_dir():
+        if (pkg_dir / "cruncher.py").exists() and (pkg_dir / "examples").is_dir():
             return pkg_dir, pkg_dir.name
     return None
 
@@ -49,19 +49,19 @@ def find_examples(examples_dir: Path) -> list[Path]:
 def rewrite_imports(source: str, package_name: str) -> str:
     """Rewrite challenge package imports to local imports.
 
-    ``from starter_challenge.tracker import TrackerBase``
-    → ``from tracker import TrackerBase``
+    ``from starter_challenge.cruncher import BaseClass``
+    → ``from cruncher import BaseClass``
     """
-    # from <package>.tracker import X → from tracker import X
+    # from <package>.cruncher import X → from cruncher import X
     source = re.sub(
-        rf"from\s+{re.escape(package_name)}\.tracker\s+import",
-        "from tracker import",
+        rf"from\s+{re.escape(package_name)}\.cruncher\s+import",
+        "from cruncher import",
         source,
     )
-    # from <package> import X → from tracker import X
+    # from <package> import X → from cruncher import X
     source = re.sub(
         rf"from\s+{re.escape(package_name)}\s+import",
-        "from tracker import",
+        "from cruncher import",
         source,
     )
     return source
@@ -78,8 +78,7 @@ def create_submission(example_path: Path, tracker_path: Path, package_name: str)
     sub_dir = SUBMISSIONS_DIR / sub_id
     sub_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy tracker.py (the base class)
-    shutil.copy2(tracker_path, sub_dir / "tracker.py")
+    shutil.copy2(tracker_path, sub_dir / "cruncher.py")
 
     # Copy and rewrite example as main.py
     source = example_path.read_text()
@@ -142,7 +141,7 @@ def main() -> None:
     result = find_challenge_package()
     if result:
         pkg_dir, pkg_name = result
-        tracker_path = pkg_dir / "tracker.py"
+        tracker_path = pkg_dir / "cruncher.py"
         examples = find_examples(pkg_dir / "examples")
 
         if examples:
@@ -154,7 +153,7 @@ def main() -> None:
         else:
             print(f"  Challenge package '{pkg_name}' has no examples")
     else:
-        print("  No challenge package found (looking for tracker.py + examples/)")
+        print("  No challenge package found (looking for cruncher.py + examples/)")
 
     # 2. Sync operator submissions from config/
     config_subs = sync_config_submissions()

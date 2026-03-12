@@ -284,9 +284,8 @@ class TestScaffoldWithPack:
             clone_webapp=False,
         )
 
-        # Trading pack includes tracker.py and examples
-        tracker = ws / "challenge" / "trade_test" / "tracker.py"
-        assert tracker.exists()
+        cruncher = ws / "challenge" / "trade_test" / "cruncher.py"
+        assert cruncher.exists()
 
         # Trading has leaderboard columns
         cols = (

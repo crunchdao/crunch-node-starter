@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.tracker import TrackerBase
+from starter_challenge.cruncher import BaseClass
 
 
-class MeanReversionTracker(TrackerBase):
+class MeanReversionTracker(BaseClass):
     """Predicts return toward the rolling mean price."""
 
     def _predict(

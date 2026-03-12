@@ -26,7 +26,7 @@ make test
 ```
 
 Three test files track your progress:
-- `test_tracker.py` — TrackerBase behavior (passes out of the box)
+- `test_tracker.py` — BaseClass behavior (passes out of the box)
 - `test_examples.py` — example models match `InferenceOutput` contract (breaks when you change types without updating examples)
 - `test_scoring.py` — has `xfail(strict=True)` markers that detect the 0.0 stub. **Remove xfail markers after implementing real scoring** — strict xfail that unexpectedly passes = test failure.
 
@@ -75,15 +75,15 @@ Optional:
 - `input_type` — override only for non-feed modes (tournament API). For feed-based modes, the `feed_normalizer` setting determines the input shape.
 - `feed_normalizer` — `"candle"` (default, OHLCV) or `"tick"` (raw price ticks)
 
-**Tracker** — edit `challenge/starter_challenge/tracker.py`:
+**Tracker** — edit `challenge/starter_challenge/cruncher.py`:
 - `feed_update(data)` — receives market data, maintains state per-subject via `data["symbol"]`
 - `predict(subject, resolve_horizon_seconds, step_seconds)` — returns dict matching `InferenceOutput`
 
 The tracker defines the participant interface. What `predict()` returns IS the competition.
 
-### TrackerBase API
+### BaseClass API
 
-Models extend `TrackerBase`. Key methods:
+Models extend `BaseClass`. Key methods:
 
 | Method | Purpose |
 |---|---|
@@ -109,6 +109,7 @@ Edit `challenge/starter_challenge/examples/`. Build ~3-5 simple models:
 These are NOT just quickstarters for participants — they are **your E2E test models**. After `make deploy`, they run through the full pipeline. If they break, you can't verify the system works.
 
 Run `make test` — `test_examples.py` and `test_tracker.py` should pass.
+
 
 ## 3. Feeds
 

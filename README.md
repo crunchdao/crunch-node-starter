@@ -113,7 +113,7 @@ Key variables:
 | `FEED_SUBJECTS` | Assets to track | `BTC` |
 | `SCORING_FUNCTION` | Dotted path to scoring callable | `crunch_node.extensions.default_callables:default_score_prediction` |
 | `CHECKPOINT_INTERVAL_SECONDS` | Seconds between checkpoints | `604800` |
-| `MODEL_BASE_CLASSNAME` | Participant model base class | `tracker.TrackerBase` |
+| `MODEL_BASE_CLASSNAME` | Participant model base class | `cruncher.BaseClass` |
 | `MODEL_RUNNER_NODE_HOST` | Model orchestrator host | `model-orchestrator` |
 
 ---

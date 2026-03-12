@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.tracker import TrackerBase
+from starter_challenge.cruncher import BaseClass
 
 
-class MomentumTracker(TrackerBase):
+class MomentumTracker(BaseClass):
     """Outputs a buy/sell order based on recent price momentum."""
 
     def predict(
