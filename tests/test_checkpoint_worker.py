@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 
 from crunch_node.crunch_config import (
     FRAC_64_MULTIPLIER,
-    CrunchConfig,
     default_build_emission,
     pct_to_frac64,
 )
@@ -16,7 +15,7 @@ from crunch_node.entities.prediction import (
     CheckpointStatus,
     SnapshotRecord,
 )
-from crunch_node.workers.checkpoint_worker import CheckpointService
+from crunch_node.workers.checkpoint_worker import CheckpointService, EmissionConfig
 
 now = datetime.now(UTC)
 
@@ -207,7 +206,10 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
-            config=CrunchConfig(crunch_pubkey="crunch_abc"),
+            emission=EmissionConfig(
+                build_emission=default_build_emission,
+                crunch_pubkey="crunch_abc",
+            ),
         )
         checkpoint = service.create_checkpoint()
 
@@ -237,6 +239,7 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
+            emission=EmissionConfig(build_emission=default_build_emission),
         )
         checkpoint = service.create_checkpoint()
 
@@ -258,6 +261,7 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
+            emission=EmissionConfig(build_emission=default_build_emission),
         )
         checkpoint = service.create_checkpoint()
 

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import CrunchConfig
+from crunch_node.crunch_config import BuildEmission
 from crunch_node.db.repositories import (
     DBCheckpointRepository,
     DBModelRepository,
@@ -14,6 +15,14 @@ from crunch_node.db.repositories import (
 )
 from crunch_node.entities.prediction import CheckpointRecord, CheckpointStatus
 from crunch_node.merkle.service import MerkleService
+
+
+@dataclass
+class EmissionConfig:
+    build_emission: BuildEmission
+    crunch_pubkey: str = ""
+    compute_provider: str | None = None
+    data_provider: str | None = None
 
 
 class CheckpointService:
@@ -28,16 +37,20 @@ class CheckpointService:
         snapshot_repository: DBSnapshotRepository,
         checkpoint_repository: DBCheckpointRepository,
         model_repository: DBModelRepository,
-        config: CrunchConfig | None = None,
+        emission: EmissionConfig,
         interval_seconds: int = 7 * 24 * 3600,  # weekly
         merkle_service: MerkleService | None = None,
+        ranking_key: str = "score_recent",
+        ranking_direction: str = "desc",
     ):
         self.snapshot_repository = snapshot_repository
         self.checkpoint_repository = checkpoint_repository
         self.model_repository = model_repository
-        self.config = config or CrunchConfig()
+        self.emission = emission
         self.interval_seconds = interval_seconds
         self.merkle_service = merkle_service
+        self.ranking_key = ranking_key
+        self.ranking_direction = ranking_direction
         self.logger = logging.getLogger(__name__)
 
     def create_checkpoint(self) -> CheckpointRecord | None:
@@ -58,7 +71,6 @@ class CheckpointService:
             return None
 
         models = self.model_repository.fetch_all()
-        aggregation = self.config.aggregation
 
         # Aggregate snapshots per model
         by_model: dict[str, list] = {}
@@ -91,22 +103,19 @@ class CheckpointService:
                 }
             )
 
-        # Rank by the aggregation ranking key
-        ranking_key = aggregation.ranking_key
-        reverse = aggregation.ranking_direction == "desc"
+        reverse = self.ranking_direction == "desc"
         ranked_entries.sort(
-            key=lambda e: float(e.get("result_summary", {}).get(ranking_key, 0)),
+            key=lambda e: float(e.get("result_summary", {}).get(self.ranking_key, 0)),
             reverse=reverse,
         )
         for idx, entry in enumerate(ranked_entries, start=1):
             entry["rank"] = idx
 
-        # Build emission checkpoint → protocol format for on-chain submission
-        emission = self.config.build_emission(
+        emission = self.emission.build_emission(
             ranked_entries,
-            crunch_pubkey=self.config.crunch_pubkey,
-            compute_provider=self.config.compute_provider,
-            data_provider=self.config.data_provider,
+            crunch_pubkey=self.emission.crunch_pubkey,
+            compute_provider=self.emission.compute_provider,
+            data_provider=self.emission.data_provider,
         )
 
         checkpoint = CheckpointRecord(
