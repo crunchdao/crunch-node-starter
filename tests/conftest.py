@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+
 import pytest
 
 _pack_node = str(Path(__file__).resolve().parent.parent / "packs" / "trading" / "node")
