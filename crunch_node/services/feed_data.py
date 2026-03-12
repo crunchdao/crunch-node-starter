@@ -193,7 +193,7 @@ class FeedDataService:
                 feed_normalized_us
             )
 
-        count, _ = self.feed_record_repository.append_records(converted)
+        count = self.feed_record_repository.append_records(converted)
 
         return count
 
@@ -235,9 +235,7 @@ class RepositorySink:
         domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
         # Stage 3: Persistence (with timing recorded after commit)
-        _, feed_persisted_us = self._repository.append_records(
-            [domain], record_persist_timing=True
-        )
+        _, feed_persisted_us = self._repository.append_records_with_timing([domain])
 
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:

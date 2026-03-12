@@ -28,6 +28,7 @@ from crunch_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
+from crunch_node.id_prefixes import LEADERBOARD_PREFIX
 from crunch_node.schemas import ScheduledPredictionConfigEnvelope
 
 
@@ -411,7 +412,7 @@ class DBLeaderboardRepository:
         meta: dict[str, Any] | None = None,
     ) -> None:
         row = LeaderboardRow(
-            id=f"LBR_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
+            id=f"{LEADERBOARD_PREFIX}{datetime.now(UTC).strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
             entries_jsonb=leaderboard_entries,
             meta_jsonb=meta or {},
         )
