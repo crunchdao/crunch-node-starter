@@ -50,6 +50,7 @@ class ScoreService:
                 self.merkle_service.commit_cycle(snapshots, now)
             except Exception as exc:
                 self.logger.warning("Merkle cycle commit failed: %s", exc)
+                self._rollback()
 
         if self.leaderboard_service:
             self.leaderboard_service.rebuild()

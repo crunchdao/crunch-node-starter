@@ -95,16 +95,16 @@ class TradingStrategy:
                 )
             )
 
-            snapshots.append(
-                SnapshotRecord(
-                    id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
-                    model_id=model_id,
-                    period_start=now,
-                    period_end=now,
-                    prediction_count=len(positions_data),
-                    result_summary=result_summary,
-                )
+            snapshot = SnapshotRecord(
+                id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                model_id=model_id,
+                period_start=now,
+                period_end=now,
+                prediction_count=len(positions_data),
+                result_summary=result_summary,
             )
+            self._snapshot_repo.save(snapshot)
+            snapshots.append(snapshot)
 
         return snapshots
 
