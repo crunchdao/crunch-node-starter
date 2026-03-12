@@ -6,8 +6,8 @@ from typing import Any, Literal
 
 from crunch_node.entities.prediction import InputRecord, PredictionRecord
 from crunch_node.feeds.contracts import FeedDataRecord
-from crunch_node.services.trading.config import TradingConfig
-from crunch_node.services.trading.simulator import TradingEngine
+from extensions.config import TradingConfig
+from extensions.simulator import TradingEngine
 
 logger = logging.getLogger(__name__)
 

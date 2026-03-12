@@ -5,8 +5,8 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from crunch_node.db.tables.trading import TradingStateRow
-from crunch_node.services.trading.models import Position, Trade
+from extensions.models import Position, Trade
+from extensions.tables import TradingStateRow
 
 
 class TradingStateRepository:

@@ -9,12 +9,21 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
-from typing import Literal
-
+import extensions.tables  # noqa: F401
+from extensions.config import TradingConfig
+from extensions.costs import CostModel
+from extensions.factories import (
+    build_prediction_sink,
+    build_score_snapshots,
+    build_trading_widgets,
+)
 from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
     Aggregation,
+    BuildPredictionSink,
+    BuildScoreSnapshots,
+    BuildWidgets,
     ScheduledPrediction,
 )
 from crunch_node.crunch_config import (
@@ -24,42 +33,6 @@ from crunch_node.services.realtime_predict import (
     RealtimePredictService,
     RealtimeServiceConfig,
 )
-
-
-class CostModel(BaseModel):
-    trading_fee_pct: float = Field(default=0.001, ge=0)
-    spread_pct: float = Field(default=0.0001, ge=0)
-    carry_annual_pct: float = Field(default=0.1095, ge=0)
-
-    def order_cost(self, size: float) -> float:
-        return (self.trading_fee_pct + self.spread_pct) * abs(size)
-
-    def carry_cost(self, size: float, seconds: float) -> float:
-        return self.carry_annual_pct * abs(size) * seconds / (365 * 86400)
-
-
-class TradingConfig(BaseModel):
-    cost_model: CostModel = Field(default_factory=CostModel)
-    signal_mode: Literal["delta", "target", "order"] = "target"
-    max_position_size: float = 10.0
-    max_portfolio_size: float = 20.0
-    asset_price_mapping: dict[str, str] = Field(
-        default_factory=lambda: {
-            "BTC": "BTCUSDT",
-            "ETH": "ETHUSDT",
-        },
-        description="Map asset names to trading pair subjects for price lookup",
-    )
-
-    @model_validator(mode="after")
-    def _validate_size_limits(self) -> TradingConfig:
-        if self.max_position_size <= 0:
-            raise ValueError("max_position_size must be positive")
-        if self.max_portfolio_size <= 0:
-            raise ValueError("max_portfolio_size must be positive")
-        if self.max_portfolio_size < self.max_position_size:
-            raise ValueError("max_portfolio_size must be >= max_position_size")
-        return self
 
 
 class InferenceOutput(BaseModel):
@@ -83,6 +56,10 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
+
+    build_prediction_sink: BuildPredictionSink | None = build_prediction_sink
+    build_score_snapshots: BuildScoreSnapshots | None = build_score_snapshots
+    build_trading_widgets: BuildWidgets | None = build_trading_widgets
 
     realtime_service: RealtimeServiceConfig = Field(
         default_factory=RealtimeServiceConfig
@@ -134,3 +111,11 @@ class CrunchConfig(BaseCrunchConfig):
             ),
         ]
     )
+
+    @model_validator(mode="after")
+    def _derive_feed_subject_mapping(self) -> CrunchConfig:
+        if not self.feed_subject_mapping:
+            self.feed_subject_mapping = {
+                v: k for k, v in self.trading.asset_price_mapping.items()
+            }
+        return self

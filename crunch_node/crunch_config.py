@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
@@ -12,7 +13,9 @@ from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     ProviderReward,
+    SnapshotRecord,
 )
+from crunch_node.feeds.contracts import FeedDataRecord
 
 
 class Meta(BaseModel):
@@ -232,6 +235,50 @@ class EnsembleModelFilter(Protocol):
     """
 
     def __call__(self, model_id: str, metrics: dict[str, float]) -> bool: ...
+
+
+@runtime_checkable
+class PredictionSink(Protocol):
+    """Object that intercepts feed ticks and post-prediction results."""
+
+    async def on_record(self, record: FeedDataRecord) -> None: ...
+
+    def on_predictions(
+        self,
+        predictions: list[PredictionRecord],
+        input_record: InputRecord,
+        now: datetime,
+    ) -> list[PredictionRecord]: ...
+
+
+@runtime_checkable
+class BuildPredictionSink(Protocol):
+    """Factory that builds a prediction sink for the predict worker."""
+
+    def __call__(self, *, session: Any, config: CrunchConfig) -> PredictionSink: ...
+
+
+@runtime_checkable
+class BuildScoreSnapshots(Protocol):
+    """Factory that returns a snapshot builder for the score worker.
+
+    The returned callable is invoked each scoring cycle with the current
+    timestamp and must produce the snapshot records for that cycle.
+    """
+
+    def __call__(
+        self, *, session: Any, config: CrunchConfig, snapshot_repository: Any
+    ) -> Callable[[datetime], list[SnapshotRecord]]: ...
+
+
+@runtime_checkable
+class BuildWidgets(Protocol):
+    """Factory that returns dashboard widget descriptors for the report UI.
+
+    Each dict describes a single widget with at minimum a ``"type"`` key.
+    """
+
+    def __call__(self) -> list[dict[str, Any]]: ...
 
 
 class PredictionScope(BaseModel):
@@ -733,6 +780,14 @@ class CrunchConfig(BaseModel):
     )
     aggregate_snapshot: AggregateSnapshot = default_aggregate_snapshot
     build_emission: BuildEmission = default_build_emission
+
+    build_prediction_sink: BuildPredictionSink | None = None
+    build_score_snapshots: BuildScoreSnapshots | None = None
+    build_trading_widgets: BuildWidgets | None = None
+    feed_subject_mapping: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map feed subjects to model-facing names (e.g. BTCUSDT -> BTC)",
+    )
 
     def get_ground_truth_type(self) -> type[BaseModel]:
         """Return the effective ground truth type.

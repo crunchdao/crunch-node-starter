@@ -3,9 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-
-from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.simulator import TradingEngine
+from extensions.costs import CostModel
+from extensions.simulator import TradingEngine
 
 ZERO_COST = CostModel(trading_fee_pct=0.0, spread_pct=0.0, carry_annual_pct=0.0)
 

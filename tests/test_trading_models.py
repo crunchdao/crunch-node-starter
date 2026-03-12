@@ -1,8 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
-
-from crunch_node.services.trading.models import Position, Trade
+from extensions.models import Position, Trade
 
 
 class TestPositionUnrealizedPnl:

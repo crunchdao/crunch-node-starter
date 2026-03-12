@@ -1,24 +1,43 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from crunch_node.services.trading.config import TradingConfig
-from crunch_node.services.trading.sink import SimulatorSink
-from crunch_node.workers.predict_worker import _maybe_build_simulator_sink
+import pytest
 
 
-class TestMaybeBuildSimulatorSink:
-    def test_returns_sink_when_trading_config_present(self):
+class TestPredictionSinkHook:
+    def test_calls_build_prediction_sink_when_set(self):
+        fake_sink = MagicMock()
         config = MagicMock()
-        config.trading = TradingConfig()
+        config.build_prediction_sink = MagicMock(return_value=fake_sink)
+        config.feed_subject_mapping = {}
         session = MagicMock()
-        sink = _maybe_build_simulator_sink(config, session)
-        assert sink is not None
-        assert isinstance(sink, SimulatorSink)
-        assert hasattr(sink, "_state_repository")
 
-    def test_returns_none_when_no_trading_config(self):
-        config = MagicMock(spec=[])
+        config.build_prediction_sink(session=session, config=config)
+
+        config.build_prediction_sink.assert_called_once_with(
+            session=session, config=config
+        )
+
+    def test_no_sink_when_hook_is_none(self):
+        config = MagicMock()
+        config.build_prediction_sink = None
+        config.feed_subject_mapping = {}
+
+        simulator_sink = None
+        if config.build_prediction_sink is not None:
+            simulator_sink = config.build_prediction_sink(
+                session=MagicMock(), config=config
+            )
+
+        assert simulator_sink is None
+
+    def test_hook_return_value_used_as_sink(self):
+        fake_sink = MagicMock()
+        config = MagicMock()
+        config.build_prediction_sink = MagicMock(return_value=fake_sink)
         session = MagicMock()
-        sink = _maybe_build_simulator_sink(config, session)
-        assert sink is None
+
+        result = config.build_prediction_sink(session=session, config=config)
+
+        assert result is fake_sink

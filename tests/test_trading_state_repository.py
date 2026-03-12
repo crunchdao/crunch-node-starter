@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from crunch_node.services.trading.models import Position, Trade
+from extensions.models import Position, Trade
 
 
 class TestTradingStateRepository:
     def test_save_state(self):
-        from crunch_node.db.trading_state_repository import TradingStateRepository
+        from extensions.state_repository import TradingStateRepository
 
         session = MagicMock()
         session.get.return_value = None
@@ -49,8 +49,8 @@ class TestTradingStateRepository:
         session.commit.assert_called_once()
 
     def test_save_state_updates_existing(self):
-        from crunch_node.db.tables.trading import TradingStateRow
-        from crunch_node.db.trading_state_repository import TradingStateRepository
+        from extensions.state_repository import TradingStateRepository
+        from extensions.tables import TradingStateRow
 
         existing_row = TradingStateRow(
             model_id="m1",
@@ -72,7 +72,7 @@ class TestTradingStateRepository:
         assert existing_row.closed_carry == 0.001
 
     def test_load_state_returns_none_when_missing(self):
-        from crunch_node.db.trading_state_repository import TradingStateRepository
+        from extensions.state_repository import TradingStateRepository
 
         session = MagicMock()
         session.get.return_value = None
@@ -82,8 +82,8 @@ class TestTradingStateRepository:
         assert result is None
 
     def test_load_state_returns_dict(self):
-        from crunch_node.db.tables.trading import TradingStateRow
-        from crunch_node.db.trading_state_repository import TradingStateRepository
+        from extensions.state_repository import TradingStateRepository
+        from extensions.tables import TradingStateRow
 
         row = TradingStateRow(
             model_id="m1",
@@ -114,7 +114,7 @@ class TestTradingStateRepository:
         assert result["portfolio_fees"] == 0.001
 
     def test_load_all_model_ids(self):
-        from crunch_node.db.trading_state_repository import TradingStateRepository
+        from extensions.state_repository import TradingStateRepository
 
         session = MagicMock()
         repo = TradingStateRepository(session)

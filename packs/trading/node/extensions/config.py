@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from crunch_node.services.trading.costs import CostModel
+from extensions.costs import CostModel
 
 
 class TradingConfig(BaseModel):

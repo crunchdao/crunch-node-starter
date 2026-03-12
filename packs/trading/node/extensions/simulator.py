@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from crunch_node.services.trading.costs import CostModel
-from crunch_node.services.trading.models import Direction, Position, Trade
+from extensions.costs import CostModel
+from extensions.models import Direction, Position, Trade
 
 
 class TradingEngine:
