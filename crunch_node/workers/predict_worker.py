@@ -11,6 +11,7 @@ import logging
 
 from crunch_node.config.runtime import RuntimeSettings
 from crunch_node.config_loader import load_config
+from crunch_node.crunch_config import CrunchConfig
 from crunch_node.db import (
     DBFeedRecordRepository,
     DBInputRepository,
@@ -40,8 +41,8 @@ def configure_logging() -> None:
     )
 
 
-def _resolve_service_class(config) -> type[PredictService]:
-    cls = getattr(config, "predict_service_class", None)
+def _resolve_service_class(config: CrunchConfig) -> type[PredictService]:
+    cls = config.predict_service_class
 
     if cls is None:
         return RealtimePredictService
@@ -73,7 +74,9 @@ def build_service() -> PredictService:
     return build_predict_service(session, config, runtime_settings)
 
 
-def build_predict_service(session, config, runtime_settings) -> PredictService:
+def build_predict_service(
+    session, config: CrunchConfig, runtime_settings
+) -> PredictService:
     service_class = _resolve_service_class(config)
     logger.info("Using predict service: %s", service_class.__name__)
 
@@ -150,7 +153,7 @@ async def main() -> None:
                 raise ValueError(
                     "Cannot use both a custom post_predict_hook and trading engine"
                 )
-            predict_service.post_predict_hook = simulator_sink.on_predictions
+            predict_service.post_predict_hook = prediction_sink.on_predictions
 
     feed_service = FeedDataService(
         settings=feed_settings,
