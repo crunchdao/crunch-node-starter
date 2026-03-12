@@ -7,26 +7,16 @@ have wrong types.
 
 from __future__ import annotations
 
-import logging
-
 from pydantic import BaseModel
 
 from crunch_node.crunch_config import CrunchConfig
 from crunch_node.services.predict import PredictService
-from crunch_node.services.predict_components import OutputValidator
 
 
 def _make_service(output_type=None):
     kwargs = {"output_type": output_type} if output_type is not None else {}
     config = CrunchConfig(**kwargs)
-    service = PredictService.__new__(PredictService)
-    service.config = config
-    service.logger = logging.getLogger("test")
-    service._output_validator = OutputValidator(
-        output_type=config.output_type,
-        logger=service.logger,
-    )
-    return service
+    return PredictService(config=config)
 
 
 class TestOutputValidationRejectsInvalidOutput:

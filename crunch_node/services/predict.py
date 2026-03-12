@@ -183,12 +183,7 @@ class PredictService:
 
         # Ensure all referenced models exist in database before saving predictions
         # to prevent foreign key violations on predictions.model_id → models.id
-        if self._model_registry._dirty_model_ids:
-            self.logger.debug(
-                "Flushing %d dirty models before prediction save",
-                len(self._model_registry._dirty_model_ids),
-            )
-            self._model_registry.flush_non_critical()
+        self._model_registry.flush_non_critical()
 
         # Critical path: save predictions with guaranteed FK integrity
         self.prediction_repository.save_all(predictions)
