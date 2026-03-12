@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 
 from crunch_node.crunch_config import (
     FRAC_64_MULTIPLIER,
-    CrunchConfig,
     default_build_emission,
     pct_to_frac64,
 )
@@ -207,7 +206,8 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
-            config=CrunchConfig(crunch_pubkey="crunch_abc"),
+            build_emission=default_build_emission,
+            crunch_pubkey="crunch_abc",
         )
         checkpoint = service.create_checkpoint()
 
@@ -237,6 +237,7 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
+            build_emission=default_build_emission,
         )
         checkpoint = service.create_checkpoint()
 
@@ -258,6 +259,7 @@ class TestCheckpointService(unittest.TestCase):
             snapshot_repository=snap_repo,
             checkpoint_repository=ckpt_repo,
             model_repository=model_repo,
+            build_emission=default_build_emission,
         )
         checkpoint = service.create_checkpoint()
 

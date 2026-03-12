@@ -47,13 +47,6 @@ def build_service() -> CheckpointService:
     compute_provider = os.getenv("COMPUTE_PROVIDER_PUBKEY")
     data_provider = os.getenv("DATA_PROVIDER_PUBKEY")
 
-    if crunch_pubkey:
-        config.crunch_pubkey = crunch_pubkey
-    if compute_provider:
-        config.compute_provider = compute_provider
-    if data_provider:
-        config.data_provider = data_provider
-
     merkle_service = MerkleService(
         merkle_cycle_repository=DBMerkleCycleRepository(session),
         merkle_node_repository=DBMerkleNodeRepository(session),
@@ -63,10 +56,14 @@ def build_service() -> CheckpointService:
         snapshot_repository=DBSnapshotRepository(session),
         checkpoint_repository=DBCheckpointRepository(session),
         model_repository=DBModelRepository(session),
-        config=config,
+        build_emission=config.build_emission,
         interval_seconds=interval,
         merkle_service=merkle_service,
-        build_emission=config.build_emission,
+        crunch_pubkey=crunch_pubkey or config.crunch_pubkey,
+        compute_provider=compute_provider or config.compute_provider,
+        data_provider=data_provider or config.data_provider,
+        ranking_key=config.aggregation.ranking_key,
+        ranking_direction=config.aggregation.ranking_direction,
     )
 
 

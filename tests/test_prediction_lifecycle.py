@@ -12,7 +12,11 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import FRAC_64_MULTIPLIER, CrunchConfig
+from crunch_node.crunch_config import (
+    FRAC_64_MULTIPLIER,
+    CrunchConfig,
+    default_build_emission,
+)
 from crunch_node.entities.model import Model
 from crunch_node.entities.prediction import (
     CheckpointRecord,
@@ -311,7 +315,8 @@ class TestPredictionLifecycle(unittest.IsolatedAsyncioTestCase):
             snapshot_repository=self.snapshot_repo,
             checkpoint_repository=self.checkpoint_repo,
             model_repository=self.model_repo,
-            config=self.config,
+            build_emission=default_build_emission,
+            crunch_pubkey=self.config.crunch_pubkey,
         )
 
     @staticmethod
