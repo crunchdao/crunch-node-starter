@@ -6,7 +6,7 @@ import pytest
 _pack_node = str(Path(__file__).resolve().parent.parent / "packs" / "trading" / "node")
 
 if _pack_node not in sys.path:
-    sys.path.append(_pack_node)
+    sys.path.insert(0, _pack_node)
 
 
 @pytest.fixture(scope="session", autouse=True)
