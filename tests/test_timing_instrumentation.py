@@ -31,7 +31,6 @@ from crunch_node.services.realtime_predict import RealtimePredictService
 
 
 class TestTimingInstrumentation:
-
     def test_feed_record_timing_integration(self):
         feed_data = FeedDataRecord(
             source="test-source",
