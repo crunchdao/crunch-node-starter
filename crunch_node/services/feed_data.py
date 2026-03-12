@@ -235,7 +235,6 @@ class RepositorySink:
         domain.meta.setdefault("timing", {})["feed_normalized_us"] = feed_normalized_us
 
         self._repository.append_records([domain])
-        feed_persisted_us = time.time_ns() // 1000
 
         self._ingest_count += 1
         if self._ingest_count % 10 == 0:

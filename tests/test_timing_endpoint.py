@@ -5,19 +5,12 @@ The /timing-metrics endpoint uses aggregate_timing_from_predictions() which
 reads from DB. These tests mock the DB layer to avoid requiring postgres.
 """
 
-import os
 from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from crunch_node.entities.prediction import PredictionRecord, PredictionStatus
-
-pytestmark = pytest.mark.skipif(
-    os.getenv("CI") == "true",
-    reason="Tests need updates to match current timing implementation",
-)
 
 
 def _make_prediction_with_timing(pred_id, timing_data):
