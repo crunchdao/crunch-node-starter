@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class BaseClass:
+class BaseModelClass:
     """Base class for trading models.
 
     Subclass this and implement ``predict()`` to compete.

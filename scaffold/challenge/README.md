@@ -6,7 +6,7 @@ Primary package: `starter_challenge`
 
 ## Participant-facing files
 
-- `cruncher.py` — model interface (participants subclass `BaseClass`)
+- `cruncher.py` — model interface (participants subclass `BaseModelClass`)
 - `scoring.py` — scoring function for local self-eval
 - `backtest.py` — backtest harness (`BacktestClient`, `BacktestRunner`, `BacktestResult`)
 - `config.py` — baked-in coordinator URL and default feed dimensions

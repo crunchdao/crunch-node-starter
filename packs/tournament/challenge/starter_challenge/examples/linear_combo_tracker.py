@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
 
-class LinearComboTracker(BaseClass):
+class LinearComboTracker(BaseModelClass):
     """Simple equal-weight linear combination of all features."""
 
     def predict(self, features: dict[str, Any]) -> dict[str, Any]:

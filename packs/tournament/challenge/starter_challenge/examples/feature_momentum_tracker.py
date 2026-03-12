@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
 
-class FeatureMomentumTracker(BaseClass):
+class FeatureMomentumTracker(BaseModelClass):
     """Predicts based on average feature values."""
 
     def predict(self, features: dict[str, Any]) -> dict[str, Any]:

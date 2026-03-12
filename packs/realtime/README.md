@@ -113,12 +113,12 @@ writes snapshots and updates the leaderboard rankings.
 
 ## Getting started
 
-Subclass `BaseClass` and implement `_predict()`:
+Subclass `BaseModelClass` and implement `_predict()`:
 
 ```python
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
-class MyTracker(BaseClass):
+class MyTracker(BaseModelClass):
     def _predict(self, subject, resolve_horizon_seconds, step_seconds):
         prices = self._closes(self._get_data(subject))
         if len(prices) < 5:
@@ -149,7 +149,7 @@ class MyTracker(BaseClass):
 ```
 challenge/          # Participant-facing package
   {name}/
-    cruncher.py     # BaseClass — subclass this
+    cruncher.py     # BaseModelClass — subclass this
     scoring.py      # score = prediction × actual_return
     examples/       # 3 example models
   tests/            # Challenge tests

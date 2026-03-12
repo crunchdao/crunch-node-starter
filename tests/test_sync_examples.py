@@ -18,14 +18,14 @@ import sync_examples  # noqa: E402
 
 class TestRewriteImports(unittest.TestCase):
     def test_rewrites_package_cruncher_import(self):
-        source = "from starter_challenge.cruncher import BaseClass"
+        source = "from starter_challenge.cruncher import BaseModelClass"
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertEqual(result, "from cruncher import BaseClass")
+        self.assertEqual(result, "from cruncher import BaseModelClass")
 
     def test_rewrites_package_direct_import(self):
-        source = "from starter_challenge import BaseClass"
+        source = "from starter_challenge import BaseModelClass"
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertEqual(result, "from cruncher import BaseClass")
+        self.assertEqual(result, "from cruncher import BaseModelClass")
 
     def test_preserves_unrelated_imports(self):
         source = "from math import sqrt\nimport os"
@@ -36,20 +36,20 @@ class TestRewriteImports(unittest.TestCase):
         source = (
             "from __future__ import annotations\n"
             "\n"
-            "from starter_challenge.cruncher import BaseClass\n"
+            "from starter_challenge.cruncher import BaseModelClass\n"
             "\n"
-            "class MyModel(BaseClass):\n"
+            "class MyModel(BaseModelClass):\n"
             "    pass\n"
         )
         result = sync_examples.rewrite_imports(source, "starter_challenge")
-        self.assertIn("from cruncher import BaseClass", result)
+        self.assertIn("from cruncher import BaseModelClass", result)
         self.assertIn("from __future__ import annotations", result)
         self.assertNotIn("starter_challenge", result)
 
     def test_different_package_name(self):
-        source = "from my_trading_challenge.cruncher import BaseClass"
+        source = "from my_trading_challenge.cruncher import BaseModelClass"
         result = sync_examples.rewrite_imports(source, "my_trading_challenge")
-        self.assertEqual(result, "from cruncher import BaseClass")
+        self.assertEqual(result, "from cruncher import BaseModelClass")
 
 
 class TestSubmissionIdFromFilename(unittest.TestCase):
@@ -97,14 +97,14 @@ class TestCreateSubmission(unittest.TestCase):
                 pkg = challenge / "my_pkg"
                 pkg.mkdir(parents=True)
                 cruncher = pkg / "cruncher.py"
-                cruncher.write_text("class BaseClass:\n    pass\n")
+                cruncher.write_text("class BaseModelClass:\n    pass\n")
 
                 example = pkg / "examples"
                 example.mkdir()
                 model_file = example / "cool_model.py"
                 model_file.write_text(
-                    "from my_pkg.cruncher import BaseClass\n\n"
-                    "class CoolModel(BaseClass):\n"
+                    "from my_pkg.cruncher import BaseModelClass\n\n"
+                    "class CoolModel(BaseModelClass):\n"
                     "    def predict(self, subject, resolve_horizon_seconds, step_seconds):\n"
                     "        return {'value': 0.0}\n"
                 )
@@ -118,11 +118,11 @@ class TestCreateSubmission(unittest.TestCase):
                 self.assertTrue((sub_dir / "requirements.txt").exists())
 
                 main_content = (sub_dir / "main.py").read_text()
-                self.assertIn("from cruncher import BaseClass", main_content)
+                self.assertIn("from cruncher import BaseModelClass", main_content)
                 self.assertNotIn("my_pkg", main_content)
 
                 cruncher_content = (sub_dir / "cruncher.py").read_text()
-                self.assertIn("class BaseClass", cruncher_content)
+                self.assertIn("class BaseModelClass", cruncher_content)
             finally:
                 sync_examples.SUBMISSIONS_DIR = orig_submissions
 

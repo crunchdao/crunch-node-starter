@@ -49,8 +49,8 @@ def find_examples(examples_dir: Path) -> list[Path]:
 def rewrite_imports(source: str, package_name: str) -> str:
     """Rewrite challenge package imports to local imports.
 
-    ``from starter_challenge.cruncher import BaseClass``
-    → ``from cruncher import BaseClass``
+    ``from starter_challenge.cruncher import BaseModelClass``
+    → ``from cruncher import BaseModelClass``
     """
     # from <package>.cruncher import X → from cruncher import X
     source = re.sub(

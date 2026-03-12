@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
 
-class MeanReversionTracker(BaseClass):
+class MeanReversionTracker(BaseModelClass):
     """Predicts pullback after short-term overextension."""
 
     def _predict(

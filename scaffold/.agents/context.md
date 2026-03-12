@@ -144,7 +144,7 @@ lsof -nP -iTCP:<port> -sTCP:LISTEN
 ```
 
 ### BAD_IMPLEMENTATION in model logs
-Check `MODEL_BASE_CLASSNAME=cruncher.BaseClass` in `node/.local.env`.
+Check `MODEL_BASE_CLASSNAME=cruncher.BaseModelClass` in `node/.local.env`.
 
 ### Clean reset
 ```bash

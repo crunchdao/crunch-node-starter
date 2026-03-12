@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
 
-class ContrarianTracker(BaseClass):
+class ContrarianTracker(BaseModelClass):
     """Inverts the average feature signal — contrarian bet."""
 
     def predict(self, features: dict[str, Any]) -> dict[str, Any]:

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import pytest
-from starter_challenge.cruncher import BaseClass
+from starter_challenge.cruncher import BaseModelClass
 
 
-class DummyTracker(BaseClass):
+class DummyTracker(BaseModelClass):
     """Minimal implementation for testing."""
 
     def predict(
@@ -86,6 +86,6 @@ class TestFeedUpdateEdgeCases:
 
 class TestPredictBase:
     def test_not_implemented_on_base(self):
-        tracker = BaseClass()
+        tracker = BaseModelClass()
         with pytest.raises(NotImplementedError):
             tracker.predict("BTC", 60, 15)

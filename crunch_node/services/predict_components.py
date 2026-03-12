@@ -202,7 +202,7 @@ class PredictionKernel:
         model_runner_node_port: int = 9091,
         model_runner_timeout_seconds: float = 60,
         crunch_id: str = "starter-challenge",
-        base_classname: str = "cruncher.BaseClass",
+        base_classname: str = "cruncher.BaseModelClass",
         gateway_cert_dir: str | None = None,
         secure_cert_dir: str | None = None,
         logger: logging.Logger | None = None,
