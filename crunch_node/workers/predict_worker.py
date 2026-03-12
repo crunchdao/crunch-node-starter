@@ -63,13 +63,6 @@ def build_service() -> PredictService:
     config = load_config()
     session = create_session()
 
-    from crunch_node.metrics.timing import timing_collector
-
-    timing_collector.configure(
-        enabled=config.performance.timing_enabled,
-        buffer_size=config.performance.timing_buffer_size,
-    )
-
     return build_predict_service(session, config, runtime_settings)
 
 
@@ -113,13 +106,6 @@ async def main() -> None:
     runtime_settings = RuntimeSettings.from_env()
     config = load_config()
     session = create_session()
-
-    from crunch_node.metrics.timing import timing_collector
-
-    timing_collector.configure(
-        enabled=config.performance.timing_enabled,
-        buffer_size=config.performance.timing_buffer_size,
-    )
 
     predict_service = build_predict_service(session, config, runtime_settings)
     # init_runner() is called lazily by process_tick() when first prediction happens
