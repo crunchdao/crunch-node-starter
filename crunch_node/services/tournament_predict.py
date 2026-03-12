@@ -56,10 +56,6 @@ class TournamentPredictService(PredictService):
         scoring_function: Any | None = None,
         **kwargs: Any,
     ) -> None:
-        # Tournament doesn't use a feed_reader, but PredictService requires one.
-        # Pass None-safe — subclass methods never call feed_reader.
-        if "feed_reader" not in kwargs:
-            kwargs["feed_reader"] = None
         super().__init__(**kwargs)
         self.score_repository = score_repository
         self._scoring_function = scoring_function

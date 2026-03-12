@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -120,16 +119,10 @@ class TestResolveServiceClass(unittest.TestCase):
 
 
 class TestServiceInstantiation(unittest.TestCase):
-    def test_base_service_can_instantiate_without_feed_reader(self):
-        """Base service should allow non-feed modes to omit feed_reader."""
+    def test_base_service_can_instantiate(self):
+        """Base service instantiates without feed-related parameters."""
         service = PredictService(config=CrunchConfig(), runner=FakeRunner())
-        self.assertIsNone(service.feed_reader)
-
-    def test_get_data_without_feed_reader_raises_clear_error(self):
-        service = PredictService(config=CrunchConfig(), runner=FakeRunner())
-        with self.assertRaises(RuntimeError) as ctx:
-            service.get_data(datetime.now(UTC))
-        self.assertIn("feed_reader", str(ctx.exception))
+        self.assertFalse(hasattr(service, "feed_reader"))
 
     def test_custom_service_instantiated_with_kwargs(self):
         """Custom service class receives standard PredictService kwargs."""
@@ -137,7 +130,6 @@ class TestServiceInstantiation(unittest.TestCase):
         cls = _resolve_service_class(config)
 
         service = cls(
-            feed_reader=FakeFeedReader(),
             config=config,
             runner=FakeRunner(),
         )
@@ -147,18 +139,19 @@ class TestServiceInstantiation(unittest.TestCase):
         self.assertEqual(service.custom_option, "hello")
 
     def test_realtime_service_default_instantiation(self):
-        """Default path instantiates RealtimePredictService."""
+        """Default path instantiates RealtimePredictService with feed_reader."""
         config = CrunchConfig()
         cls = _resolve_service_class(config)
 
         service = cls(
-            checkpoint_interval_seconds=60,
             feed_reader=FakeFeedReader(),
+            checkpoint_interval_seconds=60,
             config=config,
             runner=FakeRunner(),
         )
 
         self.assertIsInstance(service, RealtimePredictService)
+        self.assertIsNotNone(service.feed_reader)
 
 
 # ── scaffold usage pattern ──
