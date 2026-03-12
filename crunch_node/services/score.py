@@ -24,6 +24,7 @@ from crunch_node.entities.prediction import (
     ScoreRecord,
     SnapshotRecord,
 )
+from crunch_node.id_prefixes import SCORE_PREFIX, SNAPSHOT_PREFIX
 from crunch_node.merkle.service import MerkleService
 from crunch_node.services.checkpoint import CheckpointService
 from crunch_node.services.feed_reader import FeedReader
@@ -401,7 +402,7 @@ class ScoreService:
             validated = self.config.score_type.model_validate(result_dict)
 
             score = ScoreRecord(
-                id=f"SCR_{prediction.id}",
+                id=f"{SCORE_PREFIX}{prediction.id}",
                 prediction_id=prediction.id,
                 result=validated.model_dump(),
                 success=True,
@@ -514,7 +515,7 @@ class ScoreService:
                 summary.update(metric_results)
 
             snapshot = SnapshotRecord(
-                id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
                 model_id=model_id,
                 period_start=min(
                     s.scored_at
@@ -644,7 +645,7 @@ class ScoreService:
                     )
                     validated = self.config.score_type.model_validate(result_dict)
                     score = ScoreRecord(
-                        id=f"SCR_{ep.id}",
+                        id=f"{SCORE_PREFIX}{ep.id}",
                         prediction_id=ep.id,
                         result=validated.model_dump(),
                         success=True,
@@ -697,7 +698,7 @@ class ScoreService:
                     summary.update(metric_results)
 
                 snapshot = SnapshotRecord(
-                    id=f"SNAP_{ens_model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                    id=f"{SNAPSHOT_PREFIX}{ens_model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
                     model_id=ens_model_id,
                     period_start=min(s.scored_at for s in ens_scored),
                     period_end=now,

@@ -29,6 +29,7 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
     ScoreRecord,
 )
+from crunch_node.id_prefixes import INPUT_PREFIX, SCORE_PREFIX
 from crunch_node.services.predict import PredictService
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ class TournamentPredictService(PredictService):
 
         # Save input record (features batch)
         inp = InputRecord(
-            id=f"INP_{round_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+            id=f"{INPUT_PREFIX}{round_id}_{now.strftime('%Y%m%d_%H%M%S')}",
             raw_data={"round_id": round_id, "features": validated_features},
             received_at=now,
         )
@@ -278,7 +279,7 @@ class TournamentPredictService(PredictService):
                     validated_result = self.config.score_type.model_validate(result)
 
                     score = ScoreRecord(
-                        id=f"SCR_{pred.id}",
+                        id=f"{SCORE_PREFIX}{pred.id}",
                         prediction_id=pred.id,
                         result=validated_result.model_dump(),
                         success=True,
@@ -287,7 +288,7 @@ class TournamentPredictService(PredictService):
                 except Exception as exc:
                     logger.error("Scoring failed for prediction %s: %s", pred.id, exc)
                     score = ScoreRecord(
-                        id=f"SCR_{pred.id}",
+                        id=f"{SCORE_PREFIX}{pred.id}",
                         prediction_id=pred.id,
                         result={
                             "value": 0.0,

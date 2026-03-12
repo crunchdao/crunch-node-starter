@@ -14,6 +14,7 @@ from crunch_node.entities.prediction import (
     PredictionRecord,
     PredictionStatus,
 )
+from crunch_node.id_prefixes import INPUT_PREFIX
 from crunch_node.schemas import ScheduleEnvelope
 from crunch_node.services.predict import PredictService
 
@@ -119,7 +120,7 @@ class RealtimePredictService(PredictService):
         # 1. get data → tick models
         if raw_input is not None:
             inp = InputRecord(
-                id=f"INP_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
+                id=f"{INPUT_PREFIX}{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
                 raw_data=raw_input,
                 received_at=now,
             )

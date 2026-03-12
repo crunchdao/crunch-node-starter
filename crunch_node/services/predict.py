@@ -19,6 +19,7 @@ from crunch_node.entities.prediction import (
     PredictionRecord,
     PredictionStatus,
 )
+from crunch_node.id_prefixes import INPUT_PREFIX
 from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.predict_components import (
     ModelConcurrentRunner,
@@ -108,7 +109,7 @@ class PredictService:
         feed_timing = raw.pop("_feed_timing", None)
 
         record = InputRecord(
-            id=f"INP_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
+            id=f"{INPUT_PREFIX}{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
             raw_data=raw,
             received_at=now,
         )

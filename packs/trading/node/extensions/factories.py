@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from crunch_node.entities.prediction import SnapshotRecord
+from crunch_node.id_prefixes import SNAPSHOT_PREFIX
 from extensions.config import TradingConfig
 from extensions.simulator import TradingEngine
 from extensions.sink import SimulatorSink
@@ -97,7 +98,7 @@ def build_score_snapshots(
 
             snapshots.append(
                 SnapshotRecord(
-                    id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                    id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
                     model_id=model_id,
                     period_start=now,
                     period_end=now,

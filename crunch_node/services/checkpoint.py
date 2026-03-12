@@ -13,6 +13,7 @@ from crunch_node.db.repositories import (
     DBSnapshotRepository,
 )
 from crunch_node.entities.prediction import CheckpointRecord, CheckpointStatus
+from crunch_node.id_prefixes import CHECKPOINT_PREFIX
 from crunch_node.merkle.service import MerkleService
 
 
@@ -110,7 +111,7 @@ class CheckpointService:
         )
 
         checkpoint = CheckpointRecord(
-            id=f"CKP_{now.strftime('%Y%m%d_%H%M%S')}",
+            id=f"{CHECKPOINT_PREFIX}{now.strftime('%Y%m%d_%H%M%S')}",
             period_start=period_start,
             period_end=now,
             status=CheckpointStatus.PENDING,
