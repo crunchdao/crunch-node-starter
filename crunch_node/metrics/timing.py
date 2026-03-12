@@ -7,15 +7,7 @@ from typing import Any
 
 
 def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
-    """
-    Aggregate timing metrics from prediction records stored in the database.
-
-    Extracts timing data from prediction.meta["timing"] and calculates
-    stage latencies similar to TimingCollector.get_metrics().
-
-    Args:
-        predictions: List of prediction records with timing in meta
-    """
+    """Aggregate timing metrics from prediction records stored in the database."""
     if not predictions:
         return {
             "enabled": True,
