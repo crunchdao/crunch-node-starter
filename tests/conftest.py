@@ -19,6 +19,6 @@ def _crunch_config_module():
     if "CRUNCH_CONFIG_MODULE" not in os.environ:
         os.environ["CRUNCH_CONFIG_MODULE"] = "crunch_node.crunch_config:CrunchConfig"
         yield
-        del os.environ["CRUNCH_CONFIG_MODULE"]
+        os.environ.pop("CRUNCH_CONFIG_MODULE", None)
     else:
         yield
