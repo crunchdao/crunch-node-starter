@@ -384,8 +384,7 @@ class TestGetLeaderboard(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["rank"], 1)
         self.assertEqual(result[0]["model_id"], "m1")
-        # _flatten_metrics prefixes keys with "score_"
-        self.assertIn("score_recent", result[0])
+        self.assertIn("score_metrics", result[0])
 
     def test_returns_empty_when_no_leaderboard(self):
         result = get_leaderboard(InMemoryLeaderboardRepository())
@@ -473,7 +472,7 @@ class TestGetModelsGlobal(unittest.TestCase):
         )
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["model_id"], "m1")
-        self.assertIn("score_recent", result[0])
+        self.assertIn("score_metrics", result[0])
         self.assertIn("performed_at", result[0])
 
     def test_defaults_to_all_models_when_no_ids(self):
