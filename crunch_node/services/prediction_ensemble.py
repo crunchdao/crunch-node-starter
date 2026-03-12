@@ -47,6 +47,19 @@ class PredictionEnsembleStrategy:
         self.score_repository = score_repository
         self.snapshot_repository = snapshot_repository
 
+    def rollback(self) -> None:
+        for name, repo in [
+            ("prediction", self.prediction_repository),
+            ("score", self.score_repository),
+            ("snapshot", self.snapshot_repository),
+        ]:
+            rollback = getattr(repo, "rollback", None)
+            if callable(rollback):
+                try:
+                    rollback()
+                except Exception as exc:
+                    logger.warning("Rollback failed for %s: %s", name, exc)
+
     def compute_ensembles(
         self, snapshots: list[SnapshotRecord], now: datetime
     ) -> list[SnapshotRecord]:

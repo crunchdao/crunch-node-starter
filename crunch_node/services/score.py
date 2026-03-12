@@ -5,6 +5,9 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
+from crunch_node.merkle.service import MerkleService
+from crunch_node.services.checkpoint import CheckpointService
+from crunch_node.services.leaderboard import LeaderboardService
 from crunch_node.services.scoring_strategy import EnsembleStrategy, ScoringStrategy
 
 
@@ -13,9 +16,9 @@ class ScoreService:
         self,
         scoring_strategy: ScoringStrategy,
         ensemble_strategy: EnsembleStrategy | None = None,
-        leaderboard_service=None,
-        merkle_service=None,
-        checkpoint_service=None,
+        leaderboard_service: LeaderboardService | None = None,
+        merkle_service: MerkleService | None = None,
+        checkpoint_service: CheckpointService | None = None,
         score_interval_seconds: int = 60,
     ):
         self.scoring_strategy = scoring_strategy
@@ -77,9 +80,13 @@ class ScoreService:
         self.stop_event.set()
 
     def _rollback(self) -> None:
-        rollback = getattr(self.scoring_strategy, "rollback", None)
-        if callable(rollback):
-            try:
-                rollback()
-            except Exception as exc:
-                self.logger.warning("Strategy rollback failed: %s", exc)
+        for name, service in [
+            ("scoring_strategy", self.scoring_strategy),
+            ("ensemble_strategy", self.ensemble_strategy),
+        ]:
+            rollback = getattr(service, "rollback", None)
+            if callable(rollback):
+                try:
+                    rollback()
+                except Exception as exc:
+                    self.logger.warning("%s rollback failed: %s", name, exc)
