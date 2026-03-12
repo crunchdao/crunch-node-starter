@@ -15,7 +15,6 @@ from __future__ import annotations
 import importlib
 import logging
 import os
-from typing import Any
 
 from crunch_node.crunch_config import CrunchConfig
 
