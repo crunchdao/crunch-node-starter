@@ -66,6 +66,7 @@ def build_service() -> CheckpointService:
         config=config,
         interval_seconds=interval,
         merkle_service=merkle_service,
+        build_emission=config.build_emission,
     )
 
 

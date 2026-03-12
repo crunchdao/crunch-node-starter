@@ -64,6 +64,7 @@ def build_service() -> ScoreService:
         config=config,
         interval_seconds=runtime_settings.checkpoint_interval_seconds,
         merkle_service=merkle_service,
+        build_emission=config.build_emission,
     )
 
     build_snapshots_fn = None

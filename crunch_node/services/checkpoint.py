@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import CrunchConfig
+from crunch_node.crunch_config import BuildEmission, CrunchConfig
 from crunch_node.db.repositories import (
     DBCheckpointRepository,
     DBModelRepository,
@@ -31,6 +32,7 @@ class CheckpointService:
         config: CrunchConfig | None = None,
         interval_seconds: int = 7 * 24 * 3600,  # weekly
         merkle_service: MerkleService | None = None,
+        build_emission: BuildEmission | None = None,
     ):
         self.snapshot_repository = snapshot_repository
         self.checkpoint_repository = checkpoint_repository
@@ -38,6 +40,7 @@ class CheckpointService:
         self.config = config or CrunchConfig()
         self.interval_seconds = interval_seconds
         self.merkle_service = merkle_service
+        self._build_emission = build_emission or self.config.build_emission
         self.logger = logging.getLogger(__name__)
 
     def create_checkpoint(self) -> CheckpointRecord | None:
@@ -101,8 +104,7 @@ class CheckpointService:
         for idx, entry in enumerate(ranked_entries, start=1):
             entry["rank"] = idx
 
-        # Build emission checkpoint → protocol format for on-chain submission
-        emission = self.config.build_emission(
+        emission = self._build_emission(
             ranked_entries,
             crunch_pubkey=self.config.crunch_pubkey,
             compute_provider=self.config.compute_provider,
