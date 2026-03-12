@@ -127,65 +127,6 @@ class PredictionScorer:
             self.config.score_type.__name__,
         )
 
-    @staticmethod
-    def detect_scoring_stub(
-        scoring_function: ScoringFunction | Callable,
-    ) -> tuple[bool, str]:
-        """Probe the scoring function with varied inputs to detect stubs.
-
-        Returns (is_stub, reason). A function that returns identical scores
-        for significantly different inputs is likely a placeholder.
-        Uses raw dicts for probing since concrete types aren't known here.
-        """
-        test_cases = [
-            (
-                {"value": 1.0},
-                {
-                    "entry_price": 40000,
-                    "resolved_price": 40100,
-                    "profit": 0.0025,
-                    "direction_up": True,
-                },
-            ),
-            (
-                {"value": -1.0},
-                {
-                    "entry_price": 40000,
-                    "resolved_price": 39900,
-                    "profit": -0.0025,
-                    "direction_up": False,
-                },
-            ),
-            (
-                {"value": 0.5},
-                {
-                    "entry_price": 40000,
-                    "resolved_price": 40500,
-                    "profit": 0.0125,
-                    "direction_up": True,
-                },
-            ),
-        ]
-
-        results = []
-        for pred, gt in test_cases:
-            try:
-                result = scoring_function(pred, gt)
-                if isinstance(result, BaseModel):
-                    results.append(getattr(result, "value", 0.0))
-                else:
-                    results.append(result.get("value", 0.0))
-            except Exception:
-                return False, "scoring function raised an exception during probe"
-
-        if len(set(results)) <= 1:
-            return True, (
-                f"Scoring function returns identical value ({results[0]}) for all "
-                f"test inputs. This looks like a stub — implement real scoring logic."
-            )
-
-        return False, "ok"
-
     def _coerce_output(self, raw: dict[str, Any]) -> BaseModel:
         """Parse a raw inference_output dict into a typed ``output_type`` instance."""
         try:

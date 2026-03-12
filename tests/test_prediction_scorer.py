@@ -345,23 +345,5 @@ class TestRollback(unittest.TestCase):
         ok_repo.rollback.assert_called_once()
 
 
-class TestDetectScoringStub(unittest.TestCase):
-    def test_detects_constant_scorer(self):
-        def stub(pred, gt):
-            return {"value": 1.0}
-
-        is_stub, reason = PredictionScorer.detect_scoring_stub(stub)
-        self.assertTrue(is_stub)
-        self.assertIn("identical value", reason)
-
-    def test_passes_real_scorer(self):
-        def real(pred, gt):
-            return {"value": pred.get("value", 0) * 2}
-
-        is_stub, reason = PredictionScorer.detect_scoring_stub(real)
-        self.assertFalse(is_stub)
-        self.assertEqual(reason, "ok")
-
-
 if __name__ == "__main__":
     unittest.main()
