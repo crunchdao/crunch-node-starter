@@ -112,12 +112,7 @@ class PredictService:
         timing_data: dict[str, Any] | None = None,
     ) -> PredictionRecord:
         """Construct a PredictionRecord from model runner output."""
-        factory = getattr(self, "_record_factory", None)
-        if factory is None:
-            factory = PredictionRecordFactory()
-            self._record_factory = factory
-
-        return factory.build(
+        return self._record_factory.build(
             model_id=model_id,
             input_id=input_id,
             scope_key=scope_key,
@@ -143,12 +138,7 @@ class PredictService:
 
         # Ensure all referenced models exist in database before saving predictions
         # to prevent foreign key violations on predictions.model_id → models.id
-        registry = getattr(self, "_model_registry", None)
-        if registry is not None and registry._dirty_model_ids:
-            self.logger.debug(
-                f"Flushing {len(registry._dirty_model_ids)} dirty models before prediction save"
-            )
-            registry.flush_non_critical()
+        self._model_registry.flush_non_critical()
 
         # Critical path: save predictions with guaranteed FK integrity
         self.prediction_repository.save_all(predictions)
@@ -187,18 +177,7 @@ class PredictService:
     # ── model management ──
 
     def register_model(self, model: Model) -> None:
-        registry = getattr(self, "_model_registry", None)
-        if registry is None:
-            known = getattr(self, "_known_models", {})
-            self._known_models = known
-            registry = ModelRegistry(
-                known_models=known,
-                model_repository=getattr(self, "model_repository", None),
-                logger=getattr(self, "logger", None),
-            )
-            self._model_registry = registry
-
-        registry.register(model)
+        self._model_registry.register(model)
 
     def validate_output(self, output: dict[str, Any]) -> str | None:
         """Validate model output against InferenceOutput schema.
@@ -207,15 +186,7 @@ class PredictService:
         Catches both type mismatches AND outputs where no keys match
         the schema (model returning the wrong format entirely).
         """
-        validator = getattr(self, "_output_validator", None)
-        if validator is None:
-            validator = OutputValidator(
-                output_type=self.config.output_type,
-                logger=getattr(self, "logger", None),
-            )
-            self._output_validator = validator
-
-        return validator.validate_and_normalize(output)
+        return self._output_validator.validate_and_normalize(output)
 
     def _map_runner_result(
         self, result: Any
