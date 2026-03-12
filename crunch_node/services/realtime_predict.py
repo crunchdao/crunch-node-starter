@@ -15,6 +15,7 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
 )
 from crunch_node.schemas import ScheduleEnvelope
+from crunch_node.services.feed_reader import FeedReader
 from crunch_node.services.predict import PredictService
 
 
@@ -55,6 +56,7 @@ class RealtimeServiceConfig(BaseModel):
 class RealtimePredictService(PredictService):
     def __init__(
         self,
+        feed_reader: FeedReader | None = None,
         checkpoint_interval_seconds: int = 60 * 60,
         pre_feed_update_hook: (Callable[[InputRecord, Any], InputRecord] | None) = None,
         post_predict_hook: (
@@ -67,6 +69,7 @@ class RealtimePredictService(PredictService):
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+        self.feed_reader = feed_reader
         self.checkpoint_interval_seconds = checkpoint_interval_seconds
         self.pre_feed_update_hook = pre_feed_update_hook
         self.post_predict_hook = post_predict_hook
@@ -105,6 +108,42 @@ class RealtimePredictService(PredictService):
                     f"Set resolve_horizon_seconds >= {feed_poll_seconds} "
                     f"or use 0 for immediate resolution (live trading)."
                 )
+
+    def get_data(self, now: datetime) -> InputRecord:
+        """Fetch input from feed reader, save to DB."""
+        if self.feed_reader is None:
+            raise RuntimeError(
+                "RealtimePredictService.get_data requires a feed_reader; "
+                "pass raw_input to process_tick instead"
+            )
+
+        raw = self.feed_reader.get_input(now)
+        feed_timing = raw.pop("_feed_timing", None)
+
+        record = InputRecord(
+            id=f"INP_{now.strftime('%Y%m%d_%H%M%S.%f')[:-3]}",
+            raw_data=raw,
+            received_at=now,
+        )
+
+        if feed_timing:
+            record._timing.update(feed_timing)
+
+        if self.input_repository is not None:
+            self.input_repository.save(record)
+
+        return record
+
+    async def _feed_update_models(self, inference_input: dict[str, Any]) -> None:
+        """Send latest data to all models."""
+        responses = await self._kernel.call(
+            "feed_update", self._kernel.encode_feed_update(inference_input)
+        )
+        for model_run, _ in responses.items():
+            self.register_model(self._to_model(model_run))
+
+    def _encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
+        return self._kernel.encode_feed_update(inference_input)
 
     async def process_tick(
         self,

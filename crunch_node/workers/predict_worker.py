@@ -78,7 +78,6 @@ def build_predict_service(session, config, runtime_settings) -> PredictService:
     logger.info("Using predict service: %s", service_class.__name__)
 
     kwargs = dict(
-        feed_reader=FeedReader.from_env(),
         config=config,
         input_repository=DBInputRepository(session),
         model_repository=DBModelRepository(session),
@@ -93,6 +92,7 @@ def build_predict_service(session, config, runtime_settings) -> PredictService:
     )
 
     if issubclass(service_class, RealtimePredictService):
+        kwargs["feed_reader"] = FeedReader.from_env()
         kwargs["checkpoint_interval_seconds"] = (
             runtime_settings.checkpoint_interval_seconds
         )
