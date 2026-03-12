@@ -12,8 +12,6 @@ from crunch_node.entities.feed_record import FeedIngestionState, FeedRecord
 class FeedRecordRepository(Protocol):
     """Shared interface for DBFeedRecordRepository and ParquetBackfillSink."""
 
-    def append_records(
-        self, records: Iterable[FeedRecord], **kwargs
-    ) -> int | tuple: ...
+    def append_records(self, records: Iterable[FeedRecord]) -> int: ...
 
     def set_watermark(self, state: FeedIngestionState) -> None: ...
