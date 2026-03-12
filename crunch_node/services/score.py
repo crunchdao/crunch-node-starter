@@ -1,4 +1,5 @@
 """Score service: thin orchestrator for the scoring pipeline."""
+
 from __future__ import annotations
 
 import asyncio
@@ -39,7 +40,9 @@ class ScoreService:
             return False
 
         if self.ensemble_strategy:
-            ensemble_snapshots = self.ensemble_strategy.compute_ensembles(snapshots, now)
+            ensemble_snapshots = self.ensemble_strategy.compute_ensembles(
+                snapshots, now
+            )
             snapshots += ensemble_snapshots
 
         if self.merkle_service and snapshots:

@@ -460,7 +460,9 @@ class TestValidateScoringIO(unittest.TestCase):
             config=config,
         )
 
-        with self.assertLogs("crunch_node.services.prediction_scorer", level="WARNING") as log:
+        with self.assertLogs(
+            "crunch_node.services.prediction_scorer", level="WARNING"
+        ) as log:
             scorer.validate_scoring_io()
         self.assertTrue(any("ZeroDivisionError" in msg for msg in log.output))
 

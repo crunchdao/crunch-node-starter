@@ -1,4 +1,5 @@
 """Tests for ScoreService orchestrator."""
+
 from __future__ import annotations
 
 import unittest

@@ -14,6 +14,7 @@ from typing import Any
 
 from crunch_node.crunch_config import (
     FRAC_64_MULTIPLIER,
+    Aggregation,
     CrunchConfig,
     default_build_emission,
 )
@@ -26,7 +27,6 @@ from crunch_node.entities.prediction import (
     PredictionStatus,
     ScoreRecord,
 )
-from crunch_node.crunch_config import Aggregation
 from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
 from crunch_node.services.leaderboard import LeaderboardService
 from crunch_node.services.prediction_scorer import PredictionScorer

@@ -163,11 +163,12 @@ def _make_feed_records(
     ]
 
 
-DEFAULT_SCORER = lambda pred, act: {
-    "value": 0.5,
-    "success": True,
-    "failed_reason": None,
-}
+def DEFAULT_SCORER(pred, act):
+    return {
+        "value": 0.5,
+        "success": True,
+        "failed_reason": None,
+    }
 
 
 def _build_scorer(

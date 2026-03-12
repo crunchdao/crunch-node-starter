@@ -69,7 +69,7 @@ class TestLeaderboardService(unittest.TestCase):
         aggregation: Aggregation | None = None,
     ) -> tuple[LeaderboardService, MemLeaderboardRepository]:
         snap_repo = MemSnapshotRepository()
-        for s in (snapshots or []):
+        for s in snapshots or []:
             snap_repo.save(s)
         model_repo = MemModelRepository(models or {})
         lb_repo = MemLeaderboardRepository()
@@ -92,9 +92,7 @@ class TestLeaderboardService(unittest.TestCase):
         snap = _make_snapshot("m1", now, {"value": 5.0})
         model = _make_model("m1", name="alpha", player="alice")
 
-        svc, lb_repo = self._build_service(
-            snapshots=[snap], models={"m1": model}
-        )
+        svc, lb_repo = self._build_service(snapshots=[snap], models={"m1": model})
         svc.rebuild()
 
         entries = lb_repo.latest["entries"]
@@ -223,7 +221,9 @@ class TestLeaderboardService(unittest.TestCase):
     def test_meta_contains_generated_by(self) -> None:
         svc, lb_repo = self._build_service()
         svc.rebuild()
-        assert lb_repo.latest["meta"]["generated_by"] == "crunch_node.leaderboard_service"
+        assert (
+            lb_repo.latest["meta"]["generated_by"] == "crunch_node.leaderboard_service"
+        )
 
 
 if __name__ == "__main__":

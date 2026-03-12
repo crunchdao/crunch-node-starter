@@ -18,7 +18,6 @@ from crunch_node.entities.prediction import (
 from crunch_node.services.prediction_ensemble import PredictionEnsembleStrategy
 from crunch_node.services.prediction_scorer import PredictionScorer
 
-
 NOW = datetime(2026, 3, 12, 12, 0, 0, tzinfo=UTC)
 
 

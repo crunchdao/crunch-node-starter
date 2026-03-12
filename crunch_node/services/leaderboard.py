@@ -53,9 +53,7 @@ class LeaderboardService:
             for window_name, window in self.aggregation.windows.items():
                 cutoff = now - timedelta(hours=window.hours)
                 window_snaps = [
-                    s
-                    for s in model_snapshots
-                    if _ensure_utc(s.period_end) >= cutoff
+                    s for s in model_snapshots if _ensure_utc(s.period_end) >= cutoff
                 ]
                 if window_snaps:
                     vals = [
@@ -66,9 +64,7 @@ class LeaderboardService:
                 else:
                     metrics[window_name] = 0.0
 
-            latest_snap = max(
-                model_snapshots, key=lambda s: _ensure_utc(s.period_end)
-            )
+            latest_snap = max(model_snapshots, key=lambda s: _ensure_utc(s.period_end))
             for key, value in latest_snap.result_summary.items():
                 if key not in metrics:
                     try:

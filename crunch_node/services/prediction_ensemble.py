@@ -107,9 +107,7 @@ class PredictionEnsembleStrategy:
             )
 
             if not filtered_preds:
-                logger.info(
-                    "Ensemble %r: no models after filtering", ens_config.name
-                )
+                logger.info("Ensemble %r: no models after filtering", ens_config.name)
                 continue
 
             strategy = ens_config.strategy
@@ -139,9 +137,7 @@ class PredictionEnsembleStrategy:
                     typed_gt = self.scorer._coerce_ground_truth(actuals_dict)
                     result = self.scorer.scoring_function(typed_output, typed_gt)
                     result_dict = (
-                        result.model_dump()
-                        if isinstance(result, BaseModel)
-                        else result
+                        result.model_dump() if isinstance(result, BaseModel) else result
                     )
                     validated = self.config.score_type.model_validate(result_dict)
                     score = ScoreRecord(
@@ -215,4 +211,3 @@ class PredictionEnsembleStrategy:
             )
 
         return written_snapshots
-

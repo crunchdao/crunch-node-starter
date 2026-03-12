@@ -1,4 +1,5 @@
 """Protocols for pluggable scoring and ensemble strategies."""
+
 from __future__ import annotations
 
 from datetime import datetime
