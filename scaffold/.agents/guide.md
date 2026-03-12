@@ -26,7 +26,7 @@ make test
 ```
 
 Three test files track your progress:
-- `test_tracker.py` — BaseModelClass behavior (passes out of the box)
+- `test_tracker.py` — ModelBaseClass behavior (passes out of the box)
 - `test_examples.py` — example models match `InferenceOutput` contract (breaks when you change types without updating examples)
 - `test_scoring.py` — has `xfail(strict=True)` markers that detect the 0.0 stub. **Remove xfail markers after implementing real scoring** — strict xfail that unexpectedly passes = test failure.
 
@@ -81,9 +81,9 @@ Optional:
 
 The tracker defines the participant interface. What `predict()` returns IS the competition.
 
-### BaseModelClass API
+### ModelBaseClass API
 
-Models extend `BaseModelClass`. Key methods:
+Models extend `ModelBaseClass`. Key methods:
 
 | Method | Purpose |
 |---|---|

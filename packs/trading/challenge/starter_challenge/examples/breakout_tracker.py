@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.cruncher import BaseModelClass
+from starter_challenge.cruncher import ModelBaseClass
 
 
-class BreakoutTracker(BaseModelClass):
+class BreakoutTracker(ModelBaseClass):
     """Detects when price breaks above/below recent range and trades accordingly."""
 
     def predict(

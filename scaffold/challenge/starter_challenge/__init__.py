@@ -1,4 +1,4 @@
 from .backtest import BacktestClient, BacktestResult, BacktestRunner
-from .cruncher import BaseModelClass
+from .cruncher import ModelBaseClass
 
-__all__ = ["BaseModelClass", "BacktestClient", "BacktestRunner", "BacktestResult"]
+__all__ = ["ModelBaseClass", "BacktestClient", "BacktestRunner", "BacktestResult"]

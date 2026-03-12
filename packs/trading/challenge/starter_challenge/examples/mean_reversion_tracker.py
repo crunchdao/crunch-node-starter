@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from starter_challenge.cruncher import BaseModelClass
+from starter_challenge.cruncher import ModelBaseClass
 
 
-class MeanReversionTracker(BaseModelClass):
+class MeanReversionTracker(ModelBaseClass):
     """Buys when price dips below average, sells when it rises above."""
 
     def predict(

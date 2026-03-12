@@ -10,10 +10,10 @@ Three example models that demonstrate the `feed_update()` + `predict()` interfac
 
 ## Interface
 
-All models subclass `BaseModelClass` and implement two methods:
+All models subclass `ModelBaseClass` and implement two methods:
 
 ```python
-class MyTracker(BaseModelClass):
+class MyTracker(ModelBaseClass):
     def feed_update(self, data: dict) -> None:
         """Receive market data. Store state for predict()."""
         super().feed_update(data)  # stores per-subject

@@ -6,7 +6,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class BaseModelClass:
+class ModelBaseClass:
     """Base class for participant models.
 
     Subclass this and implement ``_predict()`` (or override ``predict()``)

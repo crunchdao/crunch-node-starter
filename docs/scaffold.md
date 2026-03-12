@@ -85,7 +85,7 @@ Either set `scoring_function` directly on the config (supports stateful scoring)
 
 ### Step 4: Build Challenge
 In `challenge/starter_challenge/`:
-- Define `BaseModelClass` subclass interface in `cruncher.py`
+- Define `ModelBaseClass` subclass interface in `cruncher.py`
 - Implement local self-eval scoring in `scoring.py`
 - Build quickstarter examples in `examples/`
 - Set up backtest harness in `backtest.py`

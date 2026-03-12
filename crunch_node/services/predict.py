@@ -49,7 +49,7 @@ class PredictService:
         model_runner_node_port: int = 9091,
         model_runner_timeout_seconds: float = 60,
         crunch_id: str = "starter-challenge",
-        base_classname: str = "cruncher.BaseModelClass",
+        base_classname: str = "cruncher.ModelBaseClass",
         gateway_cert_dir: str | None = None,
         secure_cert_dir: str | None = None,
         **kwargs,
