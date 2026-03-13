@@ -3,53 +3,24 @@
 from __future__ import annotations
 
 import pytest
-from starter_challenge.examples.contrarian_tracker import ContrarianTracker
-from starter_challenge.examples.feature_momentum_tracker import FeatureMomentumTracker
-from starter_challenge.examples.linear_combo_tracker import LinearComboTracker
+
+from starter_challenge.examples.median_price_tracker import MedianPriceTracker
+from starter_challenge.examples.price_per_sqft_tracker import PricePerSqftTracker
 
 
-def _make_feature_data(subject: str, features: dict[str, float]) -> dict:
-    return {
-        "symbol": subject,
-        "asof_ts": 1700000000,
-        "round_id": 1,
-        "features": features,
-    }
+SAMPLE_FEATURES = {
+    "living_area_sqft": 2000.0,
+    "bedrooms": 3.0,
+    "bathrooms": 2.0,
+    "latitude": 33.75,
+    "longitude": -84.39,
+}
+
+EMPTY_FEATURES: dict[str, float] = {}
 
 
-def _make_candle_data(subject: str, closes: list[float]) -> dict:
-    return {
-        "symbol": subject,
-        "asof_ts": 1700000000 + len(closes) * 60,
-        "round_id": 1,
-        "features": {},
-        "candles_1m": [
-            {
-                "ts": 1700000000 + i * 60,
-                "open": c,
-                "high": c + 5,
-                "low": c - 5,
-                "close": c,
-                "volume": 100,
-            }
-            for i, c in enumerate(closes)
-        ],
-    }
-
-
-SAMPLE_FEATURES = {"momentum": 0.02, "volatility": -0.01, "trend": 0.015}
-EMPTY_FEATURES = {}
-
-
-@pytest.fixture(
-    params=[
-        FeatureMomentumTracker,
-        LinearComboTracker,
-        ContrarianTracker,
-    ]
-)
+@pytest.fixture(params=[PricePerSqftTracker, MedianPriceTracker])
 def tracker(request):
-    """Parametrize over all example trackers."""
     return request.param()
 
 
@@ -57,43 +28,39 @@ class TestExampleContract:
     """Every example must satisfy the tournament prediction contract."""
 
     def test_returns_dict_with_prediction(self, tracker):
-        tracker.feed_update(_make_feature_data("BTC", SAMPLE_FEATURES))
-        result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
+        result = tracker.predict(SAMPLE_FEATURES)
         assert isinstance(result, dict)
         assert "prediction" in result
         assert isinstance(result["prediction"], (int, float))
 
-    def test_empty_features_returns_zero(self, tracker):
-        tracker.feed_update(_make_feature_data("BTC", EMPTY_FEATURES))
-        result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
+    def test_prediction_is_positive(self, tracker):
+        result = tracker.predict(SAMPLE_FEATURES)
+        assert result["prediction"] >= 0
+
+    def test_empty_features(self, tracker):
+        result = tracker.predict(EMPTY_FEATURES)
+        assert isinstance(result, dict)
+        assert "prediction" in result
+
+
+class TestPricePerSqft:
+
+    def test_scales_with_area(self):
+        tracker = PricePerSqftTracker()
+        small = tracker.predict({"living_area_sqft": 1000.0})
+        large = tracker.predict({"living_area_sqft": 3000.0})
+        assert large["prediction"] > small["prediction"]
+
+    def test_zero_sqft_returns_zero(self):
+        tracker = PricePerSqftTracker()
+        result = tracker.predict({"living_area_sqft": 0.0})
         assert result["prediction"] == 0.0
 
-    def test_no_data_returns_zero(self, tracker):
-        result = tracker.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
-        assert result["prediction"] == 0.0
 
+class TestMedianPrice:
 
-class TestMultiSubjectIsolation:
-    """feed_update() data must be isolated per subject."""
-
-    def test_different_subjects_isolated(self, tracker):
-        tracker.feed_update(
-            _make_feature_data("BTC", {"momentum": 0.05, "trend": 0.03})
-        )
-        tracker.feed_update(
-            _make_feature_data("ETH", {"momentum": -0.05, "trend": -0.03})
-        )
-
-        btc_pred = tracker.predict("BTC", 3600, 300)
-        eth_pred = tracker.predict("ETH", 3600, 300)
-
-        # LinearComboTracker and ContrarianTracker will produce different
-        # results for opposite feature signs
-        assert btc_pred["prediction"] != eth_pred["prediction"], (
-            f"BTC and ETH predictions should differ but both are {btc_pred['prediction']}"
-        )
-
-    def test_unknown_subject_returns_zero(self, tracker):
-        tracker.feed_update(_make_feature_data("BTC", SAMPLE_FEATURES))
-        result = tracker.predict("SOL", 3600, 300)
-        assert result["prediction"] == 0.0
+    def test_always_returns_same_value(self):
+        tracker = MedianPriceTracker()
+        a = tracker.predict(SAMPLE_FEATURES)
+        b = tracker.predict(EMPTY_FEATURES)
+        assert a["prediction"] == b["prediction"]

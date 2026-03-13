@@ -1,0 +1,12 @@
+[
+  {"living_area_sqft": 1200.0, "bedrooms": 2.0, "bathrooms": 1.0, "latitude": 33.75, "longitude": -84.39, "price": 210000.0},
+  {"living_area_sqft": 1850.0, "bedrooms": 3.0, "bathrooms": 2.0, "latitude": 34.05, "longitude": -118.24, "price": 525000.0},
+  {"living_area_sqft": 2400.0, "bedrooms": 4.0, "bathrooms": 2.5, "latitude": 40.71, "longitude": -74.01, "price": 680000.0},
+  {"living_area_sqft": 950.0, "bedrooms": 1.0, "bathrooms": 1.0, "latitude": 41.88, "longitude": -87.63, "price": 185000.0},
+  {"living_area_sqft": 3200.0, "bedrooms": 5.0, "bathrooms": 3.0, "latitude": 29.76, "longitude": -95.37, "price": 450000.0},
+  {"living_area_sqft": 1600.0, "bedrooms": 3.0, "bathrooms": 1.5, "latitude": 47.61, "longitude": -122.33, "price": 420000.0},
+  {"living_area_sqft": 2100.0, "bedrooms": 3.0, "bathrooms": 2.0, "latitude": 25.76, "longitude": -80.19, "price": 390000.0},
+  {"living_area_sqft": 1400.0, "bedrooms": 2.0, "bathrooms": 1.0, "latitude": 39.95, "longitude": -75.17, "price": 275000.0},
+  {"living_area_sqft": 2800.0, "bedrooms": 4.0, "bathrooms": 3.0, "latitude": 37.77, "longitude": -122.42, "price": 950000.0},
+  {"living_area_sqft": 1750.0, "bedrooms": 3.0, "bathrooms": 2.0, "latitude": 35.23, "longitude": -80.84, "price": 320000.0}
+]

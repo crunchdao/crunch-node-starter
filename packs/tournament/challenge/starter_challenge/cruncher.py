@@ -6,8 +6,7 @@ where ``features`` is one sample's data decoded from JSON.
 
 The ``predict()`` return value must match ``InferenceOutput``::
 
-    {"prediction": 0.42}   # higher = more bullish
-    {"prediction": -0.15}  # lower = more bearish
+    {"prediction": 350000.0}  # predicted price in dollars
 """
 
 from __future__ import annotations

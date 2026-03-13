@@ -1,21 +1,19 @@
 # Example Tournament Trackers
 
-These example models demonstrate different prediction strategies.
-Each returns `{"prediction": float}`.
+These example models demonstrate different prediction strategies for house price prediction.
+Each returns `{"prediction": float}` where the value is a predicted price in dollars.
 
-| Tracker | Strategy | When it works |
-|---------|----------|---------------|
-| `FeatureMomentumTracker` | Uses features or price momentum | When features carry signal |
-| `LinearComboTracker` | Equal-weight average of all features | Strong baseline |
-| `ContrarianTracker` | Inverts the feature signal | Mean-reverting targets |
+| Tracker | Strategy |
+|---------|----------|
+| `PricePerSqftTracker` | Multiplies living area by a fixed $/sqft constant |
+| `MedianPriceTracker` | Always returns a fixed median price (null-model baseline) |
 
 ## Usage
 
 ```python
-from starter_challenge.examples import LinearComboTracker
+from starter_challenge.examples import PricePerSqftTracker
 
-model = LinearComboTracker()
-model.feed_update(feature_data)
-pred = model.predict("BTC", resolve_horizon_seconds=3600, step_seconds=300)
-# {"prediction": 0.00234}
+model = PricePerSqftTracker()
+pred = model.predict({"living_area_sqft": 2000.0, "bedrooms": 3.0})
+# {"prediction": 350000.0}
 ```
