@@ -19,7 +19,6 @@ from extensions.factories import (
     build_score_snapshots,
     build_trading_widgets,
 )
-
 from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
