@@ -13,5 +13,5 @@ from typing import Any
 
 def score_prediction(
     prediction: dict[str, Any], ground_truth: dict[str, Any]
-) -> dict[str, float | bool | None]:
+) -> dict[str, float | bool | str | None]:
     return {"value": 0.0, "success": True, "failed_reason": None}
