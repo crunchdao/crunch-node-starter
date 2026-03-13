@@ -1,0 +1,209 @@
+name: Benchmarks
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      model:
+        description: Claude model to use
+        type: choice
+        options:
+          - haiku
+          - sonnet
+          - opus
+        default: sonnet
+      benchmarks:
+        description: Which benchmarks to run
+        type: choice
+        options:
+          - all
+          - standard
+          - tournament
+          - trading
+        default: all
+
+env:
+  AGENT_CMD: claude
+  BENCHMARK_EVIDENCE: fast
+  BENCHMARK_TIMEOUT: '900'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Determine model
+        id: config
+        run: |
+          MODEL="${{ inputs.model || 'sonnet' }}"
+          echo "model=${MODEL}" >> "$GITHUB_OUTPUT"
+          echo "benchmarks=${{ inputs.benchmarks || 'all' }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download last benchmarked SHA
+        if: github.event_name == 'schedule'
+        id: last_sha
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: last-benchmarked-sha
+          workflow: benchmark.yml
+          if_no_artifact_found: warn
+
+      - name: Compare SHAs
+        if: github.event_name == 'schedule'
+        id: sha_check
+        run: |
+          CURRENT_SHA="${{ github.sha }}"
+          if [ -f last-benchmarked-sha.txt ]; then
+            LAST_SHA=$(cat last-benchmarked-sha.txt)
+            if [ "$CURRENT_SHA" = "$LAST_SHA" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "No new commits since last benchmark (${CURRENT_SHA})"
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Install uv
+        if: steps.sha_check.outputs.skip != 'true'
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python and dependencies
+        if: steps.sha_check.outputs.skip != 'true'
+        run: |
+          uv python install
+          uv sync --all-extras
+
+      - name: Install Claude Code
+        if: steps.sha_check.outputs.skip != 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run standard benchmark
+        id: bench_standard
+        if: >-
+          steps.sha_check.outputs.skip != 'true' &&
+          (steps.config.outputs.benchmarks == 'all' || steps.config.outputs.benchmarks == 'standard')
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          uv run python -m tests.benchmark.run_benchmark
+          --agent-cmd "claude --model ${{ steps.config.outputs.model }}"
+          --timeout ${{ env.BENCHMARK_TIMEOUT }}
+          --evidence ${{ env.BENCHMARK_EVIDENCE }}
+
+      - name: Run tournament benchmark
+        id: bench_tournament
+        if: >-
+          steps.sha_check.outputs.skip != 'true' &&
+          (steps.config.outputs.benchmarks == 'all' || steps.config.outputs.benchmarks == 'tournament')
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          uv run python -m tests.benchmark_tournament.run_benchmark
+          --agent-cmd "claude --model ${{ steps.config.outputs.model }}"
+          --timeout ${{ env.BENCHMARK_TIMEOUT }}
+
+      - name: Run trading benchmark
+        id: bench_trading
+        if: >-
+          steps.sha_check.outputs.skip != 'true' &&
+          (steps.config.outputs.benchmarks == 'all' || steps.config.outputs.benchmarks == 'trading')
+        continue-on-error: true
+        timeout-minutes: 25
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          uv run python -m tests.benchmark_trading.run_benchmark
+          --agent-cmd "claude --model ${{ steps.config.outputs.model }}"
+          --timeout ${{ env.BENCHMARK_TIMEOUT }}
+
+      - name: Save current SHA
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
+        run: echo "${{ github.sha }}" > last-benchmarked-sha.txt
+
+      - name: Upload benchmarked SHA
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
+        uses: actions/upload-artifact@v4
+        with:
+          name: last-benchmarked-sha
+          path: last-benchmarked-sha.txt
+          overwrite: true
+
+      - name: Upload benchmark results
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.run_number }}
+          path: |
+            tests/benchmark/results/
+            tests/benchmark/logs/
+            tests/benchmark_tournament/results/
+            tests/benchmark_tournament/logs/
+            tests/benchmark_trading/results/
+            tests/benchmark_trading/logs/
+          retention-days: 90
+
+      - name: Notify Slack on failure
+        if: >-
+          !cancelled() &&
+          steps.sha_check.outputs.skip != 'true' &&
+          (steps.bench_standard.outcome == 'failure' ||
+           steps.bench_tournament.outcome == 'failure' ||
+           steps.bench_trading.outcome == 'failure')
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not set, skipping notification"
+            exit 0
+          fi
+          status_emoji() {
+            case "$1" in
+              failure) echo ":x:" ;;
+              success) echo ":white_check_mark:" ;;
+              *) echo ":heavy_minus_sign:" ;;
+            esac
+          }
+          STANDARD_EMOJI=$(status_emoji "${{ steps.bench_standard.outcome }}")
+          TOURNAMENT_EMOJI=$(status_emoji "${{ steps.bench_tournament.outcome }}")
+          TRADING_EMOJI=$(status_emoji "${{ steps.bench_trading.outcome }}")
+          COMMIT_MSG=$(git log -1 --pretty=format:'%s')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          PAYLOAD=$(jq -n \
+            --arg std "$STANDARD_EMOJI" \
+            --arg tourn "$TOURNAMENT_EMOJI" \
+            --arg trade "$TRADING_EMOJI" \
+            --arg model "${{ steps.config.outputs.model }}" \
+            --arg commit_url "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}" \
+            --arg short_sha "$SHORT_SHA" \
+            --arg commit_msg "$COMMIT_MSG" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              blocks: [
+                { type: "header", text: { type: "plain_text", text: "Benchmark Failure" } },
+                { type: "section", fields: [
+                  { type: "mrkdwn", text: ("*Standard:* " + $std) },
+                  { type: "mrkdwn", text: ("*Tournament:* " + $tourn) },
+                  { type: "mrkdwn", text: ("*Trading:* " + $trade) },
+                  { type: "mrkdwn", text: ("*Model:* " + $model) }
+                ]},
+                { type: "section", text: { type: "mrkdwn", text: ("*Commit:* <" + $commit_url + "|" + $short_sha + "> " + $commit_msg) } },
+                { type: "actions", elements: [
+                  { type: "button", text: { type: "plain_text", text: "View Run" }, url: $run_url }
+                ]}
+              ]
+            }')
+
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            --data "$PAYLOAD"

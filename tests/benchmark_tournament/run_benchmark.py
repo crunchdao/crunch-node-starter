@@ -69,8 +69,163 @@ def setup_workspace(repo_root: str, target: str | None = None) -> str:
         )
         print("[benchmark] Applied tournament pack overlay")
 
+    _copy_local_coordinator(repo_root, workspace)
+    _fix_local_coordinator_pyproject(workspace)
+    _copy_compose_override(repo_root, workspace)
+    _clone_webapp(workspace)
+    _patch_crunch_id(workspace)
+
     print(f"[benchmark] Workspace: {workspace}")
     return workspace
+
+
+_LOCAL_COORDINATOR_DOCKERFILE_LINES = (
+    "\n# Local crunch-node overlay (injected by benchmark)\n"
+    "COPY crunch_node_local/ ./crunch_node_local/\n"
+    "RUN pip install --no-cache-dir --force-reinstall --no-deps "
+    "./crunch_node_local/\n"
+)
+
+_WEBAPP_REPO_URL = "https://github.com/crunchdao/coordinator-webapp.git"
+
+
+def _copy_local_coordinator(repo_root: str, workspace: str) -> None:
+    src_pkg = os.path.join(repo_root, "crunch_node")
+    src_toml = os.path.join(repo_root, "pyproject.toml")
+
+    if not os.path.isdir(src_pkg) or not os.path.isfile(src_toml):
+        print("[benchmark] Warning: local crunch-node source not found, skipping")
+        return
+
+    dest = os.path.join(workspace, "crunch_node_local")
+    if os.path.exists(dest):
+        shutil.rmtree(dest)
+    os.makedirs(dest)
+
+    shutil.copytree(
+        src_pkg, os.path.join(dest, "crunch_node"), ignore=_ignore_patterns,
+    )
+    shutil.copy2(src_toml, os.path.join(dest, "pyproject.toml"))
+
+    _patch_dockerfile_local_coordinator(workspace)
+    print("[benchmark] Copied local crunch-node source into workspace")
+
+
+def _patch_dockerfile_local_coordinator(workspace: str) -> None:
+    dockerfile = os.path.join(workspace, "node", "Dockerfile")
+    if not os.path.isfile(dockerfile):
+        return
+
+    with open(dockerfile) as f:
+        lines = f.readlines()
+
+    insert_idx = None
+    for i, line in enumerate(lines):
+        if "pip install" in line and "crunch-node" in line:
+            insert_idx = i + 1
+            break
+
+    if insert_idx is None:
+        print("[benchmark] Warning: could not find PyPI install line in Dockerfile")
+        return
+
+    lines.insert(insert_idx, _LOCAL_COORDINATOR_DOCKERFILE_LINES)
+
+    with open(dockerfile, "w") as f:
+        f.writelines(lines)
+
+
+def _fix_local_coordinator_pyproject(workspace: str) -> None:
+    local_dir = os.path.join(workspace, "crunch_node_local")
+    if not os.path.isdir(local_dir):
+        return
+
+    readme = os.path.join(local_dir, "README.md")
+    if not os.path.exists(readme):
+        with open(readme, "w") as f:
+            f.write("# crunch-node (benchmark local)\n")
+
+    toml_path = os.path.join(local_dir, "pyproject.toml")
+    if not os.path.isfile(toml_path):
+        return
+
+    with open(toml_path) as f:
+        content = f.read()
+
+    for dirname in ("scaffold", "packs"):
+        if dirname in content:
+            target_dir = os.path.join(local_dir, dirname)
+            if not os.path.exists(target_dir):
+                os.makedirs(target_dir, exist_ok=True)
+                with open(os.path.join(target_dir, ".gitkeep"), "w") as f:
+                    pass
+
+
+def _copy_compose_override(repo_root: str, workspace: str) -> None:
+    src = os.path.join(repo_root, "tests", "benchmark", "docker-compose.local-dev.yml")
+    dest = os.path.join(workspace, "node", "docker-compose.override.yml")
+
+    if not os.path.isfile(src):
+        print("[benchmark] Warning: docker-compose.local-dev.yml not found, skipping")
+        return
+
+    with open(src) as f:
+        content = f.read()
+
+    content = content.replace(
+        "../../crunch_node:/app/crunch_node:ro",
+        "../crunch_node_local/crunch_node:/app/crunch_node:ro",
+    )
+
+    with open(dest, "w") as f:
+        f.write(content)
+
+    print("[benchmark] Copied docker-compose override into workspace (paths adjusted)")
+
+
+def _clone_webapp(workspace: str) -> None:
+    webapp_dir = os.path.join(workspace, "webapp")
+    if os.path.isdir(webapp_dir):
+        return
+
+    print("[benchmark] Cloning coordinator-webapp...")
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", _WEBAPP_REPO_URL, "webapp"],
+            cwd=workspace,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        print("[benchmark] Cloned coordinator-webapp into workspace/webapp")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        print(f"[benchmark] Warning: failed to clone webapp: {exc}")
+
+
+def _patch_crunch_id(workspace: str) -> None:
+    import re as _re
+
+    env_file = os.path.join(workspace, "node", ".local.env")
+    if not os.path.exists(env_file):
+        return
+
+    unique_id = f"bench-tournament-{_timestamp()}"
+
+    with open(env_file) as f:
+        content = f.read()
+
+    content = _re.sub(
+        r"^CRUNCH_ID=.*$",
+        f"CRUNCH_ID={unique_id}",
+        content,
+        flags=_re.MULTILINE,
+    )
+
+    with open(env_file, "w") as f:
+        f.write(content)
+
+    print(f"[benchmark] Patched CRUNCH_ID={unique_id}")
 
 
 def _build_agent_command(agent_cmd: str, session_path: str) -> tuple[str, bool]:

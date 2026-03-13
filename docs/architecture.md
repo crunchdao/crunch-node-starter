@@ -104,3 +104,19 @@ crunch-node-starter/
 ├── tests/                  ← All tests
 └── docker-compose.yml      ← Dev orchestration
 ```
+
+## Benchmark CI
+
+A GitHub Actions workflow (`.github/workflows/benchmark.yml`) runs the three benchmark suites — standard, tournament, and trading — sequentially.
+
+**Schedule**: Daily at 2am UTC when main has new commits, or manually via `workflow_dispatch`.
+
+**Manual configuration**:
+- `model`: `sonnet` (default), `haiku`, or `opus`
+- `benchmarks`: `all` (default), `standard`, `tournament`, or `trading`
+
+**Required secrets**: `ANTHROPIC_API_KEY`. Optional: `SLACK_WEBHOOK_URL` (for failure notifications).
+
+**Outputs**: Results are uploaded as GitHub Actions artifacts with 90-day retention. Slack notifications fire on failure only.
+
+**Makefile targets**: `make benchmark-all`, `make benchmark-tournament`, `make benchmark-trading`

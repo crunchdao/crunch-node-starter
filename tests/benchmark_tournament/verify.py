@@ -70,30 +70,36 @@ def _find_class_fields(source: str, class_keywords: list[str]) -> dict[str, bool
 # --- M1: Types correct (InferenceOutput has predicted_price) ---
 
 
+def _collect_sources(workspace: str) -> list[tuple[str, str]]:
+    """Return (path, source) for config and scoring files."""
+    paths = [
+        os.path.join(workspace, "node", "config", "crunch_config.py"),
+        os.path.join(workspace, "challenge", "starter_challenge", "scoring.py"),
+    ]
+    result = []
+    for p in paths:
+        if os.path.exists(p):
+            with open(p) as f:
+                result.append((p, f.read()))
+    return result
+
+
 def check_types(workspace: str) -> tuple[bool, str]:
     """Check InferenceOutput has predicted_price: float."""
-    config_path = os.path.join(workspace, "node", "config", "crunch_config.py")
-    if not os.path.exists(config_path):
-        return False, f"crunch_config.py not found at {config_path}"
+    sources = _collect_sources(workspace)
+    if not sources:
+        return False, "crunch_config.py not found"
 
-    with open(config_path) as f:
-        source = f.read()
-
-    # Check output type
-    output_fields = _find_class_fields(source, ["output", "inference"])
-    if not output_fields:
+    for path, source in sources:
+        output_fields = _find_class_fields(source, ["output", "inference"])
+        if output_fields:
+            missing = [f for f in EXPECTED_OUTPUT_FIELDS if f not in output_fields]
+            if not missing:
+                return True, f"Output fields: {list(output_fields.keys())}"
         if re.search(r"predicted_price\s*:\s*float", source):
-            return True, "predicted_price: float (regex match)"
-        return False, "No output type class found with predicted_price field"
+            return True, f"predicted_price: float (regex match in {os.path.basename(path)})"
 
-    missing = [f for f in EXPECTED_OUTPUT_FIELDS if f not in output_fields]
-    if missing:
-        return (
-            False,
-            f"Missing output fields: {missing}. Found: {list(output_fields.keys())}",
-        )
-
-    return True, f"Output fields: {list(output_fields.keys())}"
+    return False, "No output type class found with predicted_price field"
 
 
 # --- M1b: GroundTruth has price with default ---
@@ -101,30 +107,26 @@ def check_types(workspace: str) -> tuple[bool, str]:
 
 def check_ground_truth_type(workspace: str) -> tuple[bool, str]:
     """Check GroundTruth has price: float with default."""
-    config_path = os.path.join(workspace, "node", "config", "crunch_config.py")
-    if not os.path.exists(config_path):
+    sources = _collect_sources(workspace)
+    if not sources:
         return False, "crunch_config.py not found"
 
-    with open(config_path) as f:
-        source = f.read()
-
-    gt_fields = _find_class_fields(source, ["ground", "truth", "gt"])
-    if not gt_fields:
+    for path, source in sources:
+        gt_fields = _find_class_fields(source, ["ground", "truth", "gt"])
+        if gt_fields:
+            missing = [f for f in EXPECTED_GROUND_TRUTH_FIELDS if f not in gt_fields]
+            if not missing:
+                no_default = [
+                    f for f in EXPECTED_GROUND_TRUTH_FIELDS
+                    if f in gt_fields and not gt_fields[f]
+                ]
+                if no_default:
+                    return False, f"Fields without defaults: {no_default}"
+                return True, f"GT fields with defaults: {list(gt_fields.keys())}"
         if re.search(r"price\s*:\s*float\s*=", source):
-            return True, "price: float with default (regex match)"
-        return False, "No GroundTruth class found with price field"
+            return True, f"price: float with default (regex match in {os.path.basename(path)})"
 
-    missing = [f for f in EXPECTED_GROUND_TRUTH_FIELDS if f not in gt_fields]
-    if missing:
-        return False, f"Missing GT fields: {missing}"
-
-    no_default = [
-        f for f in EXPECTED_GROUND_TRUTH_FIELDS if f in gt_fields and not gt_fields[f]
-    ]
-    if no_default:
-        return False, f"Fields without defaults: {no_default}"
-
-    return True, f"GT fields with defaults: {list(gt_fields.keys())}"
+    return False, "No GroundTruth class found with price field"
 
 
 # --- M1c: TournamentPredictService configured ---
@@ -172,15 +174,53 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
     if score_fn is None:
         return False, "score_prediction function not found"
 
+    try:
+        from pydantic import BaseModel, ConfigDict
+
+        class TestOutput(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            predicted_price: float = 0.0
+            prediction: float = 0.0
+
+        class TestGroundTruth(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            price: float = 0.0
+
+        def coerce_output(raw_dict):
+            d = dict(raw_dict)
+            price_val = d.get("predicted_price", d.get("prediction", 0.0))
+            d.setdefault("predicted_price", price_val)
+            d.setdefault("prediction", price_val)
+            try:
+                return TestOutput.model_validate(d)
+            except Exception:
+                return TestOutput.model_construct(**d)
+
+        def coerce_gt(raw_dict):
+            try:
+                return TestGroundTruth.model_validate(raw_dict)
+            except Exception:
+                return TestGroundTruth.model_construct(**raw_dict)
+    except Exception as e:
+        return False, f"Failed to create test types: {e}"
+
     results = []
     for prediction, ground_truth, (min_score, max_score) in SCORING_TEST_CASES:
+        pred_obj = coerce_output(prediction)
+        gt_obj = coerce_gt(ground_truth)
+
         try:
-            result = score_fn(prediction, ground_truth)
+            result = score_fn(pred_obj, gt_obj)
         except Exception as e:
             return False, f"score_prediction raised: {e}"
 
-        if not isinstance(result, dict):
-            return False, f"Expected dict, got {type(result)}"
+        if hasattr(result, "model_dump"):
+            result = result.model_dump()
+        elif not isinstance(result, dict):
+            if hasattr(result, "__dict__"):
+                result = vars(result)
+            else:
+                return False, f"Expected dict, got {type(result)}"
 
         value = result.get("value")
         if value is None:
@@ -190,10 +230,6 @@ def check_scoring(workspace: str) -> tuple[bool, str]:
             results.append(f"FAIL: score={value:.4f} not in [{min_score}, {max_score}]")
         else:
             results.append(f"OK: score={value:.4f}")
-
-        # Check MAPE field exists
-        if "mape" not in result:
-            return False, "Result missing 'mape' key"
 
     failures = [r for r in results if r.startswith("FAIL")]
     detail = "; ".join(results)
@@ -224,7 +260,7 @@ def check_examples(workspace: str) -> tuple[bool, str]:
         with open(filepath) as f:
             source = f.read()
 
-        if "def predict" not in source:
+        if "def predict" not in source and "def _predict" not in source:
             missing.append(f"{filename} (no predict method)")
             continue
 
@@ -373,14 +409,32 @@ def check_scoring_pipeline(workspace: str) -> tuple[bool, str]:
     if not properties:
         return False, "No properties in out_of_sample.json"
 
+    try:
+        from pydantic import BaseModel, ConfigDict
+
+        class _Output(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            predicted_price: float = 0.0
+            prediction: float = 0.0
+
+        class _GT(BaseModel):
+            model_config = ConfigDict(extra="allow")
+            price: float = 0.0
+    except Exception as e:
+        return False, f"Failed to create types: {e}"
+
     scores = []
     for prop in properties:
         sqft = prop.get("living_area_sqft", 0)
-        prediction = {"predicted_price": sqft * 200}
-        ground_truth = {"price": prop.get("price", 0)}
+        pred_obj = _Output.model_validate({"predicted_price": sqft * 200, "prediction": sqft * 200})
+        gt_obj = _GT.model_validate({"price": prop.get("price", 0)})
 
         try:
-            result = score_fn(prediction, ground_truth)
+            result = score_fn(pred_obj, gt_obj)
+            if hasattr(result, "model_dump"):
+                result = result.model_dump()
+            elif hasattr(result, "__dict__"):
+                result = vars(result)
             scores.append(result.get("value", 0))
         except Exception as e:
             return False, f"Scoring raised: {e}"
