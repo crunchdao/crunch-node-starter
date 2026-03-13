@@ -80,10 +80,4 @@ class CrunchConfig(BaseCrunchConfig):
         )
     )
 
-    metrics: list[str] = Field(
-        default_factory=lambda: [
-            "mape",
-            "hit_rate",
-            "max_drawdown",
-        ]
-    )
+    metrics: list[str] = Field(default_factory=list)
