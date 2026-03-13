@@ -2,8 +2,6 @@
 
 Score = 1 - |prediction - actual| / actual, clamped to [0, 1].
 Lower percentage error = higher score. A perfect prediction scores 1.0.
-
-All inputs are Pydantic models — the engine coerces raw dicts before calling.
 """
 
 from __future__ import annotations
@@ -41,10 +39,15 @@ class ScoreResult(BaseModel):
 
 
 def score_prediction(
-    prediction: InferenceOutput,
-    ground_truth: GroundTruth,
+    prediction: InferenceOutput | dict,
+    ground_truth: GroundTruth | dict,
 ) -> ScoreResult:
     """Score = 1 - |prediction - actual| / actual, clamped to [0, 1]."""
+    if not isinstance(prediction, InferenceOutput):
+        prediction = InferenceOutput.model_validate(prediction)
+    if not isinstance(ground_truth, GroundTruth):
+        ground_truth = GroundTruth.model_validate(ground_truth)
+
     if ground_truth.price <= 0:
         return ScoreResult(
             success=False,
