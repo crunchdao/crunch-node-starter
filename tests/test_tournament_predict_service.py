@@ -299,8 +299,8 @@ class TestScoreRound(unittest.TestCase):
         self.assertEqual(len(scores), 2)
         # Each GT item passed individually to scoring function
         self.assertEqual(len(received_gts), 2)
-        self.assertEqual(received_gts[0]["value"], 1.0)
-        self.assertEqual(received_gts[1]["value"], 2.0)
+        self.assertEqual(received_gts[0].value, 1.0)
+        self.assertEqual(received_gts[1].value, 2.0)
 
     def test_score_round_validates_ground_truth(self):
         """Ground truth is validated through ground_truth_type."""
@@ -479,8 +479,8 @@ class TestScaffoldPattern(unittest.TestCase):
         )
 
         def scoring_fn(prediction, ground_truth):
-            pred_price = prediction.get("predicted_price", 0)
-            actual_price = ground_truth.get("price", 1)
+            pred_price = getattr(prediction, "predicted_price", 0)
+            actual_price = getattr(ground_truth, "price", 1)
             mape = abs(pred_price - actual_price) / max(abs(actual_price), 1e-9)
             return {
                 "value": max(0.0, 1.0 - mape),

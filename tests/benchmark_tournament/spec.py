@@ -11,8 +11,17 @@ SPEC_VERSION = "property-price-prediction-v1"
 AGENT_PROMPT = """\
 Build a property price prediction tournament from this scaffold workspace.
 
-Read the .agent/ docs to understand the workflow. This is a TOURNAMENT
-competition, not a realtime one. The key difference:
+Read .agents/guide.md to understand the architecture. Then implement ALL code
+changes FIRST, run `make test`, and ONLY THEN deploy.
+
+CRITICAL TIME MANAGEMENT:
+- Do NOT run `make deploy` or `make verify-e2e` until ALL code changes are done
+- Do NOT verify the baseline scaffold — it works, just start implementing
+- Do NOT run `make logs` — it follows logs forever and wastes your time budget
+- Do NOT use `sleep` commands — `make verify-e2e` polls internally
+- Implement everything, run `make test`, THEN deploy and verify
+
+This is a TOURNAMENT competition, not a realtime one. The key difference:
 
 - No streaming feed. No ticking. No resolve_horizon_seconds.
 - The tournament engine calls each model once PER PROPERTY. Each call
@@ -131,13 +140,12 @@ Use realistic US property data:
 
 ## Deploy & Verify
 
-- Run make deploy
-- Run make verify-e2e
-- Read logs with make logs if anything fails
-- Fix and retry until make verify-e2e passes
-
-IMPORTANT: Never use `sleep` commands. If deploy fails due to port conflicts,
-run `make down` and retry.
+ONLY after all code changes are done and `make test` passes:
+- Run `make deploy`
+- If port conflicts: run `make down`, then `docker rm -f $(docker ps -aq --filter name=crunch-node-) 2>/dev/null || true`, then retry
+- Run `make verify-e2e` immediately after deploy
+- If verify fails, check container logs with `docker compose -f docker-compose.yml --env-file .local.env logs --tail=50 <service>` (do NOT use `make logs`)
+- Fix and retry
 """
 
 # --- Expected values for milestone verification ---

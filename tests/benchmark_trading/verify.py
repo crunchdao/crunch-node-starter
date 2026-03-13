@@ -136,7 +136,7 @@ def check_examples(workspace: str) -> tuple[bool, str]:
         with open(filepath) as f:
             source = f.read()
 
-        if "def predict" not in source:
+        if "def predict" not in source and "def _predict" not in source:
             missing.append(f"{filename} (no predict method)")
             continue
 

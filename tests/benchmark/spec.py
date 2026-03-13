@@ -11,27 +11,30 @@ SPEC_VERSION = "btc-direction-v3"
 AGENT_PROMPT = """\
 Build a BTC price direction competition from this scaffold workspace.
 
-Read the .agent/ docs to understand the workflow. Follow the implementation
-guide. Run make test, make deploy, and make verify-e2e yourself. Read logs
-and fix any issues until everything passes.
+Read .agents/guide.md to understand the architecture. Then implement ALL code
+changes FIRST (steps 1-5 below), run `make test`, and ONLY THEN deploy.
 
-IMPORTANT: All base types (InferenceOutput, GroundTruth, ScoreResult, etc.)
-are imported from `crunch_node.crunch_config` in node/config/crunch_config.py.
-You don't need to find the library source — just override the types in your
-CrunchConfig subclass. The defaults have a single `value: float` field.
+CRITICAL TIME MANAGEMENT:
+- Do NOT run `make deploy` or `make verify-e2e` until ALL code changes are done
+- Do NOT verify the baseline scaffold — it works, just start implementing
+- Do NOT run `make logs` — it follows logs forever and wastes your time budget
+- Do NOT use `sleep` commands — `make verify-e2e` polls internally
+- Implement everything, run `make test`, THEN deploy and verify
 
-Here is the exact specification:
+All base types (InferenceOutput, GroundTruth, ScoreResult, etc.) are imported
+from `crunch_node.crunch_config` in node/config/crunch_config.py. Override them
+in your CrunchConfig subclass. The defaults have a single `value: float` field.
 
-## Types (edit node/config/crunch_config.py)
+## Step 1: Types (edit node/config/crunch_config.py)
 
 InferenceOutput — what models return:
-- direction: str  — must be "up" or "down"
-- confidence: float  — between 0.0 and 1.0
+- direction: str = "hold"  — must be "up" or "down"
+- confidence: float = 0.0  — between 0.0 and 1.0
 
 ScoreResult — what scoring produces:
-- value: float
-- success: bool
-- failed_reason: str | None
+- value: float = 0.0
+- success: bool = True
+- failed_reason: str | None = None
 
 GroundTruth — what the actual outcome looks like:
 - profit: float = 0.0
@@ -41,31 +44,10 @@ The score worker dry-runs scoring at startup using GroundTruth() defaults.
 If the fields don't exist, scoring raises a KeyError and the worker crashes.
 Set ground_truth_type = BtcGroundTruth (or whatever you name it) in CrunchConfig.
 
-## Scoring (edit challenge/starter_challenge/scoring.py)
+TrackerBase is imported as: `from crunch_node.cruncher import ModelBaseClass as TrackerBase`
+(this import is already in cruncher.py — check it to see the pattern)
 
-score_prediction(prediction, ground_truth) -> dict:
-- The scoring function receives typed Pydantic objects, not dicts.
-  Use attribute access: prediction.direction, ground_truth.profit, etc.
-- If prediction.direction matches ground truth direction:
-    score = +prediction.confidence * abs(ground_truth.profit)
-- If wrong:
-    score = -prediction.confidence * abs(ground_truth.profit)
-- Ground truth has attributes: profit (float), direction_up (bool)
-- prediction.direction == "up" should be compared to ground_truth.direction_up
-- Always return {"value": score, "success": True, "failed_reason": None}
-
-## Ground Truth
-
-The default resolve_ground_truth already computes profit and direction_up
-from feed records. It returns:
-{"symbol", "asof_ts", "entry_price", "resolved_price", "profit", "direction_up"}.
-This matches what the scoring function needs — you do NOT need to override it.
-
-Feed records have flat OHLCV values (open, high, low, close, volume) — NOT
-nested candles_1m. The normalizer aggregates records into candles_1m for model
-input, but resolve_ground_truth works with raw FeedRecord objects.
-
-## Examples (edit challenge/starter_challenge/examples/)
+## Step 2: Examples (edit challenge/starter_challenge/examples/)
 
 Create exactly 3 example trackers:
 
@@ -84,31 +66,47 @@ Create exactly 3 example trackers:
 All trackers extend TrackerBase. predict() returns a dict, not a Pydantic model.
 Use _get_data(subject) to access latest tick data, extract closes from candles_1m.
 
-## Schedule & Feed (edit node/config/crunch_config.py scheduled_predictions)
+## Step 3: Scoring (edit challenge/starter_challenge/scoring.py)
+
+score_prediction(prediction, ground_truth) -> dict:
+- The scoring function receives typed Pydantic objects, not dicts.
+  Use attribute access: prediction.direction, ground_truth.profit, etc.
+- If prediction.direction matches ground truth direction:
+    score = +prediction.confidence * abs(ground_truth.profit)
+- If wrong:
+    score = -prediction.confidence * abs(ground_truth.profit)
+- Ground truth has attributes: profit (float), direction_up (bool)
+- prediction.direction == "up" should be compared to ground_truth.direction_up
+- Always return {"value": score, "success": True, "failed_reason": None}
+
+## Step 4: Tests
+
+- Update test_scoring.py: remove xfail markers after implementing scoring
+- Update test_examples.py if needed for new output shape
+- Run `make test` — fix until all tests pass
+
+## Step 5: Deploy & Verify
+
+ONLY after all code changes are done and `make test` passes:
+- Run `make deploy`
+- If port conflicts: run `make down`, then `docker rm -f $(docker ps -aq --filter name=crunch-node-) 2>/dev/null || true`, then retry
+- Run `make verify-e2e` (it polls internally — run it immediately after deploy)
+- If verify fails, check container logs with `docker compose -f docker-compose.yml --env-file .local.env logs --tail=50 <service>` (do NOT use `make logs`)
+- Fix and retry
+
+## Ground Truth (do NOT override)
+
+The default resolve_ground_truth already computes profit and direction_up
+from feed records. It returns:
+{"symbol", "asof_ts", "entry_price", "resolved_price", "profit", "direction_up"}.
+This matches what the scoring function needs — you do NOT need to override it.
+
+## Schedule & Feed (do NOT change)
 
 Keep the scaffold defaults — do NOT change .local.env feed settings:
 - subject: BTCUSDT
 - prediction_interval_seconds: 15
 - resolve_horizon_seconds: 60
-- Feed settings in .local.env are already correct (binance, 1s granularity)
-- Do NOT change FEED_KIND in .local.env — leave it as is
-
-## Tests
-
-- Update test_scoring.py: remove xfail markers after implementing scoring
-- Update test_examples.py if needed for new output shape
-- make test must pass
-
-## Deploy & Verify
-
-- Run make deploy
-- Run make verify-e2e (it has its own polling — do NOT sleep or wait before running it)
-- Read logs with make logs if anything fails
-- Fix and retry until make verify-e2e passes
-
-IMPORTANT: Never use `sleep` commands. `make verify-e2e` already polls and
-waits for the pipeline to be ready. Sleeping wastes your time budget.
-If deploy fails due to port conflicts, run `make down` and retry on different ports.
 """
 
 # --- Expected values for milestone verification ---

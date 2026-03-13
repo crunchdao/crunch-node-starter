@@ -159,7 +159,7 @@ def _patch_dockerfile_local_coordinator(workspace: str) -> None:
 
     insert_idx = None
     for i, line in enumerate(lines):
-        if line.startswith(_PYPI_INSTALL_MARKER):
+        if "pip install" in line and "crunch-node" in line:
             insert_idx = i + 1
             break
 

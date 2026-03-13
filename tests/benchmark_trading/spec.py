@@ -12,7 +12,13 @@ AGENT_PROMPT = """\
 Validate and deploy a trading competition from this workspace.
 
 The trading pack has already been overlaid onto the scaffold. Your job is to
-verify everything works, deploy, and fix any issues.
+verify everything works, fix any issues, deploy, and verify end-to-end.
+
+CRITICAL TIME MANAGEMENT:
+- Do NOT run `make deploy` or `make verify-e2e` until you've verified code is correct
+- Do NOT run `make logs` — it follows logs forever and wastes your time budget
+- Do NOT use `sleep` commands — `make verify-e2e` polls internally
+- Fix code first, run `make test`, THEN deploy and verify
 
 ## What's already configured
 
@@ -31,13 +37,12 @@ No scoring function — PnL is computed by the TradingEngine, not a scoring func
 
 ## Steps
 
-1. Run make test — fix any failures
-2. Run make deploy — fix any failures (port conflicts: run make down first)
-3. Run make verify-e2e — fix any failures, read logs with make logs
-4. Retry until make verify-e2e passes
-
-IMPORTANT: Never use `sleep` commands. `make verify-e2e` already polls.
-If deploy fails due to port conflicts, run `make down` and retry.
+1. Read the code and fix any issues in types, examples, tests
+2. Run `make test` — fix any failures
+3. Run `make deploy` — if port conflicts: run `make down`, then `docker rm -f $(docker ps -aq --filter name=crunch-node-) 2>/dev/null || true`, then retry
+4. Run `make verify-e2e` immediately after deploy
+5. If verify fails, check container logs with `docker compose -f docker-compose.yml --env-file .local.env logs --tail=50 <service>` (do NOT use `make logs`)
+6. Fix and retry
 """
 
 EXPECTED_OUTPUT_FIELDS = {
