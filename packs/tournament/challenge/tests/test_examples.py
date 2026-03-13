@@ -44,7 +44,6 @@ class TestExampleContract:
 
 
 class TestPricePerSqft:
-
     def test_scales_with_area(self):
         tracker = PricePerSqftTracker()
         small = tracker.predict({"living_area_sqft": 1000.0})
@@ -58,7 +57,6 @@ class TestPricePerSqft:
 
 
 class TestMedianPrice:
-
     def test_always_returns_same_value(self):
         tracker = MedianPriceTracker()
         a = tracker.predict(SAMPLE_FEATURES)

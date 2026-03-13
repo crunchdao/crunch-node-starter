@@ -39,7 +39,6 @@ class TestScoringContract:
 
 
 class TestScoringBehavior:
-
     def test_perfect_prediction_scores_one(self):
         result = score_prediction(
             InferenceOutput(prediction=350_000), GroundTruth(price=350_000)
