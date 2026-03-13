@@ -38,18 +38,12 @@ jobs:
         id: config
         run: |
           MODEL="${{ inputs.model || 'sonnet' }}"
-          echo "model=claude-3.5-${MODEL}-latest" >> "$GITHUB_OUTPUT"
+          echo "model=${MODEL}" >> "$GITHUB_OUTPUT"
           echo "benchmarks=${{ inputs.benchmarks || 'all' }}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Check for new commits since last benchmark
-        id: changes
-        if: github.event_name == 'schedule'
-        run: |
-          echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
       - name: Download last benchmarked SHA
         if: github.event_name == 'schedule'
@@ -133,11 +127,11 @@ jobs:
           --timeout ${{ env.BENCHMARK_TIMEOUT }}
 
       - name: Save current SHA
-        if: steps.sha_check.outputs.skip != 'true'
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
         run: echo "${{ github.sha }}" > last-benchmarked-sha.txt
 
       - name: Upload benchmarked SHA
-        if: steps.sha_check.outputs.skip != 'true'
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
         uses: actions/upload-artifact@v4
         with:
           name: last-benchmarked-sha
@@ -145,7 +139,7 @@ jobs:
           overwrite: true
 
       - name: Upload benchmark results
-        if: steps.sha_check.outputs.skip != 'true'
+        if: "!cancelled() && steps.sha_check.outputs.skip != 'true'"
         uses: actions/upload-artifact@v4
         with:
           name: benchmark-results-${{ github.run_number }}
@@ -160,6 +154,7 @@ jobs:
 
       - name: Notify Slack on failure
         if: >-
+          !cancelled() &&
           steps.sha_check.outputs.skip != 'true' &&
           (steps.bench_standard.outcome == 'failure' ||
            steps.bench_tournament.outcome == 'failure' ||
@@ -167,9 +162,16 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          STANDARD_EMOJI=$( [ "${{ steps.bench_standard.outcome }}" = "failure" ] && echo ":x:" || echo ":white_check_mark:" )
-          TOURNAMENT_EMOJI=$( [ "${{ steps.bench_tournament.outcome }}" = "failure" ] && echo ":x:" || echo ":white_check_mark:" )
-          TRADING_EMOJI=$( [ "${{ steps.bench_trading.outcome }}" = "failure" ] && echo ":x:" || echo ":white_check_mark:" )
+          status_emoji() {
+            case "$1" in
+              failure) echo ":x:" ;;
+              success) echo ":white_check_mark:" ;;
+              *) echo ":heavy_minus_sign:" ;;
+            esac
+          }
+          STANDARD_EMOJI=$(status_emoji "${{ steps.bench_standard.outcome }}")
+          TOURNAMENT_EMOJI=$(status_emoji "${{ steps.bench_tournament.outcome }}")
+          TRADING_EMOJI=$(status_emoji "${{ steps.bench_trading.outcome }}")
           COMMIT_MSG=$(git log -1 --pretty=format:'%s')
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
 
