@@ -35,6 +35,7 @@ def _get_service():
         return _service
 
     from crunch_node.config.extensions import ExtensionSettings
+    from crunch_node.config.runtime import RuntimeSettings
     from crunch_node.config_loader import load_config
     from crunch_node.db import (
         DBInputRepository,
@@ -48,8 +49,8 @@ def _get_service():
 
     config = load_config()
     session = create_session()
+    runtime_settings = RuntimeSettings.from_env()
 
-    # Resolve scoring function (same as score_worker)
     scoring_function = config.scoring_function
     if scoring_function is None:
         try:
@@ -68,6 +69,13 @@ def _get_service():
         prediction_repository=DBPredictionRepository(session),
         score_repository=DBScoreRepository(session),
         scoring_function=scoring_function,
+        model_runner_node_host=runtime_settings.model_runner_node_host,
+        model_runner_node_port=runtime_settings.model_runner_node_port,
+        model_runner_timeout_seconds=runtime_settings.model_runner_timeout_seconds,
+        crunch_id=runtime_settings.crunch_id,
+        base_classname=runtime_settings.base_classname,
+        gateway_cert_dir=runtime_settings.gateway_cert_dir,
+        secure_cert_dir=runtime_settings.secure_cert_dir,
     )
 
     return _service
