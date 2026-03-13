@@ -86,7 +86,7 @@ class PredictService:
         )
         self.stop_event = asyncio.Event()
 
-    async def _call_models(self, scope: dict[str, Any]) -> dict:
+    async def _call_models(self, scope: dict[str, Any]) -> dict[str, Any]:
         """Send call to model runner using the configured method name."""
         method = self.config.call_method.method
         args = self._kernel.encode_predict(
@@ -232,7 +232,7 @@ class PredictService:
     def _get_variant_type(cls, type_name: str) -> Any:
         return PredictionKernel.get_variant_type(type_name)
 
-    def _encode_predict(self, scope: dict[str, Any]) -> tuple:
+    def _encode_predict(self, scope: dict[str, Any]) -> tuple[Any, ...]:
         return self._kernel.encode_predict(
             scope=scope,
             call_args=self.config.call_method.args,

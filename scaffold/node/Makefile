@@ -6,7 +6,7 @@ COMPOSE := docker compose $(COMPOSE_FILES) --env-file .local.env
 # ── Pre-deploy validation (no Docker needed) ─────────────────────────
 validate:
 	@echo "Running pre-deploy config validation..."
-	python3 scripts/validate_config.py
+	uv run python scripts/validate_config.py
 
 # ── Deploy (validates first) ─────────────────────────────────────────
 deploy: validate

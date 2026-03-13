@@ -3,7 +3,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+if TYPE_CHECKING:
+    from crunch_node.services.parquet_sink import ParquetBackfillSink
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, status
@@ -1675,7 +1678,7 @@ BACKFILL_DATA_DIR = os.getenv("BACKFILL_DATA_DIR", "data/backfill")
 _parquet_sink = None
 
 
-def _get_parquet_sink():
+def _get_parquet_sink() -> ParquetBackfillSink:
     global _parquet_sink
     if _parquet_sink is None:
         from crunch_node.services.parquet_sink import ParquetBackfillSink

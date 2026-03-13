@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from starter_challenge.cruncher import ModelBaseClass
 
 
@@ -10,7 +12,7 @@ class MeanReversionTracker(ModelBaseClass):
 
     def _predict(
         self, subject: str, resolve_horizon_seconds: int, step_seconds: int
-    ) -> dict:
+    ) -> dict[str, float]:
         prices = _closes(self._get_data(subject))
         if len(prices) < 3:
             return {"value": 0.0}
@@ -27,7 +29,7 @@ class MeanReversionTracker(ModelBaseClass):
         return {"value": round(expected_return, 6)}
 
 
-def _closes(data):
+def _closes(data: dict[str, Any] | None) -> list[float]:
     if not isinstance(data, dict):
         return []
     candles = data.get("candles_1m", [])

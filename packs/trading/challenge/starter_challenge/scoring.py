@@ -8,6 +8,10 @@ Return a dict matching your contract's ScoreResult shape.
 
 from __future__ import annotations
 
+from typing import Any
 
-def score_prediction(prediction, ground_truth):
+
+def score_prediction(
+    prediction: dict[str, Any], ground_truth: dict[str, Any]
+) -> dict[str, float | bool | str | None]:
     return {"value": 0.0, "success": True, "failed_reason": None}

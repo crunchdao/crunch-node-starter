@@ -9,6 +9,8 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
+from typing import Literal
+
 import extensions.tables  # noqa: F401
 from extensions.config import TradingConfig
 from extensions.costs import CostModel
@@ -42,7 +44,7 @@ class InferenceOutput(BaseModel):
     amount: position size (notional units, must be >= 0)
     """
 
-    action: str = "buy"
+    action: Literal["buy", "sell"] = "buy"
     amount: float = Field(default=0.0, ge=0.0)
 
 
@@ -56,6 +58,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
+
+    # TODO: align with ScoringFunction protocol (accepts BaseModel, not dict)
 
     build_prediction_sink: BuildPredictionSink | None = build_prediction_sink
     build_score_snapshots: BuildScoreSnapshots | None = build_score_snapshots
