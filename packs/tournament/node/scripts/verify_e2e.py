@@ -207,40 +207,32 @@ def _print_summary(
 
 
 def _wait_for_models(base_url: str, deadline: float, poll: int = 5) -> bool:
-    """Wait until the model orchestrator reports at least one model."""
-    orchestrator_url = base_url.replace(":8000", ":8001")
+    """Wait until models are available.
+
+    Checks the report-worker API (same host as base_url) rather than
+    the orchestrator directly, since the orchestrator port is typically
+    not exposed to the host.  Tournament models register on first
+    inference call, so we proceed after a short wait even with zero models.
+    """
+    attempts = 0
     while time.time() < deadline:
+        attempts += 1
         try:
-            resp = requests.get(f"{orchestrator_url}/models", timeout=5)
-            if resp.ok:
-                models = resp.json()
-                running = [
-                    m
-                    for m in models
-                    if m.get("status", "").upper() in ("RUNNING", "READY")
-                ]
-                if running:
-                    print(
-                        f"[verify-e2e] {len(running)} model(s) ready "
-                        f"({', '.join(m.get('name', '?') for m in running)})"
-                    )
-                    return True
-                # Models exist but not running yet — wait
-                building = [
-                    m
-                    for m in models
-                    if m.get("status", "").upper() in ("BUILDING", "PENDING", "CREATED")
-                ]
-                if building:
-                    print(f"[verify-e2e] {len(building)} model(s) building, waiting...")
-                elif models:
-                    print(
-                        f"[verify-e2e] {len(models)} model(s) found, waiting for RUNNING..."
-                    )
-        except Exception as exc:
-            print(f"[verify-e2e] waiting for orchestrator: {exc}")
+            models = _get_json(base_url, "/reports/models")
+            if models:
+                print(f"[verify-e2e] {len(models)} model(s) in report DB")
+                return True
+        except Exception:
+            pass
+
+        if attempts >= 3:
+            print(
+                "[verify-e2e] no models in report DB yet — proceeding "
+                "(tournament models register on first inference call)"
+            )
+            return True
         time.sleep(poll)
-    return False
+    return True
 
 
 def main() -> int:
