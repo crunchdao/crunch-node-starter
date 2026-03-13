@@ -266,12 +266,14 @@ class TournamentPredictService(PredictService):
                     len(gt_items),
                 )
             for pred, gt in zip(model_preds, gt_items):
-                typed_output = dict(pred.inference_output or {})
-                typed_output["model_id"] = pred.model_id
-                typed_output["prediction_id"] = pred.id
+                raw_output = dict(pred.inference_output or {})
+                raw_output["model_id"] = pred.model_id
+                raw_output["prediction_id"] = pred.id
+                typed_output = self.config.output_type.model_validate(raw_output)
+                typed_gt = gt_type.model_validate(gt)
 
                 try:
-                    result = self._scoring_function(typed_output, gt)
+                    result = self._scoring_function(typed_output, typed_gt)
                     validated_result = self.config.score_type.model_validate(result)
 
                     score = ScoreRecord(

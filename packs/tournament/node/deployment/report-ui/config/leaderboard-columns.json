@@ -18,7 +18,7 @@
     "property": "score_recent",
     "format": "decimal-4",
     "displayName": "Score (24h)",
-    "tooltip": "Average score over the last 24 hours.",
+    "tooltip": "Average MAPE-based score over the last 24 hours. 1.0 = perfect, 0.0 = 100%+ error.",
     "nativeConfiguration": null,
     "order": 20
   },
@@ -45,51 +45,31 @@
   {
     "id": 5,
     "type": "VALUE",
-    "property": "ic",
-    "format": "decimal-4",
-    "displayName": "IC",
-    "tooltip": "Information Coefficient — Spearman rank correlation between predictions and targets.",
+    "property": "mape",
+    "format": "percent-1",
+    "displayName": "MAPE",
+    "tooltip": "Mean Absolute Percentage Error — lower is better.",
     "nativeConfiguration": null,
     "order": 100
   },
   {
     "id": 6,
     "type": "VALUE",
-    "property": "ic_sharpe",
-    "format": "decimal-4",
-    "displayName": "IC Sharpe",
-    "tooltip": "IC Sharpe — mean(IC) / std(IC), rewards consistency.",
+    "property": "hit_rate",
+    "format": "percent-1",
+    "displayName": "Hit Rate",
+    "tooltip": "Percentage of predictions within 10% of actual price.",
     "nativeConfiguration": null,
     "order": 110
   },
   {
     "id": 7,
     "type": "VALUE",
-    "property": "hit_rate",
-    "format": "percent-1",
-    "displayName": "Hit Rate",
-    "tooltip": "Percentage of predictions with correct directional sign.",
-    "nativeConfiguration": null,
-    "order": 120
-  },
-  {
-    "id": 8,
-    "type": "VALUE",
     "property": "max_drawdown",
     "format": "decimal-4",
     "displayName": "Max DD",
     "tooltip": "Worst peak-to-trough on cumulative score.",
     "nativeConfiguration": null,
-    "order": 130
-  },
-  {
-    "id": 9,
-    "type": "VALUE",
-    "property": "model_correlation",
-    "format": "decimal-4",
-    "displayName": "Model Corr",
-    "tooltip": "Mean pairwise correlation against other models. Lower = more diverse.",
-    "nativeConfiguration": null,
-    "order": 140
+    "order": 120
   }
 ]
