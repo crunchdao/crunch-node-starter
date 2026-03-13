@@ -1,7 +1,7 @@
 COMPOSE := docker compose -f docker-compose.yml --env-file .local.env
 COMPOSE_TRADING := docker compose -f docker-compose.yml -f docker-compose.trading.yml --env-file .local.trading.env
 
-.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify build trading trading-down trading-logs trading-reset
+.PHONY: deploy down logs fmt lint check test init-db reset-db migrate migration benchmark benchmark-compare benchmark-verify benchmark-tournament benchmark-trading benchmark-all build trading trading-down trading-logs trading-reset
 
 # ── Code quality ─────────────────────────────────────────────────────
 fmt:
@@ -72,6 +72,14 @@ benchmark-compare:
 
 benchmark-verify:
 	uv run python -m tests.benchmark.run_benchmark --verify-only $(WORKSPACE)
+
+benchmark-tournament:
+	uv run python -m tests.benchmark_tournament.run_benchmark --agent-cmd "$(AGENT_CMD)" --timeout $(BENCHMARK_TIMEOUT)
+
+benchmark-trading:
+	uv run python -m tests.benchmark_trading.run_benchmark --agent-cmd "$(AGENT_CMD)" --timeout $(BENCHMARK_TIMEOUT)
+
+benchmark-all: benchmark benchmark-tournament benchmark-trading
 
 # ── Build & Publish ───────────────────────────────────────────────────
 # force-include in pyproject.toml bundles scaffold/ and packs/ into the wheel.
