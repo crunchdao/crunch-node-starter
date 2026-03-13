@@ -6,7 +6,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from crunch_node.crunch_config import CrunchConfig, default_build_emission
+from crunch_node.crunch_config import Aggregation, CrunchConfig, default_build_emission
 from crunch_node.entities.prediction import (
     CheckpointRecord,
     CheckpointStatus,
@@ -17,6 +17,8 @@ from crunch_node.entities.prediction import (
     SnapshotRecord,
 )
 from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
+from crunch_node.services.leaderboard import LeaderboardService
+from crunch_node.services.prediction_scorer import PredictionScorer
 from crunch_node.services.score import ScoreService
 
 now = datetime.now(UTC)
@@ -199,9 +201,24 @@ def _build_service(
     model_repo = MemModelRepository()
     ckpt_repo = checkpoint_repo or MemCheckpointRepository()
 
-    # Save inputs for immediate resolution
     for p in pred_repo.predictions:
         input_repo.save(_make_input(p))
+
+    scorer = PredictionScorer(
+        scoring_function=_scoring_function,
+        input_repository=input_repo,
+        prediction_repository=pred_repo,
+        score_repository=MemScoreRepository(),
+        snapshot_repository=snap_repo,
+        config=CrunchConfig(crunch_pubkey="crunch_test"),
+    )
+
+    leaderboard_service = LeaderboardService(
+        snapshot_repository=snap_repo,
+        model_repository=model_repo,
+        leaderboard_repository=MemLeaderboardRepository(),
+        aggregation=Aggregation(),
+    )
 
     checkpoint_service = CheckpointService(
         snapshot_repository=snap_repo,
@@ -215,17 +232,10 @@ def _build_service(
     )
 
     service = ScoreService(
-        checkpoint_interval_seconds=checkpoint_interval,
-        score_interval_seconds=60,
-        scoring_function=_scoring_function,
-        input_repository=input_repo,
-        prediction_repository=pred_repo,
-        score_repository=MemScoreRepository(),
-        snapshot_repository=snap_repo,
-        model_repository=model_repo,
-        leaderboard_repository=MemLeaderboardRepository(),
+        scoring_strategy=scorer,
+        leaderboard_service=leaderboard_service,
         checkpoint_service=checkpoint_service,
-        config=CrunchConfig(crunch_pubkey="crunch_test"),
+        score_interval_seconds=60,
     )
     return service, ckpt_repo
 
@@ -242,7 +252,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             checkpoint_interval=1,  # 1 second — will always have elapsed
         )
         # Force _last_checkpoint_at to be well in the past
-        service._last_checkpoint_at = now - timedelta(hours=1)
+        service.checkpoint_service._last_checkpoint_at = now - timedelta(hours=1)
 
         service.score_and_snapshot()
 
@@ -287,35 +297,31 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
         self.assertEqual(len(ckpt_repo.checkpoints), 0)
 
     def test_checkpoint_not_created_without_checkpoint_repo(self):
-        """ScoreService works fine without checkpoint_repository (backward compat)."""
+        """ScoreService works fine without checkpoint_service (backward compat)."""
         predictions = [_make_prediction("m1")]
         pred_repo = MemPredictionRepository(predictions)
         input_repo = MemInputRepository()
         for p in predictions:
             input_repo.save(_make_input(p))
 
-        service = ScoreService(
-            checkpoint_interval_seconds=0,
-            score_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=_scoring_function,
             input_repository=input_repo,
             prediction_repository=pred_repo,
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
-            # No checkpoint_repository
             config=CrunchConfig(),
         )
 
-        # Should not raise
+        service = ScoreService(scoring_strategy=scorer)
+
         result = service.score_and_snapshot()
         self.assertTrue(result)
 
     def test_checkpoint_service_accessible(self):
         """The composed CheckpointService is accessible for direct use."""
         service, _ = _build_service(checkpoint_interval=3600)
-        self.assertIsNotNone(service._checkpoint_service)
+        self.assertIsNotNone(service.checkpoint_service)
 
     def test_last_checkpoint_at_updated_after_creation(self):
         """_last_checkpoint_at is updated so next cycle doesn't re-checkpoint."""
@@ -324,11 +330,11 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             predictions=predictions,
             checkpoint_interval=1,
         )
-        service._last_checkpoint_at = now - timedelta(hours=1)
+        service.checkpoint_service._last_checkpoint_at = now - timedelta(hours=1)
 
         service.score_and_snapshot()
 
-        self.assertIsNotNone(service._last_checkpoint_at)
+        self.assertIsNotNone(service.checkpoint_service._last_checkpoint_at)
         self.assertEqual(len(ckpt_repo.checkpoints), 1)
 
     def test_checkpoint_has_emission_entries(self):
@@ -338,7 +344,7 @@ class TestScoreServiceCheckpointIntegration(unittest.TestCase):
             predictions=predictions,
             checkpoint_interval=1,
         )
-        service._last_checkpoint_at = now - timedelta(hours=1)
+        service.checkpoint_service._last_checkpoint_at = now - timedelta(hours=1)
 
         service.score_and_snapshot()
 

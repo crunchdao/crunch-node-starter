@@ -218,7 +218,7 @@ class FeedReader:
                 repo.append_records(domain)
 
     @staticmethod
-    def _run_async(coro: Any) -> list:
+    def _run_async(coro: Any) -> list[Any]:
         try:
             import asyncio
 

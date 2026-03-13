@@ -12,6 +12,7 @@ from crunch_node.entities.feed_record import FeedIngestionState, FeedRecord
 from crunch_node.feeds import (
     FeedDataRecord,
     FeedFetchRequest,
+    FeedSink,
     FeedSubscription,
     create_default_registry,
 )
@@ -199,7 +200,7 @@ class FeedDataService:
 
 
 class _CompositeSink:
-    def __init__(self, sinks: list):
+    def __init__(self, sinks: list[FeedSink]) -> None:
         self._sinks = sinks
         self._logger = logging.getLogger(__name__)
 

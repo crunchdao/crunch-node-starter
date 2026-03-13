@@ -6,7 +6,7 @@ import statistics
 from typing import Any
 
 
-def aggregate_timing_from_predictions(predictions: list) -> dict[str, Any]:
+def aggregate_timing_from_predictions(predictions: list[Any]) -> dict[str, Any]:
     """Aggregate timing metrics from prediction records stored in the database."""
     if not predictions:
         return {

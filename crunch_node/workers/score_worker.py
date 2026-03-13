@@ -22,6 +22,8 @@ from crunch_node.extensions.callable_resolver import resolve_callable
 from crunch_node.merkle.service import MerkleService
 from crunch_node.services.checkpoint import CheckpointService, EmissionConfig
 from crunch_node.services.feed_reader import FeedReader
+from crunch_node.services.leaderboard import LeaderboardService
+from crunch_node.services.prediction_scorer import PredictionScorer
 from crunch_node.services.score import ScoreService
 
 
@@ -38,19 +40,53 @@ def build_service() -> ScoreService:
     runtime_settings = RuntimeSettings.from_env()
     config = load_config()
 
-    # CrunchConfig.scoring_function takes precedence over env var
-    if config.scoring_function is not None:
-        scoring_function = config.scoring_function
-    else:
-        scoring_function = resolve_callable(
-            extension_settings.scoring_function,
-            required_params=("prediction", "ground_truth"),
-        )
-
     session = create_session()
-
     snapshot_repo = DBSnapshotRepository(session)
     model_repo = DBModelRepository(session)
+
+    if config.build_score_snapshots is not None:
+        scoring_strategy = config.build_score_snapshots(
+            session=session, config=config, snapshot_repository=snapshot_repo
+        )
+    else:
+        if config.scoring_function is not None:
+            scoring_function = config.scoring_function
+        else:
+            scoring_function = resolve_callable(
+                extension_settings.scoring_function,
+                required_params=("prediction", "ground_truth"),
+            )
+
+        scoring_strategy = PredictionScorer(
+            scoring_function=scoring_function,
+            feed_reader=FeedReader.from_env(),
+            input_repository=DBInputRepository(session),
+            prediction_repository=DBPredictionRepository(session),
+            score_repository=DBScoreRepository(session),
+            snapshot_repository=snapshot_repo,
+            config=config,
+        )
+
+    ensemble_strategy = None
+    if config.ensembles and isinstance(scoring_strategy, PredictionScorer):
+        from crunch_node.services.prediction_ensemble import (
+            PredictionEnsembleStrategy,
+        )
+
+        ensemble_strategy = PredictionEnsembleStrategy(
+            config=config,
+            scorer=scoring_strategy,
+            prediction_repository=scoring_strategy.prediction_repository,
+            score_repository=scoring_strategy.score_repository,
+            snapshot_repository=scoring_strategy.snapshot_repository,
+        )
+
+    leaderboard_service = LeaderboardService(
+        snapshot_repository=snapshot_repo,
+        model_repository=model_repo,
+        leaderboard_repository=DBLeaderboardRepository(session),
+        aggregation=config.aggregation,
+    )
 
     merkle_service = MerkleService(
         merkle_cycle_repository=DBMerkleCycleRepository(session),
@@ -73,27 +109,13 @@ def build_service() -> ScoreService:
         ranking_direction=config.aggregation.ranking_direction,
     )
 
-    build_snapshots_fn = None
-    if config.build_score_snapshots is not None:
-        build_snapshots_fn = config.build_score_snapshots(
-            session=session, config=config, snapshot_repository=snapshot_repo
-        )
-
     return ScoreService(
-        checkpoint_interval_seconds=runtime_settings.checkpoint_interval_seconds,
-        score_interval_seconds=runtime_settings.score_interval_seconds,
-        scoring_function=scoring_function,
-        feed_reader=FeedReader.from_env(),
-        input_repository=DBInputRepository(session),
-        prediction_repository=DBPredictionRepository(session),
-        score_repository=DBScoreRepository(session),
-        snapshot_repository=snapshot_repo,
-        model_repository=model_repo,
-        leaderboard_repository=DBLeaderboardRepository(session),
-        checkpoint_service=checkpoint_service,
+        scoring_strategy=scoring_strategy,
+        ensemble_strategy=ensemble_strategy,
+        leaderboard_service=leaderboard_service,
         merkle_service=merkle_service,
-        config=config,
-        build_snapshots_fn=build_snapshots_fn,
+        checkpoint_service=checkpoint_service,
+        score_interval_seconds=runtime_settings.score_interval_seconds,
     )
 
 
@@ -104,8 +126,8 @@ async def main() -> None:
 
     service = build_service()
 
-    if service._build_snapshots_fn is None:
-        service.validate_scoring_io()
+    if isinstance(service.scoring_strategy, PredictionScorer):
+        service.scoring_strategy.validate_scoring_io()
 
     await service.run()
 

@@ -26,7 +26,7 @@ STANDARD_VALUE_COLUMNS = ("open", "high", "low", "close", "volume")
 _SCHEMA = None
 
 
-def _get_schema():
+def _get_schema() -> pa.Schema:
     global _SCHEMA
     if _SCHEMA is None:
         _SCHEMA = pa.schema(
@@ -48,7 +48,7 @@ def _get_schema():
 
 
 # Public alias for external consumers (e.g. tests, backtest harness)
-def get_schema():
+def get_schema() -> pa.Schema:
     """Return the parquet schema, lazily initialized."""
     return _get_schema()
 

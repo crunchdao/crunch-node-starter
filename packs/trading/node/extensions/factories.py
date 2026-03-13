@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from crunch_node.db.repositories import DBSnapshotRepository
 from crunch_node.entities.prediction import SnapshotRecord
 from crunch_node.id_prefixes import SNAPSHOT_PREFIX
 from extensions.config import TradingConfig
@@ -43,19 +43,19 @@ def build_prediction_sink(*, session, config) -> SimulatorSink:
     return sink
 
 
-def build_score_snapshots(
-    *, session, config, snapshot_repository
-) -> Callable[[datetime], list[SnapshotRecord]]:
-    state_repo = TradingStateRepository(session)
+class TradingStrategy:
+    def __init__(self, state_repository, snapshot_repository):
+        self._state_repo = state_repository
+        self._snapshot_repo = snapshot_repository
 
-    def _snapshots(now: datetime) -> list[SnapshotRecord]:
-        model_ids = state_repo.get_all_model_ids()
+    def produce_snapshots(self, now: datetime) -> list[SnapshotRecord]:
+        model_ids = self._state_repo.get_all_model_ids()
         if not model_ids:
             return []
 
         snapshots: list[SnapshotRecord] = []
         for model_id in model_ids:
-            state = state_repo.load_state(model_id)
+            state = self._state_repo.load_state(model_id)
             if state is None:
                 continue
 
@@ -92,28 +92,36 @@ def build_score_snapshots(
 
             result_summary.update(
                 _compute_trading_metrics(
-                    snapshot_repository, model_id, net_pnl, trades_data
+                    self._snapshot_repo, model_id, net_pnl, trades_data
                 )
             )
 
-            snapshots.append(
-                SnapshotRecord(
-                    id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
-                    model_id=model_id,
-                    period_start=now,
-                    period_end=now,
-                    prediction_count=len(positions_data),
-                    result_summary=result_summary,
-                )
+            snapshot = SnapshotRecord(
+                id=f"{SNAPSHOT_PREFIX}{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
+                model_id=model_id,
+                period_start=now,
+                period_end=now,
+                prediction_count=len(positions_data),
+                result_summary=result_summary,
             )
+            self._snapshot_repo.save(snapshot)
+            snapshots.append(snapshot)
 
         return snapshots
 
-    return _snapshots
+    def rollback(self) -> None:
+        rollback = getattr(self._snapshot_repo, "rollback", None)
+        if callable(rollback):
+            rollback()
+
+
+def build_score_snapshots(*, session, config, snapshot_repository) -> TradingStrategy:
+    state_repo = TradingStateRepository(session)
+    return TradingStrategy(state_repo, snapshot_repository)
 
 
 def _compute_trading_metrics(
-    snapshot_repository,
+    snapshot_repository: DBSnapshotRepository,
     model_id: str,
     current_net_pnl: float,
     trades: list[dict[str, Any]],

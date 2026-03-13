@@ -29,6 +29,7 @@ from crunch_node.services.feed_window import FeedWindow
 from crunch_node.services.predict import PredictService
 from crunch_node.services.predict_sink import PredictSink
 from crunch_node.services.realtime_predict import RealtimePredictService
+from crunch_node.services.tournament_predict import TournamentPredictService
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,14 @@ async def main() -> None:
     session = create_session()
 
     predict_service = build_predict_service(session, config, runtime_settings)
-    # init_runner() is called lazily by process_tick() when first prediction happens
+
+    if isinstance(predict_service, TournamentPredictService):
+        logger.info("Tournament mode — skipping feed pipeline, waiting for API calls")
+        try:
+            await predict_service.run()
+        finally:
+            await predict_service.shutdown()
+        return
 
     feed_settings = FeedDataSettings.from_env()
     feed_repository = DBFeedRecordRepository(session)

@@ -25,6 +25,7 @@ WORKDIR /app
 COPY --from=builder /app/.venv ./.venv
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PYTHONPATH=/app
 
 COPY --chown=appuser:appgroup crunch_node ./crunch_node
 

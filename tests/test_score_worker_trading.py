@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from crunch_node.services.prediction_scorer import PredictionScorer
+
 
 class TestScoreWorkerTrading:
     @patch("crunch_node.workers.score_worker.load_config")
@@ -19,7 +21,8 @@ class TestScoreWorkerTrading:
         mock_session,
         mock_config,
     ):
-        factory = MagicMock(return_value=MagicMock())
+        custom_strategy = MagicMock()
+        factory = MagicMock(return_value=custom_strategy)
         config = MagicMock()
         config.build_score_snapshots = factory
         config.scoring_function = None
@@ -37,7 +40,7 @@ class TestScoreWorkerTrading:
         service = build_service()
 
         factory.assert_called_once()
-        assert service._build_snapshots_fn is not None
+        assert service.scoring_strategy is custom_strategy
 
     @patch("crunch_node.workers.score_worker.load_config")
     @patch("crunch_node.workers.score_worker.create_session")
@@ -70,4 +73,4 @@ class TestScoreWorkerTrading:
 
         service = build_service()
 
-        assert service._build_snapshots_fn is None
+        assert isinstance(service.scoring_strategy, PredictionScorer)

@@ -30,7 +30,7 @@ from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         )
         self.read_auth = read_auth
 
-    async def dispatch(self, request: Request, call_next: Callable):
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # No API key configured → everything open (backward compat)
         if not self.api_key:
             return await call_next(request)

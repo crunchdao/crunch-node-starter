@@ -295,7 +295,7 @@ class PredictionKernel:
         self.runner = runner
         self._runner_initialized = False
 
-    async def call(self, method: str, args: tuple) -> dict:
+    async def call(self, method: str, args: tuple[Any, ...]) -> dict[str, Any]:
         if self.runner is None:
             raise RuntimeError("Runner is not initialized")
         return await self.runner.call(method, args)
@@ -316,7 +316,7 @@ class PredictionKernel:
             type_name.upper(), cls._VARIANT_TYPE_MAP.get("STRING")
         )
 
-    def encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
+    def encode_feed_update(self, inference_input: dict[str, Any]) -> tuple[Any, ...]:
         if self._proto_available:
             return (
                 [
@@ -338,7 +338,7 @@ class PredictionKernel:
         scope: dict[str, Any],
         call_args: list[Any],
         scope_defaults: dict[str, Any],
-    ) -> tuple:
+    ) -> tuple[Any, ...]:
         raw_values: list[tuple[str, Any]] = []
         for arg in call_args:
             value = scope.get(arg.name)

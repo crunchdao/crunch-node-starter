@@ -3,15 +3,16 @@ from __future__ import annotations
 import unittest
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from unittest.mock import MagicMock
 
-from crunch_node.crunch_config import Aggregation, AggregationWindow, CrunchConfig
+from crunch_node.crunch_config import CrunchConfig
 from crunch_node.entities.feed_record import FeedRecord
-from crunch_node.entities.model import Model
 from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     ScoreRecord,
 )
+from crunch_node.services.prediction_scorer import PredictionScorer
 from crunch_node.services.score import ScoreService
 
 
@@ -82,22 +83,6 @@ class MemScoreRepository:
         return list(self.scores)
 
 
-class MemModelRepository:
-    def __init__(self) -> None:
-        self.models = {
-            "m1": Model(
-                id="m1",
-                name="model-one",
-                player_id="p1",
-                player_name="alice",
-                deployment_identifier="d1",
-            )
-        }
-
-    def fetch_all(self) -> dict[str, Model]:
-        return self.models
-
-
 class MemSnapshotRepository:
     def __init__(self) -> None:
         self.snapshots: list = []
@@ -110,17 +95,6 @@ class MemSnapshotRepository:
         if model_id is not None:
             results = [s for s in results if s.model_id == model_id]
         return results
-
-
-class MemLeaderboardRepository:
-    def __init__(self) -> None:
-        self.latest: Any = None
-
-    def save(self, entries: Any, meta: Any = None) -> None:
-        self.latest = {"entries": entries, "meta": meta or {}}
-
-    def get_latest(self) -> Any:
-        return self.latest
 
 
 class FakeFeedReader:
@@ -196,9 +170,8 @@ def _make_feed_records(
     ]
 
 
-def _build_service(*, inputs=None, predictions=None, feed_records=None, config=None):
-    return ScoreService(
-        checkpoint_interval_seconds=60,
+def _build_scorer(*, inputs=None, predictions=None, feed_records=None, config=None):
+    return PredictionScorer(
         scoring_function=lambda pred, act: {
             "value": 0.5,
             "success": True,
@@ -209,93 +182,74 @@ def _build_service(*, inputs=None, predictions=None, feed_records=None, config=N
         prediction_repository=MemPredictionRepository(predictions or []),
         score_repository=MemScoreRepository(),
         snapshot_repository=MemSnapshotRepository(),
-        model_repository=MemModelRepository(),
-        leaderboard_repository=MemLeaderboardRepository(),
         config=config,
     )
 
 
 class TestScoreService(unittest.TestCase):
     def test_resolve_inputs_then_score(self):
-        service = _build_service(
+        scorer = _build_scorer(
             inputs=[_make_input()],
             predictions=[_make_prediction()],
             feed_records=_make_feed_records(),
         )
 
-        changed = service.score_and_snapshot()
+        snapshots = scorer.produce_snapshots(now)
 
-        self.assertTrue(changed)
-        self.assertEqual(len(service.score_repository.scores), 1)
-        self.assertEqual(service.score_repository.scores[0].result["value"], 0.5)
+        self.assertTrue(len(snapshots) > 0)
+        self.assertEqual(len(scorer.score_repository.scores), 1)
+        self.assertEqual(scorer.score_repository.scores[0].result["value"], 0.5)
 
     def test_no_actuals_means_no_scoring(self):
-        service = _build_service(
+        scorer = _build_scorer(
             inputs=[_make_input()],
             predictions=[_make_prediction()],
             feed_records=[],
         )
 
-        with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.score_and_snapshot()
+        snapshots = scorer.produce_snapshots(now)
 
-        self.assertFalse(changed)
-        self.assertEqual(len(service.score_repository.scores), 0)
+        self.assertEqual(snapshots, [])
+        self.assertEqual(len(scorer.score_repository.scores), 0)
 
     def test_no_predictions_means_no_scoring(self):
-        service = _build_service()
+        scorer = _build_scorer()
 
-        with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.score_and_snapshot()
+        snapshots = scorer.produce_snapshots(now)
 
-        self.assertFalse(changed)
+        self.assertEqual(snapshots, [])
 
     def test_idempotent(self):
-        service = _build_service(
+        scorer = _build_scorer(
             inputs=[_make_input()],
             predictions=[_make_prediction()],
             feed_records=_make_feed_records(),
         )
 
-        service.score_and_snapshot()
-        self.assertEqual(len(service.score_repository.scores), 1)
+        first = scorer.produce_snapshots(now)
+        self.assertEqual(len(first), 1)
+        self.assertEqual(len(scorer.score_repository.scores), 1)
 
-        with self.assertLogs("crunch_node.services.score", level="INFO"):
-            changed = service.score_and_snapshot()
-        self.assertFalse(changed)
-        self.assertEqual(len(service.score_repository.scores), 1)
-
-    def test_rank_ascending(self):
-        config = CrunchConfig(
-            aggregation=Aggregation(
-                windows={"loss": AggregationWindow(hours=24)},
-                ranking_key="loss",
-                ranking_direction="asc",
-            )
-        )
-        service = _build_service(config=config)
-
-        ranked = service._rank_leaderboard(
-            [
-                {
-                    "model_id": "m1",
-                    "score": {"metrics": {"loss": 0.4}, "ranking": {}, "payload": {}},
-                },
-                {
-                    "model_id": "m2",
-                    "score": {"metrics": {"loss": 0.2}, "ranking": {}, "payload": {}},
-                },
-            ]
-        )
-        self.assertEqual([e["model_id"] for e in ranked], ["m2", "m1"])
-        self.assertEqual([e["rank"] for e in ranked], [1, 2])
+        second = scorer.produce_snapshots(now)
+        self.assertEqual(second, [])
+        self.assertEqual(len(scorer.score_repository.scores), 1)
 
 
 class TestScoreServiceRunLoop(unittest.IsolatedAsyncioTestCase):
     async def test_rollback_on_exception(self):
-        service = _build_service()
+        strategy = MagicMock()
+        strategy.rollback = MagicMock()
+
+        service = ScoreService(
+            scoring_strategy=strategy,
+            score_interval_seconds=1,
+        )
+
+        call_count = 0
 
         def boom():
+            nonlocal call_count
+            call_count += 1
             service.stop_event.set()
             raise RuntimeError("boom")
 
@@ -304,28 +258,21 @@ class TestScoreServiceRunLoop(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("crunch_node.services.score", level="ERROR"):
             await service.run()
 
-
-# ---------------------------------------------------------------------------
-# InferenceOutput coercion & scoring IO validation
-# ---------------------------------------------------------------------------
+        self.assertEqual(call_count, 1)
 
 
 class TestCoerceOutput(unittest.TestCase):
-    """ScoreService._coerce_output should parse raw dicts into typed models."""
-
     def test_default_output_fills_missing_fields(self):
-        """If model returns {} the default InferenceOutput(value=0.0) fills it."""
-        service = _build_service()
-        result = service._coerce_output({})
+        scorer = _build_scorer()
+        result = scorer._coerce_output({})
         self.assertAlmostEqual(result.value, 0.0)
 
     def test_coercion_preserves_model_values(self):
-        service = _build_service()
-        result = service._coerce_output({"value": 1.23})
+        scorer = _build_scorer()
+        result = scorer._coerce_output({"value": 1.23})
         self.assertAlmostEqual(result.value, 1.23)
 
     def test_coercion_preserves_extra_keys(self):
-        """Extra keys handled via model_construct fallback."""
         from pydantic import BaseModel, ConfigDict
 
         class FlexOutput(BaseModel):
@@ -333,8 +280,8 @@ class TestCoerceOutput(unittest.TestCase):
             value: float = 0.0
 
         config = CrunchConfig(output_type=FlexOutput)
-        service = _build_service(config=config)
-        result = service._coerce_output({"value": 0.5, "confidence": 0.9})
+        scorer = _build_scorer(config=config)
+        result = scorer._coerce_output({"value": 0.5, "confidence": 0.9})
         self.assertAlmostEqual(result.value, 0.5)
 
     def test_coercion_with_custom_output_type(self):
@@ -345,17 +292,15 @@ class TestCoerceOutput(unittest.TestCase):
             leverage: float = Field(default=1.0)
 
         config = CrunchConfig(output_type=TradingOutput)
-        service = _build_service(config=config)
+        scorer = _build_scorer(config=config)
 
-        # Model returns partial output — defaults should fill in
-        result = service._coerce_output({"order_type": "LONG"})
+        result = scorer._coerce_output({"order_type": "LONG"})
         self.assertEqual(result.order_type, "LONG")
         self.assertEqual(result.leverage, 1.0)
 
     def test_coercion_type_coerces_values(self):
-        """String '0.5' should be coerced to float 0.5."""
-        service = _build_service()
-        result = service._coerce_output({"value": "0.5"})
+        scorer = _build_scorer()
+        result = scorer._coerce_output({"value": "0.5"})
         self.assertAlmostEqual(result.value, 0.5)
 
     def test_coercion_falls_back_on_validation_error(self):
@@ -365,17 +310,14 @@ class TestCoerceOutput(unittest.TestCase):
             value: float = Field(ge=0.0, le=1.0)
 
         config = CrunchConfig(output_type=StrictOutput)
-        service = _build_service(config=config)
+        scorer = _build_scorer(config=config)
 
-        # value=999 violates ge/le constraint — should fall back to model_construct
-        with self.assertLogs("crunch_node.services.score", level="WARNING"):
-            result = service._coerce_output({"value": 999})
+        with self.assertLogs("crunch_node.services.prediction_scorer", level="WARNING"):
+            result = scorer._coerce_output({"value": 999})
         self.assertEqual(result.value, 999)
 
 
 class TestScoringReceivesTypedOutput(unittest.TestCase):
-    """The scoring function should receive typed Pydantic models."""
-
     def test_scorer_receives_typed_model_with_defaults(self):
         from pydantic import BaseModel
 
@@ -391,8 +333,7 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             return {"value": 0.0, "success": True, "failed_reason": None}
 
         config = CrunchConfig(output_type=CustomOutput)
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=capturing_scorer,
             feed_reader=FakeFeedReader(records=_make_feed_records()),
             input_repository=MemInputRepository([_make_input()]),
@@ -407,7 +348,6 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
                         scope={"subject": "BTC"},
                         status="PENDING",
                         exec_time_ms=10.0,
-                        # Model only returned direction — confidence should get its default
                         inference_output={"direction": "LONG"},
                         performed_at=now - timedelta(minutes=5),
                         resolvable_at=now - timedelta(minutes=1),
@@ -416,26 +356,19 @@ class TestScoringReceivesTypedOutput(unittest.TestCase):
             ),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
             config=config,
         )
 
-        service.score_and_snapshot()
+        scorer.produce_snapshots(now)
 
-        # Scorer should have received the typed model with defaults
         self.assertEqual(captured["direction"], "LONG")
         self.assertEqual(captured["confidence"], 0.5)
 
 
 class TestValidateScoringIO(unittest.TestCase):
-    """ScoreService.validate_scoring_io() catches mismatches at startup."""
-
     def test_passes_for_compatible_types(self):
-        """Default InferenceOutput + default scorer should pass."""
-        service = _build_service()
-        # Should not raise
-        service.validate_scoring_io()
+        scorer = _build_scorer()
+        scorer.validate_scoring_io()
 
     def test_passes_for_custom_compatible_types(self):
         from pydantic import BaseModel
@@ -449,48 +382,38 @@ class TestValidateScoringIO(unittest.TestCase):
             lev = prediction.leverage  # noqa: F841
             return {"value": 0.0, "success": True, "failed_reason": None}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=trade_scorer,
             feed_reader=FakeFeedReader(),
             input_repository=MemInputRepository(),
             prediction_repository=MemPredictionRepository(),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
             config=CrunchConfig(output_type=TradeOutput),
         )
 
-        # Should not raise
-        service.validate_scoring_io()
+        scorer.validate_scoring_io()
 
     def test_catches_key_mismatch(self):
-        """Scorer reads 'order_type' but InferenceOutput only has 'value'."""
-
         def bad_scorer(prediction, ground_truth):
-            return {"value": prediction.order_type}  # AttributeError!
+            return {"value": prediction.order_type}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=bad_scorer,
             feed_reader=FakeFeedReader(),
             input_repository=MemInputRepository(),
             prediction_repository=MemPredictionRepository(),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
         )
 
         with self.assertRaises(RuntimeError) as ctx:
-            service.validate_scoring_io()
+            scorer.validate_scoring_io()
 
         self.assertIn("AttributeError", str(ctx.exception))
         self.assertIn("order_type", str(ctx.exception))
 
     def test_catches_bad_score_result(self):
-        """Scorer returns keys that don't match ScoreResult."""
         from pydantic import BaseModel, ConfigDict
 
         class StrictScoreResult(BaseModel):
@@ -500,73 +423,59 @@ class TestValidateScoringIO(unittest.TestCase):
             failed_reason: str | None = None
 
         def scorer_with_typo(prediction, ground_truth):
-            return {"valeu": 0.5, "success": True}  # typo in 'value'
+            return {"valeu": 0.5, "success": True}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=scorer_with_typo,
             feed_reader=FakeFeedReader(),
             input_repository=MemInputRepository(),
             prediction_repository=MemPredictionRepository(),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
             config=CrunchConfig(score_type=StrictScoreResult),
         )
 
         with self.assertRaises(RuntimeError) as ctx:
-            service.validate_scoring_io()
+            scorer.validate_scoring_io()
 
         self.assertIn("ScoreResult", str(ctx.exception))
 
     def test_warns_on_non_keyerror_exceptions(self):
-        """Non-KeyError exceptions in the scorer produce a warning, not a crash."""
         from pydantic import BaseModel
 
         class GroundTruthWithPrice(BaseModel):
             entry_price: float = 0.0
 
         def scorer_needs_real_data(prediction, ground_truth):
-            # This scorer needs real prices that defaults don't provide
-            # entry_price defaults to 0.0, causing ZeroDivisionError
             return {"value": prediction.value / ground_truth.entry_price}
 
         config = CrunchConfig(ground_truth_type=GroundTruthWithPrice)
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=scorer_needs_real_data,
             feed_reader=FakeFeedReader(),
             input_repository=MemInputRepository(),
             prediction_repository=MemPredictionRepository(),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
             config=config,
         )
 
-        # Should warn but not crash — ZeroDivisionError with entry_price=0.0 default
-        with self.assertLogs("crunch_node.services.score", level="WARNING") as log:
-            service.validate_scoring_io()
+        with self.assertLogs(
+            "crunch_node.services.prediction_scorer", level="WARNING"
+        ) as log:
+            scorer.validate_scoring_io()
         self.assertTrue(any("ZeroDivisionError" in msg for msg in log.output))
 
 
 class TestScorerReceivesPredictionMetadata(unittest.TestCase):
-    """The scoring function should receive prediction metadata (model_id,
-    prediction_id) so stateful scorers can track per-model state."""
-
     def test_scorer_receives_model_id(self):
-        """typed_output passed to scoring_function must include model_id
-        from the prediction entity."""
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
             captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=capturing_scorer,
             feed_reader=FakeFeedReader(records=_make_feed_records()),
             input_repository=MemInputRepository([_make_input()]),
@@ -589,45 +498,37 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             ),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.score_and_snapshot()
+        scorer.produce_snapshots(now)
 
         self.assertEqual(len(captured), 1)
         self.assertIn("model_id", captured[0])
         self.assertEqual(captured[0]["model_id"], "model_42")
 
     def test_scorer_receives_prediction_id(self):
-        """typed_output should also include prediction_id for traceability."""
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
             captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=capturing_scorer,
             feed_reader=FakeFeedReader(records=_make_feed_records()),
             input_repository=MemInputRepository([_make_input()]),
             prediction_repository=MemPredictionRepository([_make_prediction()]),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.score_and_snapshot()
+        scorer.produce_snapshots(now)
 
         self.assertEqual(len(captured), 1)
         self.assertIn("prediction_id", captured[0])
         self.assertEqual(captured[0]["prediction_id"], "pre-1")
 
     def test_different_models_receive_their_own_ids(self):
-        """Two predictions from different models should each receive
-        their respective model_id."""
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
@@ -652,33 +553,27 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             for mid in ["alpha", "beta"]
         ]
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=capturing_scorer,
             feed_reader=FakeFeedReader(records=_make_feed_records()),
             input_repository=MemInputRepository([inp]),
             prediction_repository=MemPredictionRepository(preds),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.score_and_snapshot()
+        scorer.produce_snapshots(now)
 
         self.assertEqual(sorted(captured), ["alpha", "beta"])
 
     def test_model_id_does_not_clobber_inference_output(self):
-        """If inference_output already has a 'model_id' key (edge case),
-        the prediction entity's model_id should take precedence."""
         captured = []
 
         def capturing_scorer(prediction, ground_truth):
             captured.append(prediction.__dict__.copy())
             return {"value": 0.0, "success": True, "failed_reason": None}
 
-        service = ScoreService(
-            checkpoint_interval_seconds=60,
+        scorer = PredictionScorer(
             scoring_function=capturing_scorer,
             feed_reader=FakeFeedReader(records=_make_feed_records()),
             input_repository=MemInputRepository([_make_input()]),
@@ -701,11 +596,9 @@ class TestScorerReceivesPredictionMetadata(unittest.TestCase):
             ),
             score_repository=MemScoreRepository(),
             snapshot_repository=MemSnapshotRepository(),
-            model_repository=MemModelRepository(),
-            leaderboard_repository=MemLeaderboardRepository(),
         )
 
-        service.score_and_snapshot()
+        scorer.produce_snapshots(now)
 
         self.assertEqual(len(captured), 1)
         self.assertEqual(captured[0]["model_id"], "correct_model")

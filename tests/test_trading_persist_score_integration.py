@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
 from extensions.config import TradingConfig
 from extensions.costs import CostModel
+from extensions.factories import TradingStrategy
 from extensions.simulator import TradingEngine
 from extensions.sink import SimulatorSink
 
@@ -14,7 +15,6 @@ from crunch_node.entities.prediction import (
     InputRecord,
     PredictionRecord,
     PredictionStatus,
-    SnapshotRecord,
 )
 from crunch_node.feeds.contracts import FeedDataRecord
 
@@ -78,61 +78,6 @@ class InMemoryTradingStateRepository:
         return list(self._states.keys())
 
 
-def _make_build_snapshots_fn(state_repo):
-    def build_snapshots(now):
-        model_ids = state_repo.get_all_model_ids()
-        if not model_ids:
-            return []
-
-        snapshots = []
-        for model_id in model_ids:
-            state = state_repo.load_state(model_id)
-            if state is None:
-                continue
-
-            positions_data = state.get("positions", [])
-            total_unrealized = 0.0
-            for p in positions_data:
-                entry = p["entry_price"]
-                current = p.get("current_price", entry)
-                size = p["size"]
-                if entry > 0:
-                    price_return = (current - entry) / entry
-                    if p["direction"] == "short":
-                        price_return = -price_return
-                    total_unrealized += size * price_return
-
-            trades_data = state.get("trades", [])
-            total_realized = sum(t.get("realized_pnl", 0.0) or 0.0 for t in trades_data)
-            portfolio_fees = state.get("portfolio_fees", 0.0)
-            closed_carry = state.get("closed_carry", 0.0)
-            total_carry = (
-                sum(p.get("accrued_carry", 0.0) for p in positions_data) + closed_carry
-            )
-            net_pnl = total_unrealized + total_realized - portfolio_fees - total_carry
-
-            snapshots.append(
-                SnapshotRecord(
-                    id=f"SNAP_{model_id}_{now.strftime('%Y%m%d_%H%M%S')}",
-                    model_id=model_id,
-                    period_start=now,
-                    period_end=now,
-                    prediction_count=len(positions_data),
-                    result_summary={
-                        "net_pnl": net_pnl,
-                        "unrealized_pnl": total_unrealized,
-                        "realized_pnl": total_realized,
-                        "total_fees": portfolio_fees,
-                        "total_carry_costs": total_carry,
-                        "open_position_count": len(positions_data),
-                    },
-                )
-            )
-        return snapshots
-
-    return build_snapshots
-
-
 class TestPersistToScoreFlow:
     def test_predict_persists_score_reads(self):
         from crunch_node.services.score import ScoreService
@@ -175,17 +120,9 @@ class TestPersistToScoreFlow:
 
         snapshot_repo = MagicMock()
         snapshot_repo.find = MagicMock(return_value=[])
-        leaderboard_repo = MagicMock()
 
-        score_service = ScoreService(
-            checkpoint_interval_seconds=300,
-            scoring_function=lambda p, g: MagicMock(),
-            snapshot_repository=snapshot_repo,
-            model_repository=MagicMock(fetch_all=MagicMock(return_value={})),
-            leaderboard_repository=leaderboard_repo,
-            prediction_repository=MagicMock(find=MagicMock(return_value=[])),
-            build_snapshots_fn=_make_build_snapshots_fn(state_repo),
-        )
+        strategy = TradingStrategy(state_repo, snapshot_repo)
+        score_service = ScoreService(scoring_strategy=strategy)
 
         result = score_service.score_and_snapshot()
         assert result is True
