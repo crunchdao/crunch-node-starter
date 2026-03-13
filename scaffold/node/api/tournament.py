@@ -266,7 +266,9 @@ async def score_round(round_id: str, request: ScoreRequest):
         try:
             _build_snapshots_and_leaderboard(scores, service.prediction_repository)
         except Exception as exc:
-            logger.exception("Snapshot/leaderboard update failed for round %s", round_id)
+            logger.exception(
+                "Snapshot/leaderboard update failed for round %s", round_id
+            )
 
     return ScoreResponse(
         round_id=round_id,
