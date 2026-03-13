@@ -156,13 +156,16 @@ jobs:
         if: >-
           !cancelled() &&
           steps.sha_check.outputs.skip != 'true' &&
-          secrets.SLACK_WEBHOOK_URL != '' &&
           (steps.bench_standard.outcome == 'failure' ||
            steps.bench_tournament.outcome == 'failure' ||
            steps.bench_trading.outcome == 'failure')
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not set, skipping notification"
+            exit 0
+          fi
           status_emoji() {
             case "$1" in
               failure) echo ":x:" ;;
