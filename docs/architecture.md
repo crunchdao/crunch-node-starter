@@ -112,10 +112,10 @@ A GitHub Actions workflow (`.github/workflows/benchmark.yml`) runs the three ben
 **Schedule**: Daily at 2am UTC when main has new commits, or manually via `workflow_dispatch`.
 
 **Manual configuration**:
-- `model`: `haiku` (default), `sonnet`, or `opus`
-- `benchmark`: `all` (default), `standard`, `tournament`, or `trading`
+- `model`: `sonnet` (default), `haiku`, or `opus`
+- `benchmarks`: `all` (default), `standard`, `tournament`, or `trading`
 
-**Required secrets**: `ANTHROPIC_API_KEY`, `SLACK_WEBHOOK_URL`
+**Required secrets**: `ANTHROPIC_API_KEY`. Optional: `SLACK_WEBHOOK_URL` (for failure notifications).
 
 **Outputs**: Results are uploaded as GitHub Actions artifacts with 90-day retention. Slack notifications fire on failure only.
 

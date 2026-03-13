@@ -156,6 +156,7 @@ jobs:
         if: >-
           !cancelled() &&
           steps.sha_check.outputs.skip != 'true' &&
+          secrets.SLACK_WEBHOOK_URL != '' &&
           (steps.bench_standard.outcome == 'failure' ||
            steps.bench_tournament.outcome == 'failure' ||
            steps.bench_trading.outcome == 'failure')
