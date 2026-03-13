@@ -136,6 +136,7 @@ class CrunchConfig(BaseCrunchConfig):
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 
+    # TODO: align with ScoringFunction protocol (accepts BaseModel, not dict)
     scoring_function: Callable[
         [dict[str, Any], dict[str, Any]], dict[str, float | bool | str | None]
     ] = score_prediction

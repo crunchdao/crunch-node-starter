@@ -9,6 +9,8 @@ Output: {"action": "buy"|"sell", "amount": float}
 
 from __future__ import annotations
 
+from typing import Literal
+
 import extensions.tables  # noqa: F401
 from extensions.config import TradingConfig
 from extensions.costs import CostModel
@@ -17,7 +19,6 @@ from extensions.factories import (
     build_score_snapshots,
     build_trading_widgets,
 )
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -58,6 +59,8 @@ class CrunchConfig(BaseCrunchConfig):
 
     feed_normalizer: str = "candle"
     output_type: type[BaseModel] = InferenceOutput
+
+    # TODO: align with ScoringFunction protocol (accepts BaseModel, not dict)
 
     build_prediction_sink: BuildPredictionSink | None = build_prediction_sink
     build_score_snapshots: BuildScoreSnapshots | None = build_score_snapshots
