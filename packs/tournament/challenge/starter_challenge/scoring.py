@@ -39,14 +39,10 @@ class ScoreResult(BaseModel):
 
 
 def score_prediction(
-    prediction: InferenceOutput | dict,
-    ground_truth: GroundTruth | dict,
+    prediction: InferenceOutput,
+    ground_truth: GroundTruth,
 ) -> ScoreResult:
     """Score = 1 - |prediction - actual| / actual, clamped to [0, 1]."""
-    if not isinstance(prediction, InferenceOutput):
-        prediction = InferenceOutput.model_validate(prediction)
-    if not isinstance(ground_truth, GroundTruth):
-        ground_truth = GroundTruth.model_validate(ground_truth)
 
     if ground_truth.price <= 0:
         return ScoreResult(

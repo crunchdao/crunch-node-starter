@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -83,7 +83,13 @@ def _get_service():
     return _service
 
 
-def _get_score_service():
+class _ScoreServices(NamedTuple):
+    snapshot_repo: Any
+    leaderboard_service: Any
+    config: Any
+
+
+def _get_score_service() -> _ScoreServices:
     """Lazy-load snapshot + leaderboard services for post-scoring updates."""
     global _score_service
     if _score_service is not None:
@@ -110,11 +116,11 @@ def _get_score_service():
         aggregation=config.aggregation,
     )
 
-    _score_service = {
-        "snapshot_repo": snapshot_repo,
-        "leaderboard_service": leaderboard_service,
-        "config": config,
-    }
+    _score_service = _ScoreServices(
+        snapshot_repo=snapshot_repo,
+        leaderboard_service=leaderboard_service,
+        config=config,
+    )
 
     return _score_service
 
@@ -129,8 +135,8 @@ def _build_snapshots_and_leaderboard(scores, prediction_repo):
     from crunch_node.id_prefixes import SNAPSHOT_PREFIX
 
     svc = _get_score_service()
-    snapshot_repo = svc["snapshot_repo"]
-    config = svc["config"]
+    snapshot_repo = svc.snapshot_repo
+    config = svc.config
     now = datetime.now(UTC)
 
     predictions = prediction_repo.find(status=PredictionStatus.SCORED)
@@ -160,7 +166,7 @@ def _build_snapshots_and_leaderboard(scores, prediction_repo):
 
     logger.info("Built %d snapshots from tournament scores", len(by_model))
 
-    svc["leaderboard_service"].rebuild()
+    svc.leaderboard_service.rebuild()
     logger.info("Leaderboard rebuilt")
 
 
@@ -263,12 +269,7 @@ async def score_round(round_id: str, request: ScoreRequest):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     if scores:
-        try:
-            _build_snapshots_and_leaderboard(scores, service.prediction_repository)
-        except Exception as exc:
-            logger.exception(
-                "Snapshot/leaderboard update failed for round %s", round_id
-            )
+        _build_snapshots_and_leaderboard(scores, service.prediction_repository)
 
     return ScoreResponse(
         round_id=round_id,
