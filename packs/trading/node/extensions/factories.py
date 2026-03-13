@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from crunch_node.db.repositories import DBSnapshotRepository
 from crunch_node.entities.prediction import SnapshotRecord
 from crunch_node.id_prefixes import SNAPSHOT_PREFIX
 from extensions.config import TradingConfig
@@ -120,7 +121,7 @@ def build_score_snapshots(*, session, config, snapshot_repository) -> TradingStr
 
 
 def _compute_trading_metrics(
-    snapshot_repository,
+    snapshot_repository: DBSnapshotRepository,
     model_id: str,
     current_net_pnl: float,
     trades: list[dict[str, Any]],

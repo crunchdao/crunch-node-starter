@@ -10,7 +10,7 @@ from starter_challenge.cruncher import ModelBaseClass
 class LinearComboTracker(ModelBaseClass):
     """Simple equal-weight linear combination of all features."""
 
-    def predict(self, features: dict[str, Any]) -> dict[str, Any]:
+    def predict(self, features: dict[str, Any]) -> dict[str, float]:
         feats = features.get("features", features)
         if isinstance(feats, dict):
             values = [v for v in feats.values() if isinstance(v, (int, float))]

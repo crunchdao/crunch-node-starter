@@ -143,7 +143,7 @@ class RealtimePredictService(PredictService):
         for model_run, _ in responses.items():
             self.register_model(self._to_model(model_run))
 
-    def _encode_feed_update(self, inference_input: dict[str, Any]) -> tuple:
+    def _encode_feed_update(self, inference_input: dict[str, Any]) -> tuple[Any, ...]:
         return self._kernel.encode_feed_update(inference_input)
 
     async def process_tick(

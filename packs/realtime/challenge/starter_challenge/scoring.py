@@ -51,7 +51,7 @@ class PredictionScoreResult(BaseModel):
     failed_reason: str | None = None
 
 
-SCORE_SCALE = 10_000  # express score in basis-point units
+SCORE_SCALE: int = 10_000  # express score in basis-point units
 
 
 def score_prediction(

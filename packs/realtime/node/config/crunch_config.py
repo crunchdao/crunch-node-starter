@@ -34,6 +34,7 @@ from crunch_node.crunch_config import (
     # PredictionScope,      # Uncomment to customize scope shape
     PerformanceConfig,
     ScheduledPrediction,
+    ScoringFunction,
 )
 from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
@@ -78,7 +79,7 @@ class CrunchConfig(BaseCrunchConfig):
     # ── Scoring ─────────────────────────────────────────────────────
     # Scoring function: (prediction, ground_truth) → ScoreResult.
     # Receives typed Pydantic objects. If set, overrides SCORING_FUNCTION env var.
-    scoring_function: type = score_prediction
+    scoring_function: ScoringFunction = score_prediction
 
     # Ground truth resolver: (feed_records, prediction) → ground_truth or None.
     # Default computes price return from first/last feed records in window.

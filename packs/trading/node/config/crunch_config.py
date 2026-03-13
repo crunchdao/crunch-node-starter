@@ -17,6 +17,8 @@ from extensions.factories import (
     build_score_snapshots,
     build_trading_widgets,
 )
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from crunch_node.crunch_config import (
@@ -42,7 +44,7 @@ class InferenceOutput(BaseModel):
     amount: position size (notional units, must be >= 0)
     """
 
-    action: str = "buy"
+    action: Literal["buy", "sell"] = "buy"
     amount: float = Field(default=0.0, ge=0.0)
 
 

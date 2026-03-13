@@ -13,6 +13,7 @@ setting is ignored — input data comes directly from the tournament API.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -91,7 +92,7 @@ class ScoreResult(BaseModel):
 def score_prediction(
     prediction: dict[str, Any],
     ground_truth: dict[str, Any],
-) -> dict[str, Any]:
+) -> dict[str, float | bool | str | None]:
     """Score a tournament prediction against the revealed target.
 
     Uses negative squared residual: closer to target = higher score.
@@ -135,7 +136,9 @@ class CrunchConfig(BaseCrunchConfig):
     output_type: type[BaseModel] = InferenceOutput
     score_type: type[BaseModel] = ScoreResult
 
-    scoring_function: Any = score_prediction
+    scoring_function: Callable[
+        [dict[str, Any], dict[str, Any]], dict[str, float | bool | str | None]
+    ] = score_prediction
 
     # Tournament: model.predict(features) where features is a single JSON dict
     call_method: CallMethodConfig = Field(

@@ -7,8 +7,13 @@ from collections of these per-prediction scores).
 
 from __future__ import annotations
 
+from typing import Any
 
-def score_prediction(prediction: dict, ground_truth: dict) -> dict:
+
+def score_prediction(
+    prediction: dict[str, Any],
+    ground_truth: dict[str, Any],
+) -> dict[str, float | bool | str | None]:
     """Score a single tournament prediction against ground truth.
 
     Args:

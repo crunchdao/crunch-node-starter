@@ -313,7 +313,7 @@ class TournamentPredictService(PredictService):
 
     # ── model calling ──
 
-    async def _call_models_tournament(self, scope: dict[str, Any]) -> dict:
+    async def _call_models_tournament(self, scope: dict[str, Any]) -> dict[str, Any]:
         """Call models with a single feature sample as JSON.
 
         Bypasses the realtime ``_encode_predict`` which expects scope args
