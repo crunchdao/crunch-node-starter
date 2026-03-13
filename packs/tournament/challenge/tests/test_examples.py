@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import pytest
-
 from starter_challenge.examples.median_price_tracker import MedianPriceTracker
 from starter_challenge.examples.price_per_sqft_tracker import PricePerSqftTracker
-
 
 SAMPLE_FEATURES = {
     "living_area_sqft": 2000.0,

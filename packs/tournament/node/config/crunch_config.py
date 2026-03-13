@@ -11,6 +11,12 @@ setting is ignored — input data comes directly from the tournament API.
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
+from starter_challenge.scoring import (
+    GroundTruth,
+    InferenceOutput,
+    ScoreResult,
+    score_prediction,
+)
 
 from crunch_node.crunch_config import (
     Aggregation,
@@ -23,12 +29,6 @@ from crunch_node.crunch_config import (
     CrunchConfig as BaseCrunchConfig,
 )
 from crunch_node.services.tournament_predict import TournamentPredictService
-from starter_challenge.scoring import (
-    GroundTruth,
-    InferenceOutput,
-    ScoreResult,
-    score_prediction,
-)
 
 
 class TournamentInput(BaseModel):
