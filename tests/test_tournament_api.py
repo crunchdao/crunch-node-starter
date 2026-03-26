@@ -34,8 +34,8 @@ def _make_app_with_mock_service(mock_service) -> FastAPI:
 
     importlib.reload(tournament_module)
 
-    # Patch the service singleton
     tournament_module._service = mock_service
+    tournament_module._build_snapshots_and_leaderboard = lambda *a, **kw: None
 
     app = FastAPI()
     app.include_router(tournament_module.router)
