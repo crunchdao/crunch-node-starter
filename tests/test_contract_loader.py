@@ -174,9 +174,9 @@ class TestTryLoadValidationError(unittest.TestCase):
             del sys.modules["_test_bad_config"]
 
 
-class TestResolveConfigFallbackMessage(unittest.TestCase):
-    """When an operator override is found but broken, the fallback message
-    must say so — not 'no operator override found'."""
+class TestResolveConfigBrokenOverride(unittest.TestCase):
+    """When an operator override is found but broken, _resolve_config must
+    raise RuntimeError instead of falling back silently."""
 
     def setUp(self):
         reset_cache()
@@ -192,9 +192,9 @@ class TestResolveConfigFallbackMessage(unittest.TestCase):
                 del sys.modules[key]
         sys.modules.update(self._saved_modules)
 
-    def test_fallback_warns_when_override_exists_but_broken(self):
-        """Inject a broken config.crunch_config and verify the
-        fallback message mentions it failed, not 'no override found'."""
+    def test_raises_when_override_exists_but_broken(self):
+        """Inject a broken config.crunch_config and verify that
+        _resolve_config raises instead of falling back silently."""
         pkg = types.ModuleType("config")
         pkg.__path__ = []
         sys.modules["config"] = pkg
@@ -208,16 +208,10 @@ class TestResolveConfigFallbackMessage(unittest.TestCase):
         mod.CrunchConfig = BrokenConfig
         sys.modules["config.crunch_config"] = mod
 
-        with self.assertLogs("crunch_node.config_loader", level="WARNING") as cm:
-            config = load_config()
+        with self.assertRaises(RuntimeError) as ctx:
+            load_config()
 
-        from crunch_node.crunch_config import CrunchConfig
-
-        self.assertIsInstance(config, CrunchConfig)
-
-        all_output = "\n".join(cm.output)
-        self.assertIn("config.crunch_config", all_output)
-        self.assertIn("failed to instantiate", all_output)
+        self.assertIn("failed to instantiate", str(ctx.exception))
 
 
 if __name__ == "__main__":
