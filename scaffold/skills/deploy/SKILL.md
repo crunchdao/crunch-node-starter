@@ -7,13 +7,18 @@ description: "Deploy a crunch coordinator node to any environment. Use when sett
 
 Before deploying to ANY environment, verify ALL of the following are configured. Missing any causes silent failures that are hard to diagnose.
 
-### Required Environment Variables (`.env`)
+### Environment Files
+
+The Makefile passes `--env-file .local.env` to docker-compose. **Always deploy via `make deploy`** — raw `docker compose up` skips `.local.env` and causes silent misconfiguration (init-db falls back to wrong base defaults).
+
+| File | Loaded by | Purpose |
+|---|---|---|
+| `node/.local.env` | Makefile `--env-file` | **All config**: feed, API keys, scoring, timing |
+| `node/.env` | Docker Compose auto-loads | Optional overrides (not required if .local.env has everything) |
+
+### Required Variables in `.local.env`
 
 ```env
-# Database
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
-
 # Competition identity
 CRUNCH_ID=<competition-name>
 MODEL_BASE_CLASSNAME=<package>.tracker.TrackerBase
@@ -34,7 +39,7 @@ MODEL_RUNNER_NODE_PORT=9091
 | Variable | Failure mode |
 |---|---|
 | `MODEL_BASE_CLASSNAME` | **Models fail with `BAD_IMPLEMENTATION`**. The default (`cruncher.ModelBaseClass`) only works for the scaffold. Every project must set this to `<package>.tracker.TrackerBase` where `<package>` is the challenge package name. |
-| `FEED_SOURCE` | Predict-worker uses the scaffold default (binance candles) instead of the project's feed |
+| `FEED_SOURCE` | init-db seeds wrong prediction config from base defaults. Predict-worker uses scaffold default (binance candles) instead of the project's feed. |
 | `MODEL_RUNNER_NODE_HOST` | Predict-worker tries to connect to the internal `model-orchestrator` Docker container. If using an external orchestrator, this must point to its hostname. |
 | `CRUNCH_ID` | Defaults to `starter-challenge`. Must match the competition ID on the orchestrator. |
 
@@ -75,9 +80,10 @@ services:
       - /path/to/certs:/certs:ro
 ```
 
-**Always deploy with the override file:**
+The Makefile auto-detects override files via `docker-compose.override.yml`. Symlink the per-environment override:
 ```bash
-docker compose -f docker-compose.yml -f <override-file> up -d
+cd node
+ln -sf <path-to-override> docker-compose.override.yml
 ```
 
 ## Directory Layout
@@ -85,13 +91,15 @@ docker compose -f docker-compose.yml -f <override-file> up -d
 ```
 /home/ubuntu/
 ├── app/<project>/         # Git clone
-│   ├── node/              # docker-compose.yml and .env
+│   ├── node/              # docker-compose.yml, Makefile, .local.env
 │   ├── challenge/         # Challenge package
 │   └── webapp/            # Report UI (clone of coordinator-webapp)
 └── certs/                 # mTLS certs (ca.crt, tls.crt, tls.key)
 ```
 
 ## Deploy Steps
+
+**IMPORTANT: Always use `make deploy`. Never use raw `docker compose up`.** The Makefile passes `--env-file .local.env` which is required for correct configuration. Raw docker compose skips `.local.env`, causing init-db to fall back to wrong defaults.
 
 ### Fresh deploy
 
@@ -107,20 +115,39 @@ git clone git@github.com:crunchdao/coordinator-webapp.git webapp
 
 # 3. Copy mTLS certs to /home/ubuntu/certs/
 
-# 4. Create .env — use the checklist above, set EVERY variable
+# 4. Create node/.local.env — use the checklist above, set EVERY variable
 
-# 5. Deploy with override
+# 5. Symlink the compose override
 cd node
-docker compose -f docker-compose.yml -f <override> up -d
+ln -sf <path-to-override> docker-compose.override.yml
+
+# 6. Deploy
+make deploy
+```
+
+### Updating code
+
+```bash
+cd /home/ubuntu/app/<project>
+git pull
+cd node
+make deploy
 ```
 
 ### Restarting services
 
-The score-worker holds a DB lock that blocks init-db migrations. When restarting any service:
 ```bash
-docker compose -f docker-compose.yml -f <override> stop score-worker
-docker compose -f docker-compose.yml -f <override> up -d <service>
-docker compose -f docker-compose.yml -f <override> start score-worker
+cd node
+make down
+make deploy
+```
+
+### Reset database
+
+```bash
+cd node
+make reset-db
+make deploy
 ```
 
 ## Common Issues
