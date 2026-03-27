@@ -57,16 +57,13 @@ def _resolve_config() -> CrunchConfig:
         logger.info("Loaded config from config.crunch_config:CrunchConfig")
         return config
 
-    # 3. Engine default
     if found:
-        logger.warning(
-            "Operator config found at config.crunch_config but failed to "
-            "instantiate — falling back to engine default CrunchConfig. "
-            "Fix the validation errors above.",
+        raise RuntimeError(
+            "Operator config at config.crunch_config failed to instantiate. "
+            "Fix the validation errors above. Refusing to fall back to engine defaults."
         )
-    else:
-        logger.info("Using default CrunchConfig (no operator override found)")
 
+    logger.info("Using default CrunchConfig (no operator override found)")
     return CrunchConfig()
 
 
