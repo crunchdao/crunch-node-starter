@@ -40,15 +40,16 @@ def load_config() -> CrunchConfig:
 def _resolve_config() -> CrunchConfig:
     """Try each config source in priority order."""
 
-    # 1. Explicit env var
+    # 1. Explicit env var — MUST work if set
     explicit = os.getenv("CRUNCH_CONFIG_MODULE", "").strip()
     if explicit:
         config, found = _try_load(explicit)
         if config is not None:
             logger.info("Loaded config from CRUNCH_CONFIG_MODULE=%s", explicit)
             return config
-        logger.warning(
-            "CRUNCH_CONFIG_MODULE=%s failed to load, trying fallbacks", explicit
+        raise RuntimeError(
+            f"CRUNCH_CONFIG_MODULE={explicit} is set but failed to load. "
+            f"Fix the config or unset the env var."
         )
 
     # 2. Operator's config directory
