@@ -318,7 +318,7 @@ wheels = [
 
 [[package]]
 name = "crunch-node"
-version = "0.1.99"
+version = "0.1.100"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },

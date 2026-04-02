@@ -39,15 +39,16 @@ def load_config() -> Any:
 def _resolve_config() -> Any:
     """Try each config source in priority order."""
 
-    # 1. Explicit env var
+    # 1. Explicit env var — MUST work if set
     explicit = os.getenv("CRUNCH_CONFIG_MODULE", "").strip()
     if explicit:
         config, found = _try_load(explicit)
         if config is not None:
             logger.info("Loaded config from CRUNCH_CONFIG_MODULE=%s", explicit)
             return config
-        logger.warning(
-            "CRUNCH_CONFIG_MODULE=%s failed to load, trying fallbacks", explicit
+        raise RuntimeError(
+            f"CRUNCH_CONFIG_MODULE={explicit} is set but failed to load. "
+            f"Fix the config or unset the env var."
         )
 
     # 2. Operator's config directory
@@ -56,18 +57,18 @@ def _resolve_config() -> Any:
         logger.info("Loaded config from config.crunch_config:CrunchConfig")
         return config
 
-    # 3. Engine default
+    # 3. If operator config exists but is broken → fatal
+    if found:
+        raise RuntimeError(
+            "Operator config found at config.crunch_config but failed to "
+            "instantiate. Fix the config errors above — refusing to start "
+            "with default config."
+        )
+
+    # 4. Engine default — only when no operator config exists at all
     from crunch_node.crunch_config import CrunchConfig
 
-    if found:
-        logger.warning(
-            "Operator config found at config.crunch_config but failed to "
-            "instantiate — falling back to engine default CrunchConfig. "
-            "Fix the validation errors above.",
-        )
-    else:
-        logger.info("Using default CrunchConfig (no operator override found)")
-
+    logger.info("Using default CrunchConfig (no operator override found)")
     return CrunchConfig()
 
 
